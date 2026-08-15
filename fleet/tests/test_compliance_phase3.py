@@ -1,12 +1,13 @@
-"""D22 / E1 — zero-knowledge policy-compliance proof (adversarial).
+"""D22 / E1 — selective-disclosure compliance attestation (adversarial).
 
-Proves the selective-disclosure compliance proof holds its guarantees:
-  * a valid proof verifies against disclosed (policy_id, artifact_hash, action_id);
-  * the verifier learns ONLY those selectors — the CRM/source data is never in the
-    proof dict (no `extract` / `citation` / `human_id` leaked);
+Proves the selective-disclosure compliance attestation holds its guarantees:
+  * a valid attestation verifies against disclosed (policy_id, artifact_hash, action_id);
+  * the verifier learns ONLY those selectors — the CRM/source data and the raw
+    approval signature are never in the proof dict (no `extract` / `citation` /
+    `human_id` / `approval_sig` leaked);
   * tampering any selector (artifact_hash, policy_id, action_id, epoch) fails;
-  * a proof signed by a NON-human key fails;
-  * rebinding a valid proof to a different action fails.
+  * a attestation signed by a NON-human key fails;
+  * rebinding a valid attestation to a different action fails.
 """
 import pytest
 from cryptography.hazmat.primitives import hashes

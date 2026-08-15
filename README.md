@@ -39,7 +39,7 @@ min-instances 0) — the identical local code path is used and labeled as such.
 | `fleet/layers/verification.py` | D16 verification gate: `VERIFIED` / `ASSERTED` / `HALLUCINATION`. |
 | `fleet/layers/brain.py` | Pluggable Brain interface: `GemmaBrain` (local, D18) / `GeminiBrain` (demo-only, D18/D20) / `SchemaEnforcedBrain` (D15 boundary). |
 | `fleet/layers/approval.py` | D21 A1/A2: `verify_approval` — Ed25519-verifies + binds the human `ApprovalRecord` to exact action/capability/artifact (fail-closed). |
-| `fleet/layers/compliance.py` | D21 E1 (D22): zero-knowledge policy-compliance proof — verify compliance + approval + live epoch without revealing source data. |
+| `fleet/layers/compliance.py` | D21 E1 (D22): selective-disclosure compliance attestation — Ed25519-signed proof that an action complied + was human-approved + under live epoch, without revealing CRM/source data (not a zero-knowledge proof). |
 | `fleet/layers/consensus.py` | D21 E2 (D23): multi-brain consensus gate — two distinct Brain backends must agree to VERIFY; disagreement → ASSERTED + signed event. |
 | `fleet/gcp/` | `GcpBridge` (Firestore/Pub-Sub mirror), `FirestoreVerifier` (public-key), `OtelExporter`, D17 Cloud Run approval console. |
 | `fleet/tests/` | 120 tests across Phases 0–5 + D21 hardening & extensions. |
@@ -110,10 +110,13 @@ against this same environment.
 
 ### D21 extensions (verifiable without trusting the model further)
 
-- **Zero-knowledge compliance proof (E1 / D22):** an Operator proves "this
-  action complied with policy X, had a valid human approval, and was rooted in
-  the live identity epoch" *without revealing CRM/source data*. The verifier
-  checks the math, not the data; a tampered/rebound/forged proof is rejected.
+- **Selective-disclosure compliance attestation (E1 / D22):** an Operator proves
+  "this action complied with policy X, had a valid human approval, and was rooted in
+  the live identity epoch" *without revealing the CRM/source data or the raw
+  approval signature*. The verifier checks the math, not the data; a
+  tampered/rebound/forged attestation is rejected. (Honestly named: this is a
+  signed selective-disclosure attestation, **not** a zero-knowledge proof — the
+  action's `policy_id`/`artifact_hash` are revealed by design.)
 - **Multi-brain consensus gate (E2 / D23):** a VERIFIED-tier claim requires two
   *distinct* Brain backends to agree; disagreement downgrades to ASSERTED and
   emits a signed `consensus.disagreement` audit event (D16 escalation). The
