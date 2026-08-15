@@ -12,10 +12,37 @@ from __future__ import annotations
 import time
 
 from fleet.crypto.foundation import AuditTrail, IdentityRoot
+from fleet.layers.armor import (
+    InjectionError,
+    ToolEnvelope,
+    redact_pii,
+    sanitize_tool_result,
+    scan_injection,
+    scan_pii,
+    verify_tool_envelope,
+)
 from fleet.layers.gateway import AuthorityResponse, Gateway, GatewayDeny
 from fleet.layers.handoff import Handoff, HandoffError
 from fleet.layers.policy import Decision, PolicyResult, decide
 from fleet.layers.registry import AgentRegistry, RegistryError
+from fleet.layers.runtime import (
+    Analyst,
+    Approval,
+    MemBank,
+    Operator,
+    PublishedAgent,
+    Researcher,
+    RuntimeError_,
+    Runtime,
+    StubBrain,
+)
+from fleet.layers.verification import (
+    ASSERTED,
+    HALLUCINATION,
+    VERIFIED,
+    evaluate_intel,
+    stamp,
+)
 
 __all__ = [
     "AgentRegistry",
@@ -28,6 +55,27 @@ __all__ = [
     "AuthorityResponse",
     "Handoff",
     "HandoffError",
+    "InjectionError",
+    "ToolEnvelope",
+    "verify_tool_envelope",
+    "sanitize_tool_result",
+    "scan_injection",
+    "scan_pii",
+    "redact_pii",
+    "Runtime",
+    "Researcher",
+    "Analyst",
+    "Operator",
+    "Approval",
+    "MemBank",
+    "StubBrain",
+    "PublishedAgent",
+    "RuntimeError_",
+    "evaluate_intel",
+    "stamp",
+    "VERIFIED",
+    "ASSERTED",
+    "HALLUCINATION",
     "ControlPlane",
 ]
 
@@ -61,7 +109,8 @@ class ControlPlane:
         self.gateway._now = fixed
 
     def publish_agent(self, agent_id, role, capabilities, ttl_seconds=86400):
-        return self.registry.publish(agent_id, role, capabilities, ttl_seconds)
+        pa = self.registry.publish(agent_id, role, capabilities, ttl_seconds)
+        return PublishedAgent(agent_id=agent_id, role=role, cert=pa.cert, key=pa.key)
 
     def request_authority(self, cert, capability, idempotency_key=None):
         return self.gateway.request_authority(cert, capability, idempotency_key)

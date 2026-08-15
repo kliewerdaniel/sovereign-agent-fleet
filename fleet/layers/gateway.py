@@ -58,7 +58,7 @@ class Gateway:
         self._key = signing_key
         self._signer = signing_agent_id
         self._now = now_fn or time.time
-        self._seen: Set[str] = set()  # idempotency keys already processed
+        self._cache: Dict[str, AuthorityResponse] = {}  # idempotency_key -> prior verdict
 
     def request_authority(
         self,
@@ -67,16 +67,15 @@ class Gateway:
         idempotency_key: Optional[str] = None,
     ) -> AuthorityResponse:
         # --- idempotency (13.7) ------------------------------------------------
+        # A replay of a key returns the PRIOR authority outcome verbatim; it is
+        # not a fresh denial. This prevents the Gateway from double-charging the
+        # same consequential action and lets a legit retry of a granted request
+        # succeed. True "no double-execution" enforcement lives at the Runtime
+        # write layer (failure #12); here we only memoize the verdict.
         if idempotency_key is not None:
-            if idempotency_key in self._seen:
-                return AuthorityResponse(
-                    granted=False, policy_id="idempotent", decision="deny",
-                    capability=capability, agent_id=cert.agent_id,
-                    require_approval=False,
-                    deny_reason="duplicate idempotency_key (replay rejected)",
-                    idempotency_key=idempotency_key, signed_deny_event=None,
-                )
-            self._seen.add(idempotency_key)
+            if idempotency_key in self._cache:
+                return self._cache[idempotency_key]
+            response = None  # set below, then cached
 
         # --- authentication (root-signed, unrevoked, unexpired) ---------------
         live = self._registry.discover(cert.agent_id)
@@ -108,14 +107,23 @@ class Gateway:
                 "result": "ok",
             }
         )
-        return AuthorityResponse(
-            granted=True, policy_id=pol.policy_id, decision=pol.decision,
-            capability=capability, agent_id=cert.agent_id,
-            require_approval=require_approval, deny_reason=None,
-            idempotency_key=idempotency_key, signed_deny_event=None,
+        return self._record(
+            AuthorityResponse(
+                granted=True, policy_id=pol.policy_id, decision=pol.decision,
+                capability=capability, agent_id=cert.agent_id,
+                require_approval=require_approval, deny_reason=None,
+                idempotency_key=idempotency_key, signed_deny_event=None,
+            ),
+            idempotency_key,
         )
 
     # --- internal -----------------------------------------------------------
+    def _record(self, response, idempotency_key):
+        """Cache a verdict under its idempotency key (13.7 replay = prior outcome)."""
+        if idempotency_key is not None:
+            self._cache[idempotency_key] = response
+        return response
+
     def _deny(self, agent_id, capability, reason, idempotency_key) -> AuthorityResponse:
         entry = {
             "kind": "gateway.deny",
@@ -129,9 +137,12 @@ class Gateway:
         # attach the gateway's signature over the deny event for non-repudiation
         signed = dict(signed)
         signed["gateway_sig"] = self._key.sign(canonical_bytes(signed)).hex()
-        return AuthorityResponse(
-            granted=False, policy_id="deny", decision="deny",
-            capability=capability, agent_id=agent_id,
-            require_approval=False, deny_reason=reason,
-            idempotency_key=idempotency_key, signed_deny_event=signed,
+        return self._record(
+            AuthorityResponse(
+                granted=False, policy_id="deny", decision="deny",
+                capability=capability, agent_id=agent_id,
+                require_approval=False, deny_reason=reason,
+                idempotency_key=idempotency_key, signed_deny_event=signed,
+            ),
+            idempotency_key,
         )

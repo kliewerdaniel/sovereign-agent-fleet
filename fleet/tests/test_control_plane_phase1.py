@@ -115,13 +115,15 @@ def test_revoked_cert_denied(cp, published):
 
 # --- idempotency (13.7) ----------------------------------------------------
 
-def test_replay_same_idempotency_key_denied(cp, published):
+def test_replay_same_idempotency_key_returns_prior(cp, published):
     key = "idem-001"
     r1 = cp.request_authority(published["operator"].cert, "crm_write", idempotency_key=key)
     assert r1.granted is True
+    # 13.7: a replay of the same key returns the PRIOR verdict (idempotent),
+    # not a fresh denial. Double-execution is blocked at the Runtime write layer.
     r2 = cp.request_authority(published["operator"].cert, "crm_write", idempotency_key=key)
-    assert r2.granted is False  # replay rejected
-    assert "replay" in (r2.deny_reason or "")
+    assert r2.granted is True
+    assert r2 is r1 or r2.idempotency_key == key
 
 
 # --- handoff schema (D8, 14.2) --------------------------------------------
