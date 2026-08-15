@@ -36,6 +36,9 @@ from fleet.fin.domain import (
     required_trade_authorization,
 )
 from fleet.fin.authorization import TradeAuthorization, verify_trade_authorization
+from fleet.cognition.evaluation import (
+    EvaluationArtifact, verify_enrichment_block,
+)
 
 
 VERIFY_KIND = "operator.final"          # the financial execution record
@@ -97,10 +100,12 @@ class VerifyResult:
     status: str                 # "PASS" | "FAIL"
     reason: str
     critical: bool = False
+    m0_ok: bool = True          # D28 M0: cognition did not change the verdict
 
 
 def verify_record(rec: Dict[str, Any], operator_cert: AgentCert,
-                  human_cert: Optional[AgentCert], now: int) -> VerifyResult:
+                  human_cert: Optional[AgentCert], now: int,
+                  registry=None) -> VerifyResult:
     """Recompute + cross-check a single financial execution record.
 
     Returns FAIL (not CRITICAL) for an ordinary recomputation mismatch; the
@@ -135,6 +140,42 @@ def verify_record(rec: Dict[str, Any], operator_cert: AgentCert,
         if disp_recomputed.value != rec.get("disposition"):
             findings.append(f"disposition-mismatch({disp_recomputed.value}"
                             f"!={rec.get('disposition')})")
+        # 4b. D28 M0 proof: cognition enrichment must NOT alter the verdict.
+        # Run A (with enrichment) == Run B (stripped). The gate is injected as a
+        # pure function taking ONLY governance inputs (D-A); the enrichment is
+        # verified for binding/integrity only (D-D), never passed to the gate.
+        m0_ok = True
+        enrichment_block = rec.get("enrichment")
+        if enrichment_block is not None:
+            # D-D: prove present/unaltered/signed/signals-only. The enrichment
+            # is signed by its PRODUCER (e.g. the analyst/evaluator), so resolve
+            # that cert from the registry rather than assuming the operator.
+            producer_id = enrichment_block.get("enrichment_producer")
+            producer_cert = (registry.discover(producer_id)
+                            if (registry is not None and producer_id is not None)
+                            else None)
+            if producer_cert is None:
+                findings.append("enrichment-producer-unresolved")
+            else:
+                try:
+                    verify_enrichment_block(enrichment_block, producer_cert)
+                except Exception as e:  # tampered/forged/unsigned enrichment
+                    findings.append(f"enrichment-integrity-fail: {e}")
+            # M0: a pure gate over (recomputed, consensus) must return the same
+            # disposition with or without the attached enrichment.
+            from fleet.cognition.evaluation import enrichment_m0_invariant
+            gate_inputs = (recomputed, rec.get("consensus"))
+            def _fin_gate(gi):
+                return required_trade_authorization(gi[0], gi[1]).value
+            try:
+                proven = enrichment_m0_invariant(
+                    gate_inputs, _fin_gate, enrichment=None)
+                if proven != rec.get("disposition"):
+                    m0_ok = False
+                    findings.append("m0-verdict-mismatch")
+            except AssertionError:
+                m0_ok = False
+                findings.append("m0-violation")
         # 5. HUMAN binding.
         if rec.get("disposition") == Disposition.HUMAN.value:
             appr = rec.get("approval")
@@ -150,8 +191,9 @@ def verify_record(rec: Dict[str, Any], operator_cert: AgentCert,
 
         if findings:
             return VerifyResult(rec.get("order_id", "?"), "FAIL",
-                               "; ".join(findings))
-        return VerifyResult(rec.get("order_id", "?"), "PASS", "reproduced")
+                               "; ".join(findings), m0_ok=m0_ok)
+        return VerifyResult(rec.get("order_id", "?"), "PASS", "reproduced",
+                            m0_ok=m0_ok)
     except Exception as e:  # a malformed record is a CRITICAL integrity finding
         return VerifyResult(rec.get("order_id", "?"), "FAIL",
                            f"record-unparseable: {e}", critical=True)
@@ -167,20 +209,23 @@ def verify_control_plane(cp, operator_cert: AgentCert,
     entries = [e.get("payload", e) for e in cp.audit.entries()
                if e.get("kind") == VERIFY_KIND]
     results = [
-        verify_record(e, operator_cert, human_cert, now) for e in entries
+        verify_record(e, operator_cert, human_cert, now, registry=cp.registry)
+        for e in entries
     ]
 
     n_pass = sum(1 for r in results if r.status == "PASS")
     n_crit = sum(1 for r in results if r.critical)
+    n_m0 = sum(1 for r in results if not r.m0_ok)
     # Any recomputation failure (a mismatch or unparseable record) means the
     # recorded evidence of authorization cannot be independently reproduced —
-    # that is CRITICAL, never an overall PASS.
+    # that is CRITICAL, never an overall PASS. An M0 violation (cognition
+    # changed a verdict) is also CRITICAL (D28).
     n_recompute_fail = sum(
         1 for r in results
         if r.status == "FAIL" and ("mismatch" in r.reason or "unparseable" in r.reason)
     )
     pam = len(results)
-    if n_crit > 0 or n_recompute_fail > 0:
+    if n_crit > 0 or n_recompute_fail > 0 or n_m0 > 0:
         overall = "CRITICAL"
     elif pam and n_pass == pam:
         overall = "PASS"
@@ -195,5 +240,6 @@ def verify_control_plane(cp, operator_cert: AgentCert,
         "passed": n_pass,
         "failed": pam - n_pass,
         "critical": n_crit,
+        "m0_violations": n_m0,
         "results": [r.__dict__ for r in results],
     }

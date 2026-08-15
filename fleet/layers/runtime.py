@@ -278,7 +278,8 @@ class Operator:
             approval: Optional[dict] = None,
             target_workload: Optional[str] = None,
             action_name: Optional[str] = None,
-            simenv: Optional["SimEnv"] = None) -> dict:
+            simenv: Optional["SimEnv"] = None,
+            enrichment: Optional[dict] = None) -> dict:
         """Consume QualifiedIntel; enforce D16 boundary; execute consequential op.
 
         D16 boundary: HALLUCINATION intel is BLOCKED; ASSERTED intel requires a
@@ -323,7 +324,7 @@ class Operator:
             return self._act_remediation(
                 live, intel, verification, artifact_hash, n_pii,
                 capability, idempotency_key, approval,
-                target_workload, action_name, simenv,
+                target_workload, action_name, simenv, enrichment,
             )
 
         if verification == ASSERTED and approval is None:
@@ -359,7 +360,8 @@ class Operator:
         def _commit():
             self.rt.log_audit("operator.final", who=self.agent.agent_id,
                               capability=capability, artifact_hash=artifact_hash,
-                              verification=verification, pii_redacted=n_pii)
+                              verification=verification, pii_redacted=n_pii,
+                              enrichment=enrichment)
             return {"final": True, "artifact_hash": artifact_hash,
                     "verification": verification, "pii_redacted": n_pii,
                     "require_approval": bool(resp.require_approval)}
@@ -367,7 +369,8 @@ class Operator:
 
     def _act_remediation(self, live, intel, verification, artifact_hash, n_pii,
                          capability, idempotency_key, approval,
-                         target_workload, action_name, simenv) -> dict:
+                         target_workload, action_name, simenv,
+                         enrichment=None) -> dict:
         """Incident remediation: clears the four independent gates then
         executes a deterministic SimEnv transition inside the idempotent _commit.
         """
@@ -427,9 +430,10 @@ class Operator:
                 "operator.final", who=self.agent.agent_id,
                 capability=capability, verification=verification,
                 target=target_workload, action=action_name,
+                severity=severity,
                 prev_state=(prev.value if prev is not None else None),
                 new_state=new_state, authorization=auth.value,
-                pii_redacted=n_pii,
+                pii_redacted=n_pii, enrichment=enrichment,
             )
             return {"final": True, "authorization": auth.value,
                     "verification": verification, "pii_redacted": n_pii,
@@ -468,7 +472,8 @@ class Operator:
     def act_trade(self, intel_handoff: Handoff, proposal, account, market,
                   mandate, exchange_sim: "ExchangeSim",
                   idempotency_key: str, approval: Optional[dict] = None,
-                  consensus: Optional[str] = None, now: Optional[int] = None) -> dict:
+                  consensus: Optional[str] = None, now: Optional[int] = None,
+                  enrichment: Optional[dict] = None) -> dict:
         """Consume QualifiedIntel + a financial TradeProposal; enforce the four
         governance gates; build + sign a TradeAuthorization; execute it inside
         the idempotent commit through ExchangeSim.
@@ -584,7 +589,8 @@ class Operator:
                 proposal=proposal.state(), proposal_hash=proposal_hash(proposal),
                 risk=risk.state(), risk_assessment_hash=risk.risk_assessment_hash,
                 ta=ta.to_dict(), receipt=receipt.to_dict(),
-                authorization=disposition.value,
+                authorization=disposition.value, consensus=consensus,
+                enrichment=enrichment,
             )
             return {"final": True, "authorization": disposition.value,
                     "verification": verification,
@@ -601,7 +607,8 @@ class Operator:
                              approval: Optional[dict] = None,
                              consensus: Optional[str] = None,
                              now: Optional[int] = None,
-                             brain=None) -> dict:
+                             brain=None,
+                             enrichment: Optional[dict] = None) -> dict:
         """Model-coupled trade path (D27 'AI strategy demonstrates the protocol').
 
         The probabilistic brain PROPOSES a trade via ``TradeStrategist`` (schema-
@@ -633,7 +640,8 @@ class Operator:
                     "reason": "strategist did not return a TradeProposal"}
         return self.act_trade(intel_handoff, proposal, account, market, mandate,
                               exchange_sim, idempotency_key, approval=approval,
-                              consensus=consensus, now=now)
+                              consensus=consensus, now=now,
+                              enrichment=enrichment)
 
 
 # ---------------------------------------------------------------------------
