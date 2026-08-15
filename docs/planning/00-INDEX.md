@@ -30,8 +30,8 @@
 - Reuse: vendored `ChrisCryptSN` (MIT) into `fleet/crypto/chriscrypt` — Argon2id, XChaCha20-Poly1305, HKDF per-record, Ed25519 signed hash-chain. All 12 upstream tests + 22 new tests pass.
 - **Deviation D4a:** Sovereign Worker control plane NOT vendored — its repos are all-rights-reserved (no license). Audit-ledger wrapper + Gateway written clean-room. Documented below.
 - GCP live (project `project-3ba93cec-8ca6-43c0-ba4`); dev on local Gemma4, Gemini at demo only; conservative credits.
-- **PHASE 2 COMPLETE** — Runtime + Model Armor + D16 verification gate built + 14 tests green (14.3/14.4), 50 total. `fleet/layers/`: `runtime` (lifecycle + checkpointing + idempotent writes + encrypted MemBank + pluggable Brain + R/A/O workers + D17 ApprovalRecord), `armor` (D12: injection-strip / signed ToolEnvelope / PII redact), `verification` (D16: VERIFIED/ASSERTED/HALLUCINATION deterministic gate).
-- Next: Phase 3 (GCP Cloud Run/Firestore/Pub-Sub + OTel export + 14.8 verifier-against-Firestore).
+- **PHASE 3 COMPLETE** — GCP replication + OTel observability + D17 console built + 9 tests green (14.8), 59 total. `fleet/gcp/`: `bridge` (13.3 signed-only Firestore mirror w/ local-mode = exact doc schema; Pub/Sub handoffs), `verify` (14.8 public-key-only tamper verifier — proves GCP holds verifiable DATA not authority D3/D6), `otel` (03.2 #7 audit+reasoning spans, offline collector), `console`+`deploy` (D17 Cloud Run approval WSGI, no Flask).
+- Next: Phase 4 (Gemini 3.5 Flash + local Gemma4 via pluggable Brain; brain output schema enforcement; demo-only Gemini).
 
 ## Second pass (now written)
 Data Model ✅, Interface Contracts ✅, Testing Strategy ✅, Implementation Roadmap ✅, Risk Register ✅, Judging/Submission Strategy ✅.
