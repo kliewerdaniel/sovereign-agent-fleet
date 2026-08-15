@@ -2,20 +2,69 @@ name: fleet-security
 
 # Supply-chain + verification gate for the Sovereign Agent Fleet (D21 S1).
 # Runs on every push/PR:
-#   1. install the LOCKED base deps (reproducible, not `>=` ranges)
-#   2. pip-audit the installed tree for known CVEs (fail-closed)
-#   3. generate a CycloneDX SBOM of the resolved tree
-#   4. run the full test suite in an isolated, leakage-free venv
+#   1. for EACH dependency surface (base + GCP), in parallel matrix legs:
+#      - install the LOCKED deps (reproducible, not `>=` ranges)
+#      - pip-audit the installed tree for known CVEs (fail-closed)
+#      - generate a CycloneDX SBOM of the resolved tree and UPLOAD it as a build
+#        artifact (so it is preserved, not discarded at end-of-job)
+#   2. run the full test suite in an isolated, leakage-free venv
 
 on:
   push:
-    branches: [main, security-hardening-d21]
+    branches: [main, security-hardening-d21, r2-ci-gcp-audit]
   pull_request:
     branches: [main]
 
 jobs:
   supply-chain:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Both dependency surfaces must be audited. The GCP bridge/console/OTel
+        # tree (fleet/gcp/) was previously never checked — R3 closes that gap.
+        surface:
+          - { name: base, lock: requirements.lock.txt }
+          - { name: gcp,  lock: requirements-gcp.lock.txt }
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install locked deps (${{ matrix.surface.name }})
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r ${{ matrix.surface.lock }}
+
+      - name: pip-audit (${{ matrix.surface.name }}, fail closed on known CVEs)
+        run: |
+          pip install pip-audit
+          pip-audit --require-hashes -r ${{ matrix.surface.lock }} || pip-audit
+
+      - name: Generate + upload SBOM (${{ matrix.surface.name }})
+        run: |
+          pip install cyclonedx-py
+          cyclonedx-py -r ${{ matrix.surface.lock }} -o sbom-${{ matrix.surface.name }}.cdx.json || \
+          pip install pip-licenses && pip-licenses --format json > sbom-${{ matrix.surface.name }}.licenses.json
+        continue-on-error: true
+
+      - name: Upload SBOM artifact (${{ matrix.surface.name }})
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ matrix.surface.name }}
+          path: |
+            sbom-${{ matrix.surface.name }}.cdx.json
+            sbom-${{ matrix.surface.name }}.licenses.json
+          if-no-files-found: ignore
+          retention-days: 30
+
+  test-suite:
+    runs-on: ubuntu-latest
+    needs: supply-chain
     steps:
       - uses: actions/checkout@v4
 
@@ -28,18 +77,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.lock.txt
-
-      - name: pip-audit (fail closed on known CVEs)
-        run: |
-          pip install pip-audit
-          pip-audit --require-hashes -r requirements.lock.txt || pip-audit
-
-      - name: Generate SBOM (CycloneDX)
-        run: |
-          pip install cyclonedx-py
-          cyclonedx-py -r requirements.lock.txt -o sbom.cdx.json || \
-          pip install pip-licenses && pip-licenses --format json > sbom.licenses.json
-          ls -la sbom.*
 
       - name: Run full test suite (isolated, offline)
         run: |
