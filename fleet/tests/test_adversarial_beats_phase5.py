@@ -97,11 +97,19 @@ def _verified_intel(env):
     }])
 
 
-def _human_approval(env, action_id="crm_write", artifact_hash="pending"):
+def _human_approval(env, action_id="crm_write", capability="crm_write", artifact_hash="pending"):
     ap = Approval.sign(env["human"].cert, env["human"].key,
-                       "operator-1", action_id, artifact_hash,
+                       "operator-1", action_id, capability, artifact_hash,
                        "approve", "intel verified", 1_001)
     return ap.__dict__
+
+
+def _artifact_hash(text: str) -> str:
+    """Reproduce the Operator's PII-redacted artifact hash (A1/A2 binding)."""
+    from fleet.layers.armor import redact_pii
+    from fleet.crypto.foundation import sha256
+    redacted, _ = redact_pii(text)
+    return sha256(redacted.encode("utf-8"))
 
 
 def _audit_kinds(env):
@@ -184,21 +192,24 @@ def test_beat3_consequential_requires_approval(env):
 
 def test_beat4_human_approval_granted(env):
     # Human approves in the D17 console; the ApprovalRecord is signed by the
-    # human's Ed25519 identity.
-    ap_dict = _human_approval(env)
+    # human's Ed25519 identity AND strictly binds to the action (A1/A2).
+    artifact_text = "Write CRM: prospect is ICP fit."
+    ah = _artifact_hash(artifact_text)
+    ap_dict = _human_approval(env, action_id="idem-beat4", capability="crm_write",
+                              artifact_hash=ah)
     assert ap_dict["human_id"] == "human-1"
     assert ap_dict["human_sig"]
     # Verify the human signature against the human cert's public key (public
     # material only -- no authority needed to CHECK an approval).
     verify_body = {k: ap_dict[k] for k in
-                   ("agent_id", "action_id", "artifact_hash", "decision", "reason", "human_id", "ts")}
+                   ("agent_id", "action_id", "capability", "artifact_hash",
+                    "decision", "reason", "human_id", "ts")}
     verify_body["approval_id"] = ""  # Approval.sign signs with approval_id blanked
     _verify_sig(env["human"].cert.pubkey_pem.encode(), ap_dict["human_sig"], verify_body)
-    # With the signed approval present, the Operator proceeds to FINAL.
+    # With the signed, bound approval present, the Operator proceeds to FINAL.
     iq = _verified_intel(env)
     op = Operator(env["o"], env["rt"])
-    result = op.act(iq, "Write CRM: prospect is ICP fit.", "crm_write",
-                    "idem-beat4", approval=ap_dict)
+    result = op.act(iq, artifact_text, "crm_write", "idem-beat4", approval=ap_dict)
     assert result["final"] is True
     assert "operator.final" in _audit_kinds(env)
 
@@ -206,11 +217,12 @@ def test_beat4_human_approval_granted(env):
 # === Beat 5 — Execution succeeds -> signed, chained, replicated ===========
 
 def test_beat5_execution_replicated_and_verifiable(env):
-    ap_dict = _human_approval(env)
+    artifact_text = "Write CRM: prospect is ICP fit."
+    ap_dict = _human_approval(env, action_id="idem-beat5", capability="crm_write",
+                              artifact_hash=_artifact_hash(artifact_text))
     iq = _verified_intel(env)
     op = Operator(env["o"], env["rt"])
-    result = op.act(iq, "Write CRM: prospect is ICP fit.", "crm_write",
-                    "idem-beat5", approval=ap_dict)
+    result = op.act(iq, artifact_text, "crm_write", "idem-beat5", approval=ap_dict)
     assert result["final"] is True
     # Local chain integrity holds.
     assert env["cp"].verify_audit() is True
@@ -296,11 +308,12 @@ def test_beat7_forged_identity_rejected(env):
 
 def test_beat8_revoke_rotate_recovery(env):
     # Pre-rotation: operator acts under its original cert (seq 0) -> FINAL.
-    ap1 = _human_approval(env, artifact_hash="h1")
+    pre_text = "CRM draft (pre-rotation)."
+    ap1 = _human_approval(env, action_id="idem-pre", capability="crm_write",
+                          artifact_hash=_artifact_hash(pre_text))
     iq = _verified_intel(env)
     old_op = Operator(env["o"], env["rt"])
-    pre = old_op.act(iq, "CRM draft (pre-rotation).", "crm_write",
-                     "idem-pre", approval=ap1)
+    pre = old_op.act(iq, pre_text, "crm_write", "idem-pre", approval=ap1)
     assert pre["final"] is True
     old_cert = env["o"].cert
 
@@ -319,10 +332,12 @@ def test_beat8_revoke_rotate_recovery(env):
     # Worker resumes under the new key -> post-rotation action succeeds and is
     # signed under the new cert; the chain stays continuous.
     new_op_pa = type(env["o"])(agent_id="operator-1", role="operator",
-                               cert=new_pa.cert, key=new_pa.key)
-    ap2 = _human_approval(env, artifact_hash="h2")
+                              cert=new_pa.cert, key=new_pa.key)
+    post_text = "CRM draft (post-rotation)."
+    ap2 = _human_approval(env, action_id="idem-post", capability="crm_write",
+                          artifact_hash=_artifact_hash(post_text))
     post = Operator(new_op_pa, env["rt"]).act(
-        iq, "CRM draft (post-rotation).", "crm_write", "idem-post", approval=ap2)
+        iq, post_text, "crm_write", "idem-post", approval=ap2)
     assert post["final"] is True
 
     # Whole-chain integrity holds: pre-rotation entries remain valid

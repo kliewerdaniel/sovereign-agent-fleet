@@ -178,3 +178,86 @@ def test_console_wsgi_serves_pending(env):
     body = console.wsgi_app(environ, start_response)
     assert out["status"] == "200 OK"
     assert b"crm_write:7" in b"".join(body)
+
+
+# --- G2: console rejects unverifiable approvals (fail-closed) ---------------
+
+def _wsgi_post(console, req):
+    from io import BytesIO
+    from wsgiref.util import setup_testing_defaults
+
+    environ = {}
+    setup_testing_defaults(environ)
+    environ["REQUEST_METHOD"] = "POST"
+    environ["PATH_INFO"] = "/approve"
+    body_bytes = json.dumps(req).encode()
+    environ["CONTENT_LENGTH"] = str(len(body_bytes))
+    environ["wsgi.input"] = BytesIO(body_bytes)
+    out = {}
+
+    def start_response(status, headers):
+        out["status"] = status
+
+    resp = console.wsgi_app(environ, start_response)
+    return out["status"], b"".join(resp)
+
+
+def test_g2_console_no_verifier_rejects_all_approvals(env):
+    from fleet.gcp.console import ApprovalConsole
+
+    console = ApprovalConsole(env["bridge"])  # no verify_approval / human_cert bound
+    console.queue({"action_id": "crm_write:9", "agent_id": "operator-1",
+                   "capability": "crm_write", "artifact_hash": "x", "ts": 1_000})
+    status, body = _wsgi_post(console, {"action_id": "crm_write:9", "decision": "approve"})
+    assert status == "403 Forbidden"
+    assert b"accepted" in body and b"false" in body
+    assert any(e["kind"] == "console.unverified_approval_rejected" for e in console.audit_log())
+
+
+def test_g2_console_accepts_valid_signed_approval(env):
+    from fleet.gcp.console import ApprovalConsole
+    from fleet.layers.approval import verify_approval
+
+    human = env["human"]
+    console = ApprovalConsole(
+        env["bridge"],
+        verify_approval=verify_approval,
+        human_cert=human.cert,
+    )
+    pending = {"action_id": "crm_write:10", "agent_id": "operator-1",
+               "capability": "crm_write", "artifact_hash": "h10", "ts": 1_000}
+    console.queue(pending)
+    # Build a genuine Ed25519-signed ApprovalRecord via the same path the runtime
+    # uses, bound to this exact action.
+    from fleet.layers.runtime import Approval
+    ap = Approval.sign(
+        human.cert, human.key, "operator-1", "crm_write:10",
+        "crm_write", "h10", "approve", "verified intel", 1_000,
+    )
+    status, body = _wsgi_post(console, ap.__dict__)
+    assert status == "200 OK"
+    assert b"true" in body
+    assert any(e["kind"] == "console.approval_verified" for e in console.audit_log())
+
+
+def test_g2_console_rejects_forged_approval(env):
+    from fleet.gcp.console import ApprovalConsole
+    from fleet.layers.approval import verify_approval
+
+    rogue = env["cp"].publish_agent("rogue-1", "operator", ["crm_write"])
+    console = ApprovalConsole(
+        env["bridge"],
+        verify_approval=verify_approval,
+        human_cert=env["human"].cert,  # bound to the REAL human cert
+    )
+    console.queue({"action_id": "crm_write:11", "agent_id": "operator-1",
+                   "capability": "crm_write", "artifact_hash": "h11", "ts": 1_000})
+    # Forge an approval signed by the ROGUE key, not the human -> must be rejected.
+    from fleet.layers.runtime import Approval
+    forged = Approval.sign(
+        rogue.cert, rogue.key, "operator-1", "crm_write:11",
+        "crm_write", "h11", "approve", "i am the human now", 1_000,
+    )
+    status, body = _wsgi_post(console, forged.__dict__)
+    assert status == "403 Forbidden"
+    assert b"false" in body

@@ -104,6 +104,9 @@ class AgentCert:
 class IdentityRoot:
     """Root-of-trust: derives a root Ed25519 key and issues/signs agent certs."""
 
+    #: Epoch of the current root key. Bumped on rotate_root so public verifiers
+    #: can accept historical certs signed under a prior (rotated) root while
+    #: still rejecting anything not signed by a known root epoch (K1).
     def __init__(self, master_secret: bytes, salt: Optional[bytes] = None):
         self.salt = salt or os.urandom(16)
         # Argon2id-strengthened master -> 32-byte seed -> root signing key.
@@ -111,6 +114,11 @@ class IdentityRoot:
         kek = derive_kek(master_secret, self.salt)
         self._root = Ed25519PrivateKey.from_private_bytes(kek)
         self._revoked: Dict[str, int] = {}  # agent_id -> revocation cert_seq sentinel
+        self.root_epoch: int = 0
+        # Root public keys for every epoch this runtime has known (for verifier
+        # continuity: a verifier given the old+new root pubkeys still validates
+        # historical chains). Seeded with the current epoch.
+        self.known_root_pubs: Dict[int, bytes] = {self.root_epoch: self.root_public_pem}
 
     @property
     def root_public_pem(self) -> bytes:
@@ -118,6 +126,124 @@ class IdentityRoot:
             serialization.Encoding.PEM,
             serialization.PublicFormat.SubjectPublicKeyInfo,
         )
+
+    def export_seed(self, backup_kek: bytes) -> Dict[str, Any]:
+        """Encrypted, key-wrapped root seed export (K1 disaster recovery).
+
+        Never persists the root key in plaintext. The 32-byte seed is sealed
+        with the caller-supplied backup KEK via the standard Envelope (same
+        crypto used for the Memory Bank). The salt and current epoch travel
+        with the blob so a restore reproduces the identical root key.
+        """
+        if len(backup_kek) != 32:
+            raise ValueError("backup_kek must be 32 bytes")
+        seed = self._root.private_bytes(
+            serialization.Encoding.Raw, serialization.PrivateFormat.Raw,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
+        vault = SecretVault(backup_kek)
+        sealed = vault.seal("root_seed", seed.hex())
+        return {
+            "salt": self.salt.hex(),
+            "epoch": self.root_epoch,
+            "sealed_seed": sealed,
+        }
+
+    @classmethod
+    def from_seed(cls, blob: Dict[str, Any], backup_kek: bytes,
+                  master_secret: bytes) -> "IdentityRoot":
+        """Restore a root key from an export_seed blob (K1 recovery).
+
+        `master_secret` is re-derived to confirm the restoring operator holds
+        the original material; `backup_kek` unwraps the sealed seed. Both must
+        agree with the export or the restore fails closed.
+        """
+        if len(backup_kek) != 32:
+            raise ValueError("backup_kek must be 32 bytes")
+        root = cls(master_secret, salt=bytes.fromhex(blob["salt"]))
+        vault = SecretVault(backup_kek)
+        seed_hex = vault.open(blob["sealed_seed"])
+        restored = Ed25519PrivateKey.from_private_bytes(bytes.fromhex(seed_hex))
+        # The unwrapped seed must reproduce the derived root key exactly; if
+        # master_secret + backup_kek disagree, the root won't match and we
+        # refuse to substitute a divergent key.
+        if restored.public_key().public_bytes(
+            serialization.Encoding.Raw, serialization.PublicFormat.Raw
+        ) != root._root.public_key().public_bytes(
+            serialization.Encoding.Raw, serialization.PublicFormat.Raw
+        ):
+            raise ValueError("root seed does not match derived master (restore rejected)")
+        root._root = restored
+        root.root_epoch = int(blob["epoch"])
+        root.known_root_pubs = {root.root_epoch: root.root_public_pem}
+        return root
+
+    def rotate_root(self, new_root: "IdentityRoot", issued_at: int,
+                    expires_at: int, live_certs: List[AgentCert]) -> List[AgentCert]:
+        """Re-sign all live agent certs under a new root (K1 root rotation).
+
+        Requires the CURRENT root key to authorize the rotation (no silent root
+        swap). Bumps the epoch, records the new root pubkey, and re-issues every
+        supplied live cert under the new root with an incremented cert_seq so
+        the chain stays continuous and historical certs remain verifiable via
+        `known_root_pubs`.
+
+        Returns the re-signed certs; the caller (ControlPlane) persists them and
+        emits a signed `registry.root_rotate` audit entry.
+        """
+        # Authorize: the rotation record must be signed by the CURRENT root.
+        rotate_body = canonical_bytes({
+            "old_epoch": self.root_epoch,
+            "new_epoch": new_root.root_epoch,
+            "new_root_pub": new_root.root_public_pem.decode("utf-8"),
+        })
+        rotate_sig = self._root.sign(rotate_body).hex()
+        old_epoch = self.root_epoch
+        old_epoch_pub = self.root_public_pem
+        # Commit: retain the OLD root pub under its epoch (verifier continuity),
+        # then adopt the new root, bump epoch, and record the new root pub.
+        self.known_root_pubs[old_epoch] = old_epoch_pub
+        # Assign the new root a distinct epoch so historical chains stay keyed.
+        new_epoch = (max(self.known_root_pubs.keys()) + 1) if self.known_root_pubs else 1
+        new_root.root_epoch = new_epoch
+        new_root.known_root_pubs = {new_epoch: new_root.root_public_pem}
+        self._root = new_root._root
+        self.root_epoch = new_epoch
+        self.known_root_pubs[new_epoch] = self.root_public_pem
+        self._rotation_sig = rotate_sig
+        # Re-sign every live cert under the new root.
+        resigned = []
+        for cert in live_certs:
+            if cert.role not in AGENT_ROLES:
+                continue
+            nc, _ = self.issue_cert(
+                cert.agent_id, cert.role, cert.capabilities,
+                issued_at, expires_at, cert_seq=cert.cert_seq + 1,
+            )
+            resigned.append(nc)
+        return resigned
+
+    def verify_cert_any_epoch(self, cert: AgentCert) -> bool:
+        """Verify a cert against ANY known root epoch (verifier continuity).
+
+        Used by public verifiers that hold the old+new root public keys so a
+        rotated root doesn't invalidate the historical chain.
+        """
+        candidate = AgentCert.from_dict(cert.to_dict())
+        candidate.root_sig = ""
+        body = canonical_bytes(candidate.to_dict())
+        for pub_pem in self.known_root_pubs.values():
+            if pub_pem is None:
+                continue
+            try:
+                key = serialization.load_pem_public_key(pub_pem)
+                if not isinstance(key, Ed25519PublicKey):
+                    continue
+                key.verify(bytes.fromhex(cert.root_sig), body)
+                return True
+            except Exception:
+                continue
+        return False
 
     def issue_cert(
         self,

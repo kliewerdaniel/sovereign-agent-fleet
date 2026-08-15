@@ -61,11 +61,12 @@ def env(tmp_path):
     r = cp.publish_agent("researcher-1", "researcher", ["emit_evidence"])
     a = cp.publish_agent("analyst-1", "analyst", ["qualify", "verify_gate"])
     o = cp.publish_agent("operator-1", "operator", ["prepare_artifact", "crm_write"])
+    human = cp.publish_agent("human-1", "human", ["approve_deny"])
     tool_cert, tool_key = cp.root.issue_cert("web_tool", "tool", ["retrieve"], 1000, 9_999_999_999)
     # inject tool into registry's cert table so get_cert resolves it
     cp.registry._certs["web_tool"] = tool_cert
     return {
-        "cp": cp, "rt": rt, "r": r, "a": a, "o": o,
+        "cp": cp, "rt": rt, "r": r, "a": a, "o": o, "human": human,
         "tool_key": tool_key, "tool_cert": tool_cert,
     }
 
@@ -170,6 +171,13 @@ def _qualify(env, evidence_h, claim_type, claim, refs):
                                    "evidence_refs": refs}])
 
 
+def _approval(env, action_id, capability, artifact_hash):
+    """Sign a human approval that binds to the exact action (A1/A2)."""
+    return Approval.sign(env["human"].cert, env["human"].key,
+                         "operator-1", action_id, capability,
+                         artifact_hash, "approve", "intel verified", 1_001).__dict__
+
+
 def test_e2e_verified_auto_allows(env):
     ev = _gather(env)
     # two distinct evidence objects -> need to gather twice to get 2 refs
@@ -191,11 +199,18 @@ def test_e2e_verified_auto_allows(env):
     # D16: VERIFIED intel is admissible (no intel-quality escalation). crm_write
     # is consequential (D17), so it still needs a human action-approval to reach
     # FINAL.
-    ap = Approval.sign(env["a"].cert, env["a"].key, "operator-1", "crm_write",
-                       "pending", "approve", "intel verified", 1_001)
-    result = op.act(h, "Write CRM: prospect is ICP fit.", "crm_write", "idem-verified", approval=ap.__dict__)
+    artifact_text = "Write CRM: prospect is ICP fit."
+    ap = _approval(env, "idem-verified", "crm_write", _ah(artifact_text))
+    result = op.act(h, artifact_text, "crm_write", "idem-verified", approval=ap)
     assert result["final"] is True
     assert result["verification"] == VERIFIED
+
+
+def _ah(text: str) -> str:
+    from fleet.layers.armor import redact_pii
+    from fleet.crypto.foundation import sha256
+    redacted, _ = redact_pii(text)
+    return sha256(redacted.encode("utf-8"))
 
 
 def test_e2e_asserted_needs_approval(env):
@@ -206,10 +221,8 @@ def test_e2e_asserted_needs_approval(env):
     assert result["final"] is False
     assert result["needs_approval"] is True
     # now approve -> FINAL
-    ap = Approval.sign(env["cp"].registry.get_cert("human-1") or env["a"].cert,
-                       env["a"].key, "operator-1", "crm_write",
-                       result["artifact_hash"], "approve", "looks right", 1_001)
-    result2 = op.act(iq, "Write CRM: budget authority confirmed.", "crm_write", "idem-assert", approval=ap.__dict__)
+    ap = _approval(env, "idem-assert", "crm_write", result["artifact_hash"])
+    result2 = op.act(iq, "Write CRM: budget authority confirmed.", "crm_write", "idem-assert", approval=ap)
     assert result2["final"] is True
 
 
@@ -241,10 +254,9 @@ def test_operator_idempotency_replay(env):
     stamped = stamp(intel, env["rt"].evidence_meta(), 1_000)
     h = Handoff.make(env["a"].cert, env["a"].key, "QualifiedIntel", stamped)
     op = Operator(env["o"], env["rt"])
-    ap = Approval.sign(env["a"].cert, env["a"].key, "operator-1", "crm_write",
-                       "pending", "approve", "verified", 1_001)
-    r1 = op.act(h, "artifact a", "crm_write", "idem-dedup", approval=ap.__dict__)
-    r2 = op.act(h, "artifact a", "crm_write", "idem-dedup", approval=ap.__dict__)
+    ap = _approval(env, "idem-dedup", "crm_write", _ah("artifact a"))
+    r1 = op.act(h, "artifact a", "crm_write", "idem-dedup", approval=ap)
+    r2 = op.act(h, "artifact a", "crm_write", "idem-dedup", approval=ap)
     assert r1["final"] is True
     assert r2["idempotent_replay"] is True
     assert r2["final"] is True

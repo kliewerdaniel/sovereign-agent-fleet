@@ -1,0 +1,14 @@
+# Sovereign Agent Fleet — GCP deploy layer LOCKED pins (S1, D21).
+#
+# NOT installed in the base/test venv (the fleet runtime stays dependency-free so
+# tests run offline/fast — D18 cost discipline). Install ONLY for the Cloud Run /
+# Firestore / Pub-Sub deploy images.
+#
+# These are pinned minimums; regenerate exact transitive pins at build time with
+# `pip-compile requirements-gcp.txt` (or `pip freeze`) and commit the result so
+# the deploy image is reproducible and `pip-audit`-clean (finding S1).
+google-cloud-firestore==2.20.1
+google-cloud-pubsub==2.29.0
+opentelemetry-api==1.35.0
+opentelemetry-sdk==1.35.0
+gunicorn==23.0.0

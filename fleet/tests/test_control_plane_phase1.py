@@ -113,6 +113,25 @@ def test_revoked_cert_denied(cp, published):
     assert resp.granted is False
 
 
+def test_a3_revoke_invalidates_cached_grant_on_replay(cp, published):
+    """A3: a previously-granted idempotency key must NOT survive a revoke.
+
+    Without this, an attacker who obtained one legitimate grant could replay
+    the cached positive verdict even after the agent is revoked. The Gateway
+    re-validates liveness on replay (A3/D14).
+    """
+    key = "idem-revoke-a3"
+    g = cp.request_authority(published["operator"].cert, "crm_write", idempotency_key=key)
+    assert g.granted is True
+    # Revoke the operator.
+    cp.registry.revoke("operator-1")
+    # Replay with the SAME idempotency key -> must now be denied (stale cache
+    # is re-validated against registry liveness).
+    r = cp.request_authority(published["operator"].cert, "crm_write", idempotency_key=key)
+    assert r.granted is False
+    assert r.signed_deny_event is not None
+
+
 # --- idempotency (13.7) ----------------------------------------------------
 
 def test_replay_same_idempotency_key_returns_prior(cp, published):

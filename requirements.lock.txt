@@ -1,0 +1,18 @@
+# Sovereign Agent Fleet — locked dependency pins (S1, D21).
+#
+# This file pins EXACT versions so `pip install -r requirements.lock.txt` is
+# reproducible and cannot silently pull a breaking/minor or a vulnerable release
+# (finding S1). The loose `requirements.txt` stays for human readability; CI and
+# the test venv install from THIS lock.
+#
+# Base runtime + test deps (installed in the verification/CI venv):
+argon2-cffi==25.1.0
+argon2-cffi-bindings==25.1.0
+cryptography==50.0.0
+PyNaCl==1.6.2
+pytest==9.1.1
+iniconfig==2.3.0
+packaging==26.3
+pluggy==1.6.0
+
+# GCP deploy layer (Phase 3). Pinned separately in requirements-gcp.lock.txt.
