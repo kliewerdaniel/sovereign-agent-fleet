@@ -1,10 +1,11 @@
 # D27 — Financial Agent Reference Workload: Architecture & Scope Lock
 
-> **Status:** PLANNING-PHASE CONSOLIDATION. This document does **not** introduce
-> new scope or design. It consolidates the decisions made across Rounds 1–6 of
-> the Sovereign Agent Fleet financial-reference-workload discovery. It is the
-> authoritative record for implementation. No code exists yet; implementation
-> begins only on explicit instruction ("planning complete, proceed").
+> **Status:** PLANNING LOCKED — **AND IMPLEMENTED**. This document consolidates
+> the decisions made across Rounds 1–6 of the Sovereign Agent Fleet
+> financial-reference-workload discovery and is the authoritative record for the
+> shipped `fleet/fin/` implementation (domain, authorization, exchange_sim,
+> market_adapter, strategy, standalone `verify.py`); wired into `runtime.py`.
+> No new scope or design remains open.
 >
 > **Central thesis (unchanged):** *The model is not the authority. The
 > execution protocol is.* Sovereign Agent Fleet is a **general-purpose,
@@ -99,8 +100,8 @@ can only escalate).
 
 ## 4. Consolidated security-invariant catalog (Rounds 1–5)
 
-Legend: **ENF** = enforced today in `fleet/` (in the 167-test suite);
-**SPEC** = locked design, to be implemented in `fleet/fin/`;
+Legend: **ENF** = enforced today in `fleet/` (in the 205-test suite);
+**SPEC** = locked design, implemented in `fleet/fin/`;
 **VER** = independently verifiable by `fleet/fin/verify.py`.
 
 | # | Invariant | Basis (never model) | Status | VER |

@@ -1,6 +1,6 @@
 # D28 — Sovereign Cognitive Architecture: Layered Cognition over Deterministic Governance
 
-> **Status:** PLANNING-PHASE CONSOLIDATION — LOCKED. This document consolidates
+> **Status:** PLANNING LOCKED — **AND IMPLEMENTED**. This document consolidates
 > the architecture-review rounds that converged several independent research
 > threads (Scientific Knowledge Compiler, Dynamic Persona MoE GraphRAG, Popper
 > falsification, Page-Quality / Needs-Met evaluation, RLHF-style calibration)
@@ -10,12 +10,10 @@
 > It introduces **no new authorization logic.** Every security gate already in
 > the fleet (`gateway`, `policy`, `evaluate_intel`, `assess`,
 > `required_trade_authorization`, `incident.required_authorization`, the
-> verifier) is unchanged in its *decision logic*. The specification defines a
-> new `fleet/cognition/` package that lives **upstream** of governance and is
-> structurally incapable of becoming authority.
->
-> Implementation begins only on explicit instruction (Phase 1 authorized:
-> scaffold `fleet/cognition/` + import-boundary CI test).
+> verifier) is unchanged in its *decision logic*. The `fleet/cognition/` package
+> (compiler, evaluation, persona-MoE, calibration) is **implemented** upstream
+> of governance and is structurally incapable of becoming authority; its
+> import boundary is enforced by a CI test.
 
 ---
 

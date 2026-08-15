@@ -1,6 +1,6 @@
 # Sovereign Enterprise Agent Fleet — Master Submission Document
 
-> Single combined reference for judges + implementers. Generated from the living planning docs (`00-INDEX.md` onward). Planning phase complete; no code yet.
+> Single combined reference for judges + implementers. Generated from the living planning docs (`00-INDEX.md` onward). **Implementation complete: 205 tests passing on `main` (commit 764aff5); D26/D27/D28 shipped and tested.**
 
 ## 1. Executive Summary
 See `18-executive-summary.md`. Thesis: intelligence probabilistic, authority/execution/evidence/audit deterministic + verifiable. Principle: do not trust the model — trust the execution protocol.

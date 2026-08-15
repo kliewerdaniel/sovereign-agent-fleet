@@ -32,7 +32,7 @@ the **D17 human-approval console runs on Cloud Run**
 The Cloud Run instance never holds the root key or signs artifacts — it only
 verifies human-signed approvals against public keys (fail-closed).
 
-## What's here (Phases 0–5, all complete)
+## What's here (Phases 0–5 + D26/D27/D28 — all complete)
 
 | Path | Purpose |
 |------|---------|
@@ -52,7 +52,7 @@ verifies human-signed approvals against public keys (fail-closed).
 | `fleet/layers/compliance.py` | D21 E1 (D22): selective-disclosure compliance attestation — Ed25519-signed proof that an action complied + was human-approved + under live epoch, without revealing CRM/source data (not a zero-knowledge proof). |
 | `fleet/layers/consensus.py` | D21 E2 (D23): multi-brain consensus gate — two distinct Brain backends must agree to VERIFY; disagreement → ASSERTED + signed event. |
 | `fleet/gcp/` | `GcpBridge` (Firestore/Pub-Sub mirror — **LIVE** on `project-3ba93cec-8ca6-43c0-ba4`), `FirestoreVerifier` (public-key), `OtelExporter`, D17 Cloud Run approval console (`deploy.py`), `cloudbuild.yaml` + `deployment/Dockerfile`. Console never holds authority; verifies human-signed approvals (fail-closed). |
-| `fleet/tests/` | 167 tests: Phases 0–5 + D21 hardening + Round-2 extensions (R1–R4) + D26 incident-triage use case (SimEnv/policy/e2e). |
+| `fleet/tests/` | **205 tests** (parametrized): Phases 0–5 + D21 hardening + Round-2 extensions (R1–R4) + D26 incident-triage use case (SimEnv/policy/e2e) + D27 financial reference workload + D28 cognitive architecture (cognition scaffolding + import-boundary enforcement). |
 | `docs/planning/` | Living design docs: D1–destructure decision ADRs, D21 security audit + hardening, D22 selective-disclosure attestation, D23 consensus gate, D25 Operator-sandbox re-eval. (D24 = real-ZK variant scoped but intentionally unimplemented — see D22.) |
 
 ## Quick start
@@ -66,7 +66,7 @@ pip install -r requirements.txt
 python -m pytest fleet/tests -q
 ```
 
-All **167 tests** should pass. The vendored ChrisCryptSN suite also runs green
+All **205 tests** should pass. The vendored ChrisCryptSN suite also runs green
 against this same environment.
 
 ## Security properties (tested across Phases 0–5)
