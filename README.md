@@ -42,8 +42,8 @@ min-instances 0) — the identical local code path is used and labeled as such.
 | `fleet/layers/compliance.py` | D21 E1 (D22): selective-disclosure compliance attestation — Ed25519-signed proof that an action complied + was human-approved + under live epoch, without revealing CRM/source data (not a zero-knowledge proof). |
 | `fleet/layers/consensus.py` | D21 E2 (D23): multi-brain consensus gate — two distinct Brain backends must agree to VERIFY; disagreement → ASSERTED + signed event. |
 | `fleet/gcp/` | `GcpBridge` (Firestore/Pub-Sub mirror), `FirestoreVerifier` (public-key), `OtelExporter`, D17 Cloud Run approval console. |
-| `fleet/tests/` | 120 tests across Phases 0–5 + D21 hardening & extensions. |
-| `docs/planning/` | Living design docs (D1–D23): D1–D20 decisions, D21 security audit + hardening, D22 ZK proof, D23 consensus gate. |
+| `fleet/tests/` | 125 tests across Phases 0–5 + D21 hardening + Round-2 extensions (R1–R4). |
+| `docs/planning/` | Living design docs: D1–destructure decision ADRs, D21 security audit + hardening, D22 selective-disclosure attestation, D23 consensus gate, D25 Operator-sandbox re-eval. (D24 = real-ZK variant scoped but intentionally unimplemented — see D22.) |
 
 ## Quick start
 
@@ -56,7 +56,7 @@ pip install -r requirements.txt
 python -m pytest fleet/tests -q
 ```
 
-All **120 tests** should pass. The vendored ChrisCryptSN suite also runs green
+All **125 tests** should pass. The vendored ChrisCryptSN suite also runs green
 against this same environment.
 
 ## Security properties (tested across Phases 0–5)
@@ -103,8 +103,10 @@ against this same environment.
 - **Console fails closed (G2):** the Cloud Run approval console rejects any
   approval it cannot cryptographically verify; with no verifier wired it rejects
   *all* approvals rather than trusting.
-- **Pinned, audited supply chain (S1):** locked dependency versions, a
-  CycloneDX SBOM, and a `pip-audit` CI gate.
+- **Pinned, audited supply chain (S1):** locked dependency versions on **both**
+  dependency surfaces (base + GCP), a CycloneDX SBOM uploaded as a build
+  artifact, and a `pip-audit` CI gate (fail-closed) run as a matrix over both
+  lockfiles.
 - **Replay defense documented + tested (C3):** the signed hash-chain detects a
   re-inserted historical entry (broken position + chain link), fail-closed.
 
@@ -119,8 +121,11 @@ against this same environment.
   action's `policy_id`/`artifact_hash` are revealed by design.)
 - **Multi-brain consensus gate (E2 / D23):** a VERIFIED-tier claim requires two
   *distinct* Brain backends to agree; disagreement downgrades to ASSERTED and
-  emits a signed `consensus.disagreement` audit event (D16 escalation). The
-  model stays proposal-only; the deterministic gate decides.
+  emits a signed `consensus.disagreement` audit event (D16 escalation). A task
+  with no verdict-field mapping emits a distinct, louder
+  `consensus.unmapped_task` event instead of silently masquerading as a
+  permanent disagreement (R2). The model stays proposal-only; the deterministic
+  gate decides.
 
 ## Adversarial 8-beat governability demo (Phase 5)
 
