@@ -13,6 +13,13 @@ no execution surface because the protocol never executes free-text as instructio
 Two concrete payload types enforce capability separation (D8):
   * SourcedEvidence (Researcher)  -- MUST NOT contain classification/confidence
   * QualifiedIntel  (Analyst)     -- MUST cite >=1 valid SourcedEvidence id
+
+A third payload type supports the Sovereign Cognitive Architecture (D28):
+  * CompiledKnowledge (SKC)       -- a TRANSFORMATION of evidence into an
+    entity/relationship/claim graph; MUST NOT carry any governance field
+    (authorization/approval/capability/disposition/...) and MUST cite only
+    SourcedEvidence or other CompiledKnowledge ids that resolve. It is
+    evidence, not authority: governance only verifies the citation resolves.
 """
 from __future__ import annotations
 
@@ -85,6 +92,41 @@ def _validate_qualified_intel(p: Dict[str, Any], evidence_ids: set) -> None:
                 raise HandoffError(f"evidence_ref '{ref}' does not resolve to a known SourcedEvidence")
 
 
+# D28: governance-forbidden tokens for the cognition transformation layer.
+# CompiledKnowledge is evidence, never authority. If any of these appear the
+# artifact is rejecting at the envelope boundary (structural D-A guarantee).
+_COMPILED_FORBIDDEN = {
+    "authorization", "approval", "capability", "disposition", "decision",
+    "granted", "deny_reason", "human_cert", "operator_sig", "gateway_sig",
+    "require_approval", "blocked", "final",
+}
+
+
+def _validate_compiled_knowledge(p: Dict[str, Any], known_ids: set) -> None:
+    """D28 CompiledKnowledge: a transformation of evidence, not authority.
+
+    Requires a producer cert id and a source lineage that resolves to known
+    SourcedEvidence / CompiledKnowledge ids. Rejects any governance field.
+    """
+    required = {"compile_id", "compiler_cert_id", "provenance"}
+    missing = required - set(p)
+    if missing:
+        raise HandoffError(f"CompiledKnowledge missing fields: {missing}")
+    # D8/D28: SKC may not emit governance vocabulary.
+    leaked = _COMPILED_FORBIDDEN & set(p)
+    if leaked:
+        raise HandoffError(f"CompiledKnowledge must not carry governance fields: {leaked}")
+    prov = p.get("provenance") or []
+    if not isinstance(prov, list) or not prov:
+        raise HandoffError("CompiledKnowledge.provenance must be a non-empty list")
+    for link in prov:
+        src = link.get("source_id") if isinstance(link, dict) else None
+        if not src or src not in known_ids:
+            raise HandoffError(
+                f"CompiledKnowledge source '{src}' does not resolve to a known artifact"
+            )
+
+
 @dataclass
 class Handoff:
     sender_cert: AgentCert
@@ -122,13 +164,17 @@ class Handoff:
         if not verify_payload_sig(self.payload, self.sender_sig, self.sender_cert):
             raise HandoffError("sender signature invalid")
 
-    def consume(self, registry: AgentRegistry, known_evidence: set) -> Dict[str, Any]:
+    def consume(self, registry: AgentRegistry, known_evidence: set,
+                known_compiled: set | None = None) -> Dict[str, Any]:
         """Verify then schema-validate. Returns the validated payload."""
         self.verify(registry)
         if self.payload_type == "SourcedEvidence":
             _validate_sourced_evidence(self.payload)
         elif self.payload_type == "QualifiedIntel":
             _validate_qualified_intel(self.payload, known_evidence)
+        elif self.payload_type == "CompiledKnowledge":
+            known = (known_compiled or set()) | known_evidence
+            _validate_compiled_knowledge(self.payload, known)
         else:
             raise HandoffError(f"unknown payload_type: {self.payload_type}")
         return self.payload
