@@ -23,6 +23,16 @@ from fleet.layers.armor import (
     scan_pii,
     verify_tool_envelope,
 )
+from fleet.layers.brain import (
+    Brain,
+    BrainSchemaError,
+    DeterministicBrain,
+    GemmaBrain,
+    GeminiBrain,
+    SchemaEnforcedBrain,
+    assert_no_policy_leak,
+    validate_brain_output,
+)
 from fleet.layers.gateway import AuthorityResponse, Gateway, GatewayDeny
 from fleet.layers.handoff import Handoff, HandoffError
 from fleet.layers.policy import Decision, PolicyResult, decide
@@ -78,6 +88,14 @@ __all__ = [
     "VERIFIED",
     "ASSERTED",
     "HALLUCINATION",
+    "Brain",
+    "BrainSchemaError",
+    "DeterministicBrain",
+    "GemmaBrain",
+    "GeminiBrain",
+    "SchemaEnforcedBrain",
+    "validate_brain_output",
+    "assert_no_policy_leak",
     "ControlPlane",
 ]
 

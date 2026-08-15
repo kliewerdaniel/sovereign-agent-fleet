@@ -32,6 +32,13 @@ from fleet.layers.armor import (
 )
 from fleet.layers.handoff import Handoff, HandoffError
 from fleet.layers.verification import ASSERTED, HALLUCINATION, VERIFIED, stamp
+from fleet.layers.brain import (
+    Brain,
+    StubBrain,
+    assert_no_policy_leak,
+    analyst_instruction,
+    operator_instruction,
+)
 
 
 class Lifecycle(str, Enum):
@@ -56,26 +63,6 @@ _IDX = {s: i for i, s in enumerate(_ORDER)}
 
 class RuntimeError_(Exception):
     pass
-
-
-# ---------------------------------------------------------------------------
-# Pluggable brain (D15/D18): proposes structured content only.
-# ---------------------------------------------------------------------------
-
-class Brain:
-    """Probabilistic brain. Subclass for Gemini/Gemma; dev uses StubBrain."""
-
-    def propose(self, role: str, instruction: str, schema_hint: str) -> Dict[str, Any]:
-        raise NotImplementedError
-
-
-@dataclass
-class StubBrain(Brain):
-    """Deterministic dev/test brain: returns a fixed structured proposal."""
-    canned: Dict[str, Any] = field(default_factory=dict)
-
-    def propose(self, role: str, instruction: str, schema_hint: str) -> Dict[str, Any]:
-        return self.canned
 
 
 # ---------------------------------------------------------------------------
@@ -231,6 +218,21 @@ class Analyst:
                           verification=stamped["verification"])
         return Handoff.make(self.agent.cert, self.agent.key, "QualifiedIntel", stamped)
 
+    def classify_with_brain(self, evidence_handoff: Handoff, claim_type: str = "icp_fit") -> Handoff:
+        """D15: let the probabilistic brain PROPOSE a classification, then
+        enforce it through the same schema + D16 gate. The brain never decides
+        verification -- it only proposes; the predicate still cites real,
+        resolved evidence refs (no hallucination path)."""
+        ev_payload = evidence_handoff.consume(
+            self.rt.cp.registry, known_evidence=set(self.rt.evidence_meta())
+        )
+        instruction = analyst_instruction(ev_payload, claim_type)
+        assert_no_policy_leak(instruction)  # D15: brain sees evidence only
+        proposal = self.rt.brain.propose("analyst", instruction, "analyst_classification")
+        # the predicate must cite the evidence the Analyst actually consumed
+        proposal["evidence_refs"] = [ev_payload.get("evidence_id")]
+        return self.qualify(evidence_handoff, [proposal])
+
 
 # ---------------------------------------------------------------------------
 # Worker: Operator (act) -- consumes intel, prepares artifact, executes
@@ -292,6 +294,20 @@ class Operator:
                     "verification": verification, "pii_redacted": n_pii,
                     "require_approval": bool(resp.require_approval)}
         return self.rt.idempotent(idempotency_key, _commit)
+
+    def draft_with_brain(self, intel_handoff: Handoff, target: str,
+                         draft_spec: dict) -> str:
+        """D15: brain DRAFTS outreach copy only. The draft is deterministic-
+        validatable (schema) and still PII-redacted before becoming an artifact.
+        The brain never sees intel verification state or policy context."""
+        intel = intel_handoff.consume(
+            self.rt.cp.registry, known_evidence=set(self.rt.evidence_meta())
+        )
+        instruction = operator_instruction(target, draft_spec)
+        assert_no_policy_leak(instruction)  # D15: no policy/approval leakage
+        proposal = self.rt.brain.propose("operator", instruction, "operator_outreach")
+        redacted, _ = redact_pii(proposal.get("body", ""))
+        return redacted
 
 
 # ---------------------------------------------------------------------------
