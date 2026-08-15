@@ -294,6 +294,15 @@ execution protocol* without granting the model new authority:
   pins + `fleet-security` CI (pip-audit + SBOM); (C3) replay-defense test.
   Suite now 107 green (`b1a7423` A1/A2, `952e0b9` K1/A3, `ca414fb` M1/M2/A3,
   `4a531d4` P1/G2/S1/C3).
-- **Phase 3 extensions — design docs + impl + adversarial tests in progress.**
-  (E1) zero-knowledge policy-compliance proof; (E2) multi-brain consensus gate.
-  (E3, the formal policy property test, is already delivered as P1.)
+- **Phase 3 extensions — ALL COMMITTED (`8ebb2f1`).** (E1) `fleet/layers/compliance.py`:
+  zero-knowledge policy-compliance proof — prove compliance + valid human approval
+  + live identity epoch without revealing source data; tampered/rebound/forged
+  proof rejected (design `D22`). (E2) `fleet/layers/consensus.py`: multi-brain
+  consensus gate — two distinct Brain backends must agree to VERIFY; disagreement →
+  ASSERTED + signed `consensus.disagreement` audit event (design `D23`). (E3, the
+  formal policy property test, is already delivered as P1.) Suite now **120 green**.
+- **Phase 4 — README + docs.** Security-properties section expanded with the D21
+  hardening (A1/A2, K1, A3, M1/M2, P1, G2, S1, C3) and extensions (E1, E2) entries;
+  layout table + test count (120) updated; this changelog section finalized. Core
+  trust boundary (model proposal-only, Control Plane decides) unchanged, so the
+  architecture diagram's boundary is still accurate — no redraw required.

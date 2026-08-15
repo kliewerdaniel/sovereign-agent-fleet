@@ -38,9 +38,12 @@ min-instances 0) — the identical local code path is used and labeled as such.
 | `fleet/layers/armor.py` | Model Armor (D12): injection strip, signed tool envelopes, PII scan/redact. |
 | `fleet/layers/verification.py` | D16 verification gate: `VERIFIED` / `ASSERTED` / `HALLUCINATION`. |
 | `fleet/layers/brain.py` | Pluggable Brain interface: `GemmaBrain` (local, D18) / `GeminiBrain` (demo-only, D18/D20) / `SchemaEnforcedBrain` (D15 boundary). |
+| `fleet/layers/approval.py` | D21 A1/A2: `verify_approval` — Ed25519-verifies + binds the human `ApprovalRecord` to exact action/capability/artifact (fail-closed). |
+| `fleet/layers/compliance.py` | D21 E1 (D22): zero-knowledge policy-compliance proof — verify compliance + approval + live epoch without revealing source data. |
+| `fleet/layers/consensus.py` | D21 E2 (D23): multi-brain consensus gate — two distinct Brain backends must agree to VERIFY; disagreement → ASSERTED + signed event. |
 | `fleet/gcp/` | `GcpBridge` (Firestore/Pub-Sub mirror), `FirestoreVerifier` (public-key), `OtelExporter`, D17 Cloud Run approval console. |
-| `fleet/tests/` | 78 tests across Phases 0–5 (crypto, control plane, runtime, GCP, brain, adversarial beats). |
-| `docs/planning/` | 19 living design docs (D1–D20) + roadmap + adversarial test plan. |
+| `fleet/tests/` | 120 tests across Phases 0–5 + D21 hardening & extensions. |
+| `docs/planning/` | Living design docs (D1–D23): D1–D20 decisions, D21 security audit + hardening, D22 ZK proof, D23 consensus gate. |
 
 ## Quick start
 
@@ -53,7 +56,7 @@ pip install -r requirements.txt
 python -m pytest fleet/tests -q
 ```
 
-All **78 tests** should pass. The vendored ChrisCryptSN suite also runs green
+All **120 tests** should pass. The vendored ChrisCryptSN suite also runs green
 against this same environment.
 
 ## Security properties (tested across Phases 0–5)
@@ -78,6 +81,43 @@ against this same environment.
   chain stays continuous — beat 8.
 - **Public verifiability:** GCP holds only signed, verifiable artifacts; a
   public-key holder can verify any record without ever holding authority.
+
+### D21 security audit hardening (added after audit)
+
+- **Cryptographically bound human approval (A1/A2):** `Operator.act` now
+  fails-closed — a consequential action runs only if the human `ApprovalRecord`
+  is a genuine Ed25519 signature binding to the *exact* action id +
+  capability + artifact hash. Forged, rebound, or reused approvals are rejected.
+- **Root key backup + rotation + verifier continuity (K1):** the root seed is
+  exportable only as an encrypted blob (never plaintext), restorable solely
+  with the correct KEK + master (fail-closed); rotation re-signs live certs and
+  keeps historical certs verifiable under their epoch's public key.
+- **Revoke/rotate invalidates live grants (A3):** the Gateway idempotency cache
+  re-validates cert liveness on replay and drops a grant the moment its cert is
+  revoked or the root rotates — a revoked agent cannot replay an old token.
+- **Deep Model Armor (M1/M2):** injection stripping and PII redaction recurse
+  through nested structures and run at the evidence boundary (Researcher), so
+  PII never reaches the analyst/operator/ledger.
+- **Default-deny by property (P1):** an exhaustive property test asserts every
+  unknown `(role, capability)` pair is DENIED — no silent allow.
+- **Console fails closed (G2):** the Cloud Run approval console rejects any
+  approval it cannot cryptographically verify; with no verifier wired it rejects
+  *all* approvals rather than trusting.
+- **Pinned, audited supply chain (S1):** locked dependency versions, a
+  CycloneDX SBOM, and a `pip-audit` CI gate.
+- **Replay defense documented + tested (C3):** the signed hash-chain detects a
+  re-inserted historical entry (broken position + chain link), fail-closed.
+
+### D21 extensions (verifiable without trusting the model further)
+
+- **Zero-knowledge compliance proof (E1 / D22):** an Operator proves "this
+  action complied with policy X, had a valid human approval, and was rooted in
+  the live identity epoch" *without revealing CRM/source data*. The verifier
+  checks the math, not the data; a tampered/rebound/forged proof is rejected.
+- **Multi-brain consensus gate (E2 / D23):** a VERIFIED-tier claim requires two
+  *distinct* Brain backends to agree; disagreement downgrades to ASSERTED and
+  emits a signed `consensus.disagreement` audit event (D16 escalation). The
+  model stays proposal-only; the deterministic gate decides.
 
 ## Adversarial 8-beat governability demo (Phase 5)
 
