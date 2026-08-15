@@ -10,6 +10,7 @@ Components:
 from __future__ import annotations
 
 import time
+import os
 
 from fleet.crypto.foundation import AuditTrail, IdentityRoot
 from fleet.gcp.bridge import FanoutStore
@@ -149,6 +150,45 @@ class ControlPlane:
 
     def request_authority(self, cert, capability, idempotency_key=None):
         return self.gateway.request_authority(cert, capability, idempotency_key)
+
+    def rotate_root(self, new_master: bytes, ttl_seconds=86400):
+        """Rotate the root key, re-sign live agents, emit signed audit (K1).
+
+        Disaster recovery / compromise response. The CURRENT root must authorize
+        the rotation (enforced in IdentityRoot.rotate_root). Live (unrevoked,
+        unexpired) certs are re-issued under the new root with bumped cert_seq so
+        the chain stays continuous. A signed `registry.root_rotate` entry records
+        the epoch transition and the new root pubkey for verifiers.
+        """
+        new_root = IdentityRoot(new_master, salt=os.urandom(16))
+        old_epoch = self.root.root_epoch
+        # Gather live certs to re-sign.
+        live = [self.registry._certs[a] for a in self.registry._certs]
+        now = int(self._now())
+        resigned = self.root.rotate_root(
+            new_root, issued_at=now, expires_at=now + ttl_seconds, live_certs=live
+        )
+        # Rewrite the registry's live certs with the re-signed versions.
+        for nc in resigned:
+            self.registry._certs[nc.agent_id] = nc
+        # Emit a signed audit entry recording the epoch transition and the new
+        # root pubkey for verifiers.
+        rotate_sig = getattr(self.root, "_rotation_sig", "")
+        entry = self.audit.append({
+            "kind": "registry.root_rotate",
+            "who": "root",
+            "reason": "root key rotation",
+            "epoch_old": old_epoch,
+            "epoch_new": self.root.root_epoch,
+            "new_root_pub": self.root.root_public_pem.decode("utf-8"),
+            "rotation_sig": rotate_sig,
+        })
+        # Invalidate Gateway idempotency cache — authority tokens were issued
+        # under the old root and must not survive a root rotation (A3).
+        self.gateway._cache.clear()
+        return {"epoch_new": self.root.root_epoch,
+                "resigned": [c.agent_id for c in resigned],
+                "entry_id": entry["id"]}
 
     def verify_audit(self) -> bool:
         return self.audit.verify()
