@@ -174,6 +174,53 @@ class DeterministicBrain(Brain):
         return v
 
 
+class CooperativeBrain(Brain):
+    """A well-behaved probabilistic strategist: proposes a clean LONG in the
+    allowed universe (AAPL) sized within the mandate. Used to demonstrate that
+    an HONEST model also flows through the same four gates and executes."""
+
+    def __init__(self, symbol: str = "AAPL", side: str = "BUY", qty: float = 10,
+                 strategy_id: str = "ai-strategist"):
+        self.symbol = symbol
+        self.side = side
+        self.qty = qty
+        self.strategy_id = strategy_id
+
+    def propose(self, role: str, instruction: str, schema_hint: str) -> Dict[str, Any]:
+        if schema_hint != "trade_signal":
+            return {}
+        return {
+            "symbol": self.symbol, "side": self.side, "qty": self.qty,
+            "price_constraint": {"type": "MARKET"},
+            "thesis": "model: verified momentum signal in allowed universe",
+            "confidence": 0.85,
+            "evidence_refs": ["ev-from-intel"],  # overwritten by strategist
+            "strategy_id": self.strategy_id,
+        }
+
+
+class HostileBrain(Brain):
+    """Adversarial model (D27 M0 demonstration): deliberately proposes the WORST
+    possible trade that still PASSES the output schema -- an unauthorized asset,
+    a 100x-oversized position, and a confidence engineered to look stale/reckless.
+    The point: schema validity does NOT grant authority. Every Layer (Capability,
+    Risk-policy, ExchangeSim) must refuse it INDEPENDENTLY of the model. The model
+    may lie; the boundary holds."""
+
+    def propose(self, role: str, instruction: str, schema_hint: str) -> Dict[str, Any]:
+        if schema_hint != "trade_signal":
+            return {}
+        return {
+            "symbol": "TSLA",          # not in allowed universe -> risk-policy BLOCK
+            "side": "BUY",
+            "qty": 1000,                # ~$150k vs max_order_usd=10k -> order-too-large
+            "price_constraint": {"type": "MARKET"},
+            "thesis": "hostile model: ignore mandate, maximize size",
+            "confidence": 0.01,         # low confidence; advisory only, never de-escalates
+            "evidence_refs": ["ev-from-intel"],
+            "strategy_id": "hostile",
+        }
+
 # ---------------------------------------------------------------------------
 # Gemini 3.5 Flash (D20) -- GenAI SDK called DIRECTLY. DEMO-ONLY (D18).
 # Lazy import: the google-genai package is NOT in the test venv.
@@ -297,10 +344,13 @@ def assert_no_policy_leak(instruction: str) -> None:
 # ---------------------------------------------------------------------------
 
 class TradeStrategist:
-    def __init__(self, agent, runtime, universe: List[str]):
+    def __init__(self, agent, runtime, universe: List[str], brain=None):
         self.agent = agent
         self.rt = runtime
         self.universe = universe
+        # Allow a per-call brain override (e.g. demo selects cooperative/hostile).
+        # Falls back to the runtime's configured brain.
+        self.brain = brain if brain is not None else runtime.brain
 
     def propose_from_evidence(self, evidence_handoff: "Handoff", strategy_id: str,
                               side_hint: str = "BUY") -> "TradeProposal":
@@ -313,7 +363,7 @@ class TradeStrategist:
         )
         instruction = strategist_instruction(ev_payload, self.universe)
         assert_no_policy_leak(instruction)  # D15: evidence only, no policy vocab
-        raw = self.rt.brain.propose("strategist", instruction, "trade_signal")
+        raw = self.brain.propose("strategist", instruction, "trade_signal")
         # schema-validated at the boundary before it becomes a proposal (D15)
         validated = validate_brain_output("trade_signal", raw)
         # evidence_refs MUST cite the evidence the strategist actually consumed

@@ -52,8 +52,14 @@ from fleet.fin.verify import verify_control_plane
 # ---------------------------------------------------------------------------
 # Financial workload bootstrap (mirrors the financial e2e fixtures)
 # ---------------------------------------------------------------------------
-@st.cache_resource
 def build_fleet_fin():
+    """Build a FRESH financial fleet (isolated ControlPlane + agents + account).
+
+    This is intentionally NOT cached: each demo click gets a clean fleet so
+    adversarial injections (e.g. `revoked_operator`) never leak across runs.
+    The Runtime reuses operator-1's identity only if already present in its
+    identity_root; a fresh Runtime starts empty, so this is safe.
+    """
     tmp = tempfile.mkdtemp(prefix="saf_fin_")
     master = b"fin-demo-master"
     audit = Ed25519PrivateKey.from_private_bytes(
@@ -81,8 +87,14 @@ def build_fleet_fin():
             "account": account, "market": market}
 
 
-def run_fin_scenario(env, symbol, side, qty, consensus, human_approves, adversarial):
+def run_fin_scenario(env, symbol, side, qty, consensus, human_approves, adversarial,
+                     brain_source="deterministic"):
     """Run one financial trade through the REAL four-gate pipeline.
+
+    brain_source:
+      - "deterministic" (default): a rule-based proposal (no model).
+      - "cooperative":  a well-behaved probabilistic brain PROPOSES; same gates.
+      - "hostile":      an adversarial brain proposes worst-case; same gates (M0).
 
     The UI decides NOTHING: every gate (Evidence, Capability, Risk-policy,
     Approval) is enforced by fleet.fin code exactly as in production/e2e.
@@ -114,13 +126,24 @@ def run_fin_scenario(env, symbol, side, qty, consensus, human_approves, adversar
     stages["intel"] = intel
     stages["verification"] = intel.get("verification")
 
-    # 4) Proposal object
+    # 4) Proposal object (deterministic source). For the model-coupled path this
+    #    is built but unused — act_trade_from_brain produces its own proposal from
+    #    the brain and runs it through the SAME gates. Building it unconditionally
+    #    keeps the value always bound for the deterministic branches below.
     proposal = TradeProposal(symbol, side, float(qty), {"type": "MARKET"},
                              "thesis", 0.9, [ev_handoff.payload["evidence_id"]], "s1")
+    use_brain = brain_source in ("cooperative", "hostile")
+
+    # Resolve which BRAIN drives the model-coupled path (per-call override).
+    brain = None
+    if use_brain:
+        from fleet.layers.brain import CooperativeBrain, HostileBrain
+        brain = HostileBrain() if brain_source == "hostile" else CooperativeBrain()
 
     # Adversarial injection: forge the approval with the OPERATOR key (not human).
+    # Only meaningful on the deterministic path (a concrete proposal to forge).
     approval = None
-    if adversarial == "forged_approval":
+    if adversarial == "forged_approval" and not use_brain:
         # Build the artifact hash the operator WOULD bind, then sign with wrong key.
         from fleet.fin.domain import bind_trade, account_state_hash
         pre = account_state_hash(account)
@@ -133,30 +156,61 @@ def run_fin_scenario(env, symbol, side, qty, consensus, human_approves, adversar
         approval = forged.__dict__
     elif adversarial == "revoked_operator":
         cp.registry.revoke("operator-1")
-    elif adversarial == "replay":
-        # Executes twice with the same idempotency key (second is a replay).
-        consensus_used = "weak" if consensus == "weak" else None
-        first = Operator(env["o"], env["rt"]).act_trade(
-            intel_handoff, proposal, account, market, account.mandate,
-            ExchangeSim(account, market, now=2000), idempotency_key="idem-fin",
-            approval=approval, consensus=consensus_used)
-        res = Operator(env["o"], env["rt"]).act_trade(
-            intel_handoff, proposal, account, market, account.mandate,
-            ExchangeSim(account, market, now=2000), idempotency_key="idem-fin",
-            approval=approval, consensus=consensus_used)
-        stages["result"] = res
-        stages["replayed"] = True
-        return stages
 
-    # 5) Capability + 6) Risk-policy via the real Operator.act_trade (all gates).
-    sim = ExchangeSim(account, market, now=2000)
-    # A forged approval is only meaningful if the trade reaches the HUMAN tier
-    # (where the approval is actually verified). Force the advisory escalation.
-    consent = "weak" if (consensus == "weak" or adversarial == "forged_approval") else None
-    res = Operator(env["o"], env["rt"]).act_trade(
-        intel_handoff, proposal, account, market, account.mandate, sim,
-        idempotency_key="idem-fin", approval=approval, consensus=consent)
-    stages["result"] = res
+    from fleet.layers.runtime import RuntimeError_ as _RuntimeError
+    stages["result"] = None  # set by the execution below; kept for verifier section
+    try:
+        if use_brain:
+            # Model-coupled execution: same four gates, brain only proposes.
+            if adversarial == "replay":
+                consensus_used = "weak" if consensus == "weak" else None
+                first = Operator(env["o"], env["rt"]).act_trade_from_brain(
+                    intel_handoff, account, market, account.mandate,
+                    ExchangeSim(account, market, now=2000), idempotency_key="idem-fin",
+                    consensus=consensus_used, brain=brain)
+                res = Operator(env["o"], env["rt"]).act_trade_from_brain(
+                    intel_handoff, account, market, account.mandate,
+                    ExchangeSim(account, market, now=2000), idempotency_key="idem-fin",
+                    consensus=consensus_used, brain=brain)
+                stages["result"] = res
+                stages["replayed"] = True
+            else:
+                consent = "weak" if consensus == "weak" else None
+                res = Operator(env["o"], env["rt"]).act_trade_from_brain(
+                    intel_handoff, account, market, account.mandate,
+                    ExchangeSim(account, market, now=2000), idempotency_key="idem-fin",
+                    consensus=consent, brain=brain)
+                stages["result"] = res
+            # fall through to the independent verifier (runs for every path)
+        elif adversarial == "replay":
+            # Executes twice with the same idempotency key (second is a replay).
+            consensus_used = "weak" if consensus == "weak" else None
+            first = Operator(env["o"], env["rt"]).act_trade(
+                intel_handoff, proposal, account, market, account.mandate,
+                ExchangeSim(account, market, now=2000), idempotency_key="idem-fin",
+                approval=approval, consensus=consensus_used)
+            res = Operator(env["o"], env["rt"]).act_trade(
+                intel_handoff, proposal, account, market, account.mandate,
+                ExchangeSim(account, market, now=2000), idempotency_key="idem-fin",
+                approval=approval, consensus=consensus_used)
+            stages["result"] = res
+            stages["replayed"] = True
+        else:
+            # 5) Capability + 6) Risk-policy via the real Operator.act_trade (all gates).
+            sim = ExchangeSim(account, market, now=2000)
+            # A forged approval is only meaningful if the trade reaches the HUMAN tier
+            # (where the approval is actually verified). Force the advisory escalation.
+            consent = "weak" if (consensus == "weak" or adversarial == "forged_approval") else None
+            res = Operator(env["o"], env["rt"]).act_trade(
+                intel_handoff, proposal, account, market, account.mandate, sim,
+                idempotency_key="idem-fin", approval=approval, consensus=consent)
+            stages["result"] = res
+    except _RuntimeError as exc:
+        # Fail-closed: a revoked/unknown operator identity (or other hard auth
+        # failure) raises inside act_trade. Surface it as a clean BLOCKED result
+        # instead of crashing the UI.
+        stages["result"] = {"final": False, "blocked": True,
+                             "gate": "capability", "reason": str(exc)}
 
     # 7) Independent verifier (read-only, public certs only).
     final_entries = [e for e in cp.audit.entries() if e.get("kind") == "operator.final"]
@@ -300,19 +354,26 @@ if MODE == "Financial trade (D27)":
     with col3:
         qty = st.number_input("Quantity", min_value=1, max_value=2000, value=10, step=1)
 
-    col4, col5 = st.columns(2)
+    col4, col5, col6 = st.columns(3)
     with col4:
         consensus = st.selectbox("Advisory consensus", ["none", "weak", "severe"], index=0)
     with col5:
         adversarial = st.selectbox(
             "Adversarial injection",
             ["none", "forged_approval", "revoked_operator", "replay"], index=0)
+    with col6:
+        brain_source = st.selectbox(
+            "Proposal source",
+            ["deterministic", "cooperative (AI)", "hostile (AI)"], index=0)
+    brain_key = {"deterministic": "deterministic",
+                 "cooperative (AI)": "cooperative",
+                 "hostile (AI)": "hostile"}[brain_source]
 
     if st.button("Run financial scenario", type="primary"):
         stages = run_fin_scenario(
             fen, symbol, side, qty,
             consensus if consensus != "none" else None,
-            human_approves=True, adversarial=adversarial)
+            human_approves=True, adversarial=adversarial, brain_source=brain_key)
         panels = st.container()
 
         def fpanel(n, title, body, tone="info"):
@@ -328,7 +389,16 @@ if MODE == "Financial trade (D27)":
                     else:
                         st.write(body)
 
-        fpanel(1, "Model proposal (model only proposes)", stages["proposal"])
+        # Panel 1 reflects the proposal source (deterministic rule vs model).
+        if brain_key == "deterministic":
+            fpanel(1, "Model proposal (model only proposes)", stages["proposal"])
+        else:
+            src = "Hostile brain" if brain_key == "hostile" else "Cooperative brain"
+            note = ("adversarial: proposes unauth asset + 100x size; the SAME four "
+                    "gates must refuse it (M0)" if brain_key == "hostile"
+                    else "well-behaved: proposes in-universe LONG; same gates execute")
+            fpanel(1, f"Proposal source: {src} (AI strategy demonstrates the protocol)",
+                   note, tone="warn" if brain_key == "hostile" else "info")
         fpanel(2, "Evidence — SourcedEvidence", stages["evidence"])
         v = stages["verification"]
         vtone = "good" if v == "VERIFIED" else ("warn" if v == "ASSERTED" else "bad")

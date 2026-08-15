@@ -594,6 +594,47 @@ class Operator:
 
         return self.rt.idempotent(idempotency_key, _commit)
 
+    def act_trade_from_brain(self, intel_handoff: Handoff, account, market,
+                             mandate, exchange_sim: "ExchangeSim",
+                             idempotency_key: str,
+                             strategy_id: str = "ai-strategist",
+                             approval: Optional[dict] = None,
+                             consensus: Optional[str] = None,
+                             now: Optional[int] = None,
+                             brain=None) -> dict:
+        """Model-coupled trade path (D27 'AI strategy demonstrates the protocol').
+
+        The probabilistic brain PROPOSES a trade via ``TradeStrategist`` (schema-
+        enforced at the boundary, D15). That proposal is then fed into the EXACT
+        same ``act_trade`` four-gate pipeline. The model never decides
+        authorization, risk, or policy -- its output is just a ``proposal``
+        argument. A lying/hostile brain therefore cannot produce an executed
+        trade: every Layer refuses it independently (M0).
+
+        ``universe`` for the strategist is taken from ``mandate.allowed_assets``.
+        ``brain`` may be supplied to override the runtime's configured brain
+        (e.g. a demo selecting cooperative vs hostile).
+        """
+        from fleet.fin.domain import Mandate, TradeProposal
+        from fleet.layers.brain import TradeStrategist
+
+        universe = mandate.allowed_assets if isinstance(mandate, Mandate) \
+            else list(getattr(mandate, "allowed_assets", []))
+        strategist = TradeStrategist(self.agent, self.rt, universe, brain=brain)
+        try:
+            proposal = strategist.propose_from_evidence(intel_handoff, strategy_id)
+        except Exception as exc:  # model output malformed -> fail-closed, no trade
+            self.rt.log_audit("operator.blocked", who=self.agent.agent_id,
+                              gate="proposal", reason=f"strategist-failed: {exc}")
+            return {"final": False, "blocked": True, "gate": "proposal",
+                    "reason": f"strategist failed: {exc}"}
+        if not isinstance(proposal, TradeProposal):
+            return {"final": False, "blocked": True, "gate": "proposal",
+                    "reason": "strategist did not return a TradeProposal"}
+        return self.act_trade(intel_handoff, proposal, account, market, mandate,
+                              exchange_sim, idempotency_key, approval=approval,
+                              consensus=consensus, now=now)
+
 
 # ---------------------------------------------------------------------------
 # Human approver (D17) -- signs ApprovalRecord
