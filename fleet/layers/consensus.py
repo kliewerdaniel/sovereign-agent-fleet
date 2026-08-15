@@ -14,7 +14,14 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, Optional, Tuple
 
-from fleet.layers.brain import Brain, validate_brain_output
+from fleet.layers.brain import Brain, BrainSchemaError, validate_brain_output
+
+
+def _propose_validated(brain: Brain, task: str, instruction: str, schema_hint: str):
+    """Propose + schema-validate (D15). Returns the dict, or raises BrainSchemaError
+    on an unknown task / malformed proposal (which the gate converts to a distinct
+    audit condition)."""
+    return validate_brain_output(task, brain.propose(task, instruction, schema_hint))
 
 
 # task -> the field that carries the verdict/label to compare.
@@ -25,11 +32,21 @@ _VERDICT_FIELD = {
 
 
 def same_verdict(task: str, a: Dict[str, Any], b: Dict[str, Any]) -> bool:
-    """True iff both proposals carry the same verdict-bearing label for `task`."""
+    """True iff both proposals carry the same verdict-bearing label for `task`.
+
+    Returns False for any task not present in ``_VERDICT_FIELD`` OR whose mapped
+    field is absent from either proposal — callers must treat an unmapped task as a
+    distinct condition (see ``ConsensusGate.evaluate``), not as a brain disagreement.
+    """
     field = _VERDICT_FIELD.get(task, "verdict")
     if field not in a or field not in b:
         return False
     return str(a[field]) == str(b[field])
+
+
+def unmapped_task(task: str) -> bool:
+    """True iff `task` has no verdict-field mapping in `_VERDICT_FIELD`."""
+    return task not in _VERDICT_FIELD
 
 
 class ConsensusGate:
@@ -69,8 +86,59 @@ class ConsensusGate:
         disagreement, verdict=ASSERTED, and a signed ``consensus.disagreement`` audit
         event is appended (if an audit_append was supplied).
         """
-        pa = validate_brain_output(task, self._a.propose(task, instruction, schema_hint))
-        pb = validate_brain_output(task, self._b.propose(task, instruction, schema_hint))
+        # Validate each brain's proposal (D15). An unknown task / malformed
+        # proposal raises BrainSchemaError — that is a GATE/TASK gap, not a brain
+        # disagreement. Convert it to a distinct, loud, distinguishable signed
+        # event (`consensus.unmapped_task`) instead of letting it masquerade as a
+        # permanent disagreement (which would silently downgrade every claim for
+        # that task to ASSERTED forever).
+        try:
+            pa = _propose_validated(self._a, task, instruction, schema_hint)
+            pb = _propose_validated(self._b, task, instruction, schema_hint)
+        except BrainSchemaError as exc:
+            if self._audit is not None:
+                self._audit({
+                    "kind": "consensus.unmapped_task",
+                    "who": "consensus",
+                    "task": task,
+                    "input_refs": input_refs or [],
+                    "reason": f"task proposal failed schema/unknown task: {exc}; "
+                              "register the task (SCHEMAS + _VERDICT_FIELD) or it "
+                              "cannot reach VERIFIED",
+                })
+            return {
+                "status": "unmapped_task",
+                "disagreement": True,
+                "verdict": "ASSERTED",
+                "confidence": 0.0,
+                "reason": "task not registered for consensus verdict comparison",
+            }
+
+        # A task with no verdict-field mapping is also a CONFIG/GATE gap. Surface it
+        # as the same distinct, loud event (the schema passed but there is no field
+        # to compare). This can happen for a task that IS in SCHEMAS but absent from
+        # _VERDICT_FIELD.
+        if unmapped_task(task):
+            if self._audit is not None:
+                self._audit({
+                    "kind": "consensus.unmapped_task",
+                    "who": "consensus",
+                    "task": task,
+                    "a": pa,
+                    "b": pb,
+                    "input_refs": input_refs or [],
+                    "reason": "task has no verdict-field mapping in _VERDICT_FIELD; "
+                              "register the task or it cannot reach VERIFIED",
+                })
+            return {
+                "status": "unmapped_task",
+                "disagreement": True,
+                "verdict": "ASSERTED",
+                "confidence": 0.0,
+                "a": pa,
+                "b": pb,
+                "reason": "task not registered for consensus verdict comparison",
+            }
 
         agree = same_verdict(task, pa, pb) and (
             abs(self._conf(pa) - self._conf(pb)) <= self._tol

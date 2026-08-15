@@ -11,7 +11,7 @@ Proves the consensus gate:
 import pytest
 
 from fleet.layers import StubBrain, ConsensusGate
-from fleet.layers.consensus import same_verdict
+from fleet.layers.consensus import same_verdict, unmapped_task
 
 
 def _brain(claim_type, confidence, entity=None):
@@ -95,3 +95,36 @@ def test_e2_same_verdict_helper():
                         {"claim_type": "x"}, {"claim_type": "x"}) is True
     assert same_verdict("analyst_classification",
                         {"claim_type": "x"}, {"claim_type": "y"}) is False
+
+
+def test_e2_unmapped_task_is_distinct_from_disagreement():
+    # A newly-registered task with no _VERDICT_FIELD entry must NOT silently
+    # behave like a permanent brain disagreement. It must emit a DISTINCT,
+    # louder, distinguishable signed event and report status=unmapped_task.
+    events = []
+    # Two brains that agree perfectly (same canned dict) so this is NOT a
+    # disagreement in content — yet the task is unmapped -> unmapped_task, not
+    # consensus and not disagreement.
+    a = _brain("payment_fraud", 0.9)
+    b = _brain("payment_fraud", 0.9)
+    gate = ConsensusGate(a, b, audit_append=events.append)
+    out = gate.evaluate("unknown_future_task", "do", "unknown_future_task")
+    assert out["status"] == "unmapped_task"
+    assert out["verdict"] == "ASSERTED"
+    assert out["disagreement"] is True  # still requires escalation
+    assert len(events) == 1
+    assert events[0]["kind"] == "consensus.unmapped_task"
+    assert events[0]["task"] == "unknown_future_task"
+    # Sanity: a real disagreement on a MAPPED task still reports disagreement.
+    events2 = []
+    g2 = ConsensusGate(_brain("payment_fraud", 0.9), _brain("legit", 0.9),
+                       audit_append=events2.append)
+    out2 = g2.evaluate("analyst_classification", "classify", "analyst_classification")
+    assert out2["status"] == "disagreement"
+    assert events2[0]["kind"] == "consensus.disagreement"
+
+
+def test_e2_unmapped_task_helper():
+    assert unmapped_task("analyst_classification") is False
+    assert unmapped_task("analyst_entity_resolution") is False
+    assert unmapped_task("some_new_task") is True

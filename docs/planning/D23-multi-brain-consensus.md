@@ -49,10 +49,12 @@ exercisable offline.
 - On disagreement: never auto-VERIFY; downgrade to ASSERTED + signed event.
 
 ## Files
-- `fleet/layers/consensus.py` — `ConsensusGate`, `same_verdict`.
+- `fleet/layers/consensus.py` — `ConsensusGate`, `same_verdict`, `unmapped_task`.
 - `fleet/tests/test_consensus_phase3.py` — agree → VERIFIED; disagree → ASSERTED +
-  signed `consensus.disagreement` event; malformed proposal rejected; tolerance
-  respected.
+  signed `consensus.disagreement` event; **unmapped task → distinct signed
+  `consensus.unmapped_task` event** (loud, distinguishable from a real
+  disagreement — fails closed instead of masquerading as permanent disagreement);
+  malformed proposal rejected; tolerance respected.
 
 ## Rejected alternative
 Routing the SAME brain instance twice would silently double-count as "two" backends
