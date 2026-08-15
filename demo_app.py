@@ -79,16 +79,47 @@ def build_fleet_fin():
     human = cp.publish_agent("human-1", "human", ["approve_deny"])
     tool_cert, tool_key = cp.root.issue_cert("mkt", "tool", ["retrieve"], 2000, 9_999_999_999)
     cp.registry._certs["mkt"] = tool_cert
+    # D28 cognition producer: a distinct evaluator identity that signs the
+    # enrichment block (persona MoE GraphRAG signals). Resolved by the verifier
+    # from the registry via enrichment_producer -- never the operator.
+    eval_cert, eval_key = cp.root.issue_cert("evaluator-1", "analyst",
+                                             ["evaluate"], 2000, 9_999_999_999)
+    cp.registry._certs["evaluator-1"] = eval_cert
     account = Account("acct-1", cash=100_000.0, positions={},
                       mandate=Mandate(allowed_assets=["AAPL"]))
     market = ReplayFixture("AAPL", 2000, 150.0, 150.2, 150.1, 1.0e6, "replay").to_market_data()
     return {"cp": cp, "rt": rt, "r": r, "a": a, "o": o, "human": human,
             "tool_key": tool_key, "tool_cert": tool_cert,
+            "eval_cert": eval_cert, "eval_key": eval_key,
             "account": account, "market": market}
 
 
+def build_enrichment(env, thesis_text):
+    """Build the D28 D-C/D-D signed enrichment block for a proposal's thesis.
+
+    Runs the constitutional persona graph (skeptic/falsifier/risk + 2 enrichment
+    lenses), produces OBSERVED SIGNALS only, signs with the evaluator cert, and
+    returns the binding block (enrichment + sig + hash + producer). The gate
+    never receives this; the verifier proves present/unaltered/signed/signals-only
+    and that Run A == Run B (M0).
+    """
+    from fleet.cognition.persona import default_persona_graph
+    from fleet.cognition.evaluation import EvaluationArtifact, ProposalArtifact
+
+    graph = default_persona_graph()
+    signal = graph.analyze(thesis_text)
+    art = EvaluationArtifact(
+        producer_cert_id=env["eval_cert"].agent_id,
+        persona_analyses=signal["persona_analyses"],
+        uncertainty=0.2,
+        contradiction_count=0,
+    )
+    pa = ProposalArtifact(governance_surface=None, enrichment=art)
+    return pa.bind(env["eval_cert"], env["eval_key"])
+
+
 def run_fin_scenario(env, symbol, side, qty, consensus, human_approves, adversarial,
-                     brain_source="deterministic"):
+                     brain_source="deterministic", use_cognition=False):
     """Run one financial trade through the REAL four-gate pipeline.
 
     brain_source:
@@ -157,6 +188,15 @@ def run_fin_scenario(env, symbol, side, qty, consensus, human_approves, adversar
     elif adversarial == "revoked_operator":
         cp.registry.revoke("operator-1")
 
+    # D28 cognition: optionally attach the persona-MoE enrichment block. The gate
+    # NEVER receives it; the independent verifier proves it present/unaltered/
+    # signed/signals-only AND that Run A == Run B (M0). It cannot change the
+    # verdict (cognition removed -> identical disposition).
+    enrich = None
+    if use_cognition:
+        enrich = build_enrichment(env, f"{side} {qty} {symbol}: {extract}")
+    stages["used_cognition"] = use_cognition
+
     from fleet.layers.runtime import RuntimeError_ as _RuntimeError
     stages["result"] = None  # set by the execution below; kept for verifier section
     try:
@@ -167,11 +207,11 @@ def run_fin_scenario(env, symbol, side, qty, consensus, human_approves, adversar
                 first = Operator(env["o"], env["rt"]).act_trade_from_brain(
                     intel_handoff, account, market, account.mandate,
                     ExchangeSim(account, market, now=2000), idempotency_key="idem-fin",
-                    consensus=consensus_used, brain=brain)
+                    consensus=consensus_used, brain=brain, enrichment=enrich)
                 res = Operator(env["o"], env["rt"]).act_trade_from_brain(
                     intel_handoff, account, market, account.mandate,
                     ExchangeSim(account, market, now=2000), idempotency_key="idem-fin",
-                    consensus=consensus_used, brain=brain)
+                    consensus=consensus_used, brain=brain, enrichment=enrich)
                 stages["result"] = res
                 stages["replayed"] = True
             else:
@@ -179,7 +219,7 @@ def run_fin_scenario(env, symbol, side, qty, consensus, human_approves, adversar
                 res = Operator(env["o"], env["rt"]).act_trade_from_brain(
                     intel_handoff, account, market, account.mandate,
                     ExchangeSim(account, market, now=2000), idempotency_key="idem-fin",
-                    consensus=consent, brain=brain)
+                    consensus=consent, brain=brain, enrichment=enrich)
                 stages["result"] = res
             # fall through to the independent verifier (runs for every path)
         elif adversarial == "replay":
@@ -188,11 +228,11 @@ def run_fin_scenario(env, symbol, side, qty, consensus, human_approves, adversar
             first = Operator(env["o"], env["rt"]).act_trade(
                 intel_handoff, proposal, account, market, account.mandate,
                 ExchangeSim(account, market, now=2000), idempotency_key="idem-fin",
-                approval=approval, consensus=consensus_used)
+                approval=approval, consensus=consensus_used, enrichment=enrich)
             res = Operator(env["o"], env["rt"]).act_trade(
                 intel_handoff, proposal, account, market, account.mandate,
                 ExchangeSim(account, market, now=2000), idempotency_key="idem-fin",
-                approval=approval, consensus=consensus_used)
+                approval=approval, consensus=consensus_used, enrichment=enrich)
             stages["result"] = res
             stages["replayed"] = True
         else:
@@ -203,7 +243,8 @@ def run_fin_scenario(env, symbol, side, qty, consensus, human_approves, adversar
             consent = "weak" if (consensus == "weak" or adversarial == "forged_approval") else None
             res = Operator(env["o"], env["rt"]).act_trade(
                 intel_handoff, proposal, account, market, account.mandate, sim,
-                idempotency_key="idem-fin", approval=approval, consensus=consent)
+                idempotency_key="idem-fin", approval=approval, consensus=consent,
+                enrichment=enrich)
             stages["result"] = res
     except _RuntimeError as exc:
         # Fail-closed: a revoked/unknown operator identity (or other hard auth
@@ -368,12 +409,16 @@ if MODE == "Financial trade (D27)":
     brain_key = {"deterministic": "deterministic",
                  "cooperative (AI)": "cooperative",
                  "hostile (AI)": "hostile"}[brain_source]
+    use_cognition = st.checkbox(
+        "Attach D28 cognition (persona MoE enrichment) — proves Run A = Run B (M0)",
+        value=False)
 
     if st.button("Run financial scenario", type="primary"):
         stages = run_fin_scenario(
             fen, symbol, side, qty,
             consensus if consensus != "none" else None,
-            human_approves=True, adversarial=adversarial, brain_source=brain_key)
+            human_approves=True, adversarial=adversarial, brain_source=brain_key,
+            use_cognition=use_cognition)
         panels = st.container()
 
         def fpanel(n, title, body, tone="info"):
@@ -433,6 +478,27 @@ if MODE == "Financial trade (D27)":
         vt = {"PASS": "good", "FAIL": "bad", "CRITICAL": "bad", "N/A": "info"}.get(overall, "info")
         fpanel(6, f"Independent verifier — {overall}",
                ver if overall != "N/A" else ver.get("note", "no execution"), vt)
+
+        # D28 cognition / M0 demonstration panel.
+        if stages.get("used_cognition"):
+            m0v = ver.get("m0_violations", 0)
+            m0tone = "good" if m0v == 0 else "bad"
+            fpanel(7, "D28 cognition — M0 proof (Run A = Run B)",
+                   {"enrichment_attached": True,
+                    "persona_lenses": ["skeptic", "falsifier", "risk",
+                                        "optimist", "domain_expert"],
+                    "m0_violations": m0v,
+                    "note": ("Cognition emitted observed signals only; the gate "
+                             "never received them. Verifier proves Run A "
+                             "(with cognition) == Run B (stripped): identical "
+                             "disposition.")},
+                   m0tone)
+        else:
+            fpanel(7, "D28 cognition — disabled",
+                   "Cognition layer off. Toggle 'Attach D28 cognition' to attach "
+                   "the persona-MoE enrichment block and watch the verifier prove "
+                   "M0 (Run A = Run B) — the verdict is unchanged by cognition.",
+                   "info")
 
         # Outcome banner
         if stages.get("replayed"):
