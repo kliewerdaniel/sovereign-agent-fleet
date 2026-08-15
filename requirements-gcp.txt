@@ -1,0 +1,13 @@
+# GCP deploy dependencies (Phase 3). NOT installed in the base/test venv — the
+# fleet runtime stays dependency-free so tests run offline and fast (D18 cost
+# discipline). Install these only for Cloud Run / Firestore / Pub-Sub deploy.
+
+google-cloud-firestore>=2.13
+google-cloud-pubsub>=2.18
+opentelemetry-api>=1.20
+opentelemetry-sdk>=1.20
+# WSGI server for the D17 approval console on Cloud Run.
+gunicorn>=21.0
+
+# The base runtime deps (cryptography/pynacl/argon2-cffi/pytest) are inherited
+# from requirements.txt; this file ADDS the cloud layer on top.

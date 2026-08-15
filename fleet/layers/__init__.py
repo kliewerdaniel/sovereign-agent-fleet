@@ -12,6 +12,8 @@ from __future__ import annotations
 import time
 
 from fleet.crypto.foundation import AuditTrail, IdentityRoot
+from fleet.gcp.bridge import FanoutStore
+from fleet.gcp.otel import OtelExporter
 from fleet.layers.armor import (
     InjectionError,
     ToolEnvelope,
@@ -91,10 +93,25 @@ class ControlPlane:
     with `advance_clock` for deterministic tests.
     """
 
-    def __init__(self, master_secret: bytes, audit_key, store=None, now_fn=None):
+    def __init__(self, master_secret: bytes, audit_key, store=None, now_fn=None,
+                 bridge=None, otel=None, run_id="run-default"):
         self._now = now_fn or time.time
+        self.run_id = run_id
+        # Optional GCP replication (13.3): every audit write fans out to the
+        # Firestore mirror. The bridge receives SIGNED artifacts only (D3/D6).
+        self.bridge = bridge
+        self.otel = otel or OtelExporter(use_sdk=False)
+
+        def _on_put(coll, record, event):
+            if coll == "ledger" and self.bridge is not None:
+                # replicate the verbatim signed entry; mirror is byte-identical
+                self.bridge.replicate(record)
+                if self.otel is not None:
+                    self.otel.emit_audit(self.run_id, record)
+
+        audit_store = FanoutStore(store, on_put=_on_put) if store is not None else None
         self.root = IdentityRoot(master_secret)
-        self.audit = AuditTrail(audit_key, store=store)
+        self.audit = AuditTrail(audit_key, store=audit_store)
         self.registry = AgentRegistry(self.root, self.audit, now_fn=self._now)
         self.gateway = Gateway(
             self.registry, self.audit, signing_key=audit_key,

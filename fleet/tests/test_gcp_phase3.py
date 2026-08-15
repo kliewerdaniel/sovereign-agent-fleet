@@ -1,0 +1,180 @@
+"""Phase 3 GCP + Observability (14.8 / 03.2 #7 / 13.3 / D17).
+
+All tests run OFFLINE: the GcpBridge ``local`` mode mirrors the exact Firestore
+document schema, so the 14.8 verifier exercises the identical code path a live
+deployment would. The verifier receives ONLY public keys -- proving GCP holds
+verifiable data, not authority (D3/D6).
+
+Coverage:
+  * 14.8: replicate() writes verifiable docs; FirestoreVerifier against the copy
+    reproduces tamper detection (flip a body -> verify fails at that seq; intact
+    chain verifies). Certification of a single claim: cloud copy == local truth.
+  * OTel: audit entries fan out to OTel spans sharing one run trace_id; reasoning
+    spans carry the deterministic brain proposal (03.2 #7).
+  * 13.3: Pub/Sub publish_task enqueues signed handoffs (local mirror).
+  * D17: Cloud Run approval console queues pending action + collects a human
+    signed ApprovalRecord via stdlib WSGI app.
+"""
+import json
+
+import pytest
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+
+from fleet.crypto.chriscrypt.store import JsonStore
+from fleet.gcp.bridge import GcpBridge
+from fleet.gcp.otel import OtelExporter
+from fleet.gcp.verify import FirestoreVerifier
+from fleet.layers import ControlPlane, Handoff, MemBank, Runtime
+from fleet.layers.runtime import Approval
+
+
+@pytest.fixture
+def env(tmp_path):
+    master = b"phase3-master"
+    audit = Ed25519PrivateKey.from_private_bytes(
+        HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=b"fleet:audit").derive(b"audit-p3")
+    )
+    store = JsonStore(str(tmp_path / "audit.json"))
+    bridge = GcpBridge(mode="local", project="project-3ba93cec-8ca6-43c0-ba4")
+    otel = OtelExporter(use_sdk=False)
+    cp = ControlPlane(master, audit, store=store, now_fn=lambda: 1_000,
+                      bridge=bridge, otel=otel, run_id="run-p3")
+    kek = HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=b"fleet:mem").derive(b"mem-p3")
+    mem = MemBank(kek)
+    rt = Runtime(cp, mem, now_fn=lambda: 1_000)
+    r = cp.publish_agent("researcher-1", "researcher", ["emit_evidence"])
+    a = cp.publish_agent("analyst-1", "analyst", ["qualify", "verify_gate"])
+    o = cp.publish_agent("operator-1", "operator", ["prepare_artifact", "crm_write"])
+    human = cp.publish_agent("human-1", "human", ["approve_deny"])
+    return {"cp": cp, "rt": rt, "r": r, "a": a, "o": o, "human": human,
+            "bridge": bridge, "otel": otel, "audit_key": audit}
+
+
+# --- 14.8 Firestore verifier (verifiable data, not authority) ------------
+
+def test_replicate_writes_verifiable_docs(env):
+    env["cp"].request_authority(env["o"].cert, "crm_write")
+    docs = env["bridge"].mirror_docs()
+    assert docs, "GCP mirror must hold replicated signed artifacts"
+    # every replicated doc carries the verbatim signed payload + its sig + prev
+    for d in docs:
+        assert d["payload"]["sig"] is not None
+        assert d["prev_hash"] == d["payload"].get("prev")
+
+
+def test_firestore_verifier_passes_on_intact_chain(env):
+    env["cp"].request_authority(env["o"].cert, "crm_write")
+    env["cp"].request_authority(env["a"].cert, "qualify")
+    verifier = FirestoreVerifier(
+        env["bridge"].mirror_docs(), env["cp"].audit.public_key_pem(),
+        env["cp"].root.root_public_pem,
+    )
+    assert verifier.verify() is True  # GCP copy is verifiable with public keys
+
+
+def test_firestore_verifier_detects_tamper(env):
+    env["cp"].request_authority(env["o"].cert, "crm_write")
+    env["cp"].request_authority(env["a"].cert, "qualify")
+    docs = env["bridge"].mirror_docs()
+    # flip one ledger entry's body in the cloud copy (adversary beat 6)
+    target = next(d for d in docs if d["payload"].get("seq") == 1)
+    tampered = dict(target)
+    tampered_payload = dict(tampered["payload"])
+    tampered_payload["payload"] = dict(tampered_payload["payload"])
+    tampered_payload["payload"]["result"] = "tampered"
+    tampered["payload"] = tampered_payload
+    docs[2] = tampered  # replace the seq==1 doc in the mirror
+    verifier = FirestoreVerifier(
+        docs, env["cp"].audit.public_key_pem(), env["cp"].root.root_public_pem,
+    )
+    # tamper is detected using ONLY public keys — no authority needed
+    assert verifier.verify() is False
+
+
+def test_verifier_uses_public_keys_only(env):
+    env["cp"].request_authority(env["o"].cert, "crm_write")
+    verifier = FirestoreVerifier(
+        env["bridge"].mirror_docs(), env["cp"].audit.public_key_pem(),
+        env["cp"].root.root_public_pem,
+    )
+    # the verifier object holds only public pems; assert no private attr leaked
+    assert not hasattr(verifier, "_priv")
+    assert verifier.verify() is True
+
+
+# --- 03.2 #7 OTel observability -------------------------------------------
+
+def test_otel_fanout_shares_run_trace(env):
+    env["cp"].request_authority(env["o"].cert, "crm_write")
+    env["cp"].request_authority(env["a"].cert, "qualify")
+    spans = env["otel"].spans()
+    assert spans, "audit entries must fan out to OTel spans"
+    trace_ids = {s.trace_id for s in spans}
+    assert len(trace_ids) == 1, "all spans in a run share one trace_id"
+    assert env["otel"].trace_for("run-p3") == spans[0].trace_id
+
+
+def test_otel_reasoning_span_carries_proposal(env):
+    span = env["otel"].emit_reasoning("run-p3", "analyst", "qualify",
+                                       {"confidence": 0.8, "icp_fit": True})
+    assert span.trace_id == env["otel"].trace_for("run-p3")
+    assert span.events and span.events[0]["name"] == "proposal"
+    assert span.events[0]["attributes"]["icp_fit"] is True
+
+
+# --- 13.3 Pub/Sub async handoffs ------------------------------------------
+
+def test_pubsub_publish_task_local(env):
+    env = env  # noqa
+    handoff = Handoff.make(env["a"].cert, env["a"].key, "QualifiedIntel",
+                           {"intel_id": "iq_1", "predicates": []})
+    # the handoff is already signed (envelope) -> safe to replicate to a topic
+    task_id = env["bridge"].publish_task(handoff.to_dict())
+    assert task_id.startswith("local-task-")
+    # the handoff envelope carries the sender cert; the sender identity is
+    # recoverable from it (no new field is minted for Pub/Sub).
+    assert env["bridge"].published_tasks()[0]["sender_cert"]["agent_id"] == env["a"].agent_id
+
+
+# --- D17 Cloud Run approval console ---------------------------------------
+
+def test_console_queues_and_collects_human_approval(env):
+    from fleet.gcp.console import ApprovalConsole
+
+    console = ApprovalConsole(env["bridge"])
+    console.queue({"action_id": "crm_write:42", "agent_id": "operator-1",
+                   "artifact_hash": "abc", "ts": 1_000})
+    assert len(console.pending()) == 1
+    ap_dict = console.approve(
+        "crm_write:42", "approve", "verified intel",
+        env["human"].cert, env["human"].key,
+    )
+    assert ap_dict["decision"] == "approve"
+    assert ap_dict["human_id"] == "human-1"
+    assert "human_sig" in ap_dict and ap_dict["human_sig"]
+    assert console.pending() == []  # consumed after approval
+
+
+def test_console_wsgi_serves_pending(env):
+    from wsgiref.util import setup_testing_defaults
+    from io import BytesIO
+
+    from fleet.gcp.console import ApprovalConsole
+
+    console = ApprovalConsole(env["bridge"])
+    console.queue({"action_id": "crm_write:7", "agent_id": "operator-1",
+                   "artifact_hash": "x", "ts": 1_000})
+    environ = {}
+    setup_testing_defaults(environ)
+    environ["REQUEST_METHOD"] = "GET"
+    environ["PATH_INFO"] = "/pending"
+    out = {}
+
+    def start_response(status, headers):
+        out["status"] = status
+
+    body = console.wsgi_app(environ, start_response)
+    assert out["status"] == "200 OK"
+    assert b"crm_write:7" in b"".join(body)
