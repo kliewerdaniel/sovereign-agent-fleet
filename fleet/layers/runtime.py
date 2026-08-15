@@ -32,6 +32,7 @@ from fleet.layers.armor import (
 )
 from fleet.layers.handoff import Handoff, HandoffError
 from fleet.layers.verification import ASSERTED, HALLUCINATION, VERIFIED, stamp
+from fleet.layers.approval import verify_approval
 from fleet.layers.brain import (
     Brain,
     StubBrain,
@@ -279,9 +280,21 @@ class Operator:
         if not resp.granted:
             return {"final": False, "blocked": True,
                     "reason": resp.deny_reason or "authority denied"}
-        if resp.require_approval and approval is None:
-            return {"final": False, "needs_approval": True,
-                    "artifact_hash": artifact_hash, "pii_redacted": n_pii}
+        if resp.require_approval:
+            # D17 (A1/A2 — fail-closed): the human ApprovalRecord must be a
+            # genuine Ed25519 signature that BINDS to this exact action. A
+            # forged, rebound, or reused approval is rejected.
+            human_cert = self.rt.cp.registry.human_cert()
+            if human_cert is None or approval is None:
+                return {"final": False, "needs_approval": True,
+                        "artifact_hash": artifact_hash, "pii_redacted": n_pii}
+            if not verify_approval(approval, human_cert, idempotency_key,
+                                   capability, artifact_hash):
+                self.rt.log_audit("operator.approval.rejected", who=self.agent.agent_id,
+                                  reason="approval signature invalid or mis-bound")
+                return {"final": False, "blocked": True,
+                        "reason": "approval signature invalid or mis-bound",
+                        "pii_redacted": n_pii}
 
         # FINAL: the consequential write is itself idempotent (#12) — a replay
         # of the same idempotency key returns the original recorded result
@@ -319,6 +332,7 @@ class Approval:
     approval_id: str
     agent_id: str
     action_id: str
+    capability: str
     artifact_hash: str
     decision: str
     reason: str
@@ -327,16 +341,17 @@ class Approval:
     ts: int
 
     @classmethod
-    def sign(cls, human_cert, human_key, agent_id, action_id, artifact_hash,
-             decision, reason, ts) -> "Approval":
+    def sign(cls, human_cert, human_key, agent_id, action_id, capability,
+             artifact_hash, decision, reason, ts) -> "Approval":
         import secrets
         body = canonical_bytes({
             "approval_id": "", "agent_id": agent_id, "action_id": action_id,
-            "artifact_hash": artifact_hash, "decision": decision,
-            "reason": reason, "human_id": human_cert.agent_id, "ts": ts,
+            "capability": capability, "artifact_hash": artifact_hash,
+            "decision": decision, "reason": reason,
+            "human_id": human_cert.agent_id, "ts": ts,
         })
         sig = human_key.sign(body).hex()
         return cls(approval_id=f"ap_{secrets.token_hex(6)}",
-                   agent_id=agent_id, action_id=action_id,
+                   agent_id=agent_id, action_id=action_id, capability=capability,
                    artifact_hash=artifact_hash, decision=decision, reason=reason,
                    human_id=human_cert.agent_id, human_sig=sig, ts=ts)

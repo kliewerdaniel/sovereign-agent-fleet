@@ -39,7 +39,8 @@ class ApprovalConsole:
         ap = Approval.sign(
             human_cert, human_key,
             action.get("agent_id", ""), action_id,
-            action.get("artifact_hash", ""), decision, reason,
+            action.get("capability", ""), action.get("artifact_hash", ""),
+            decision, reason,
             int(action.get("ts", 0)),
         )
         self._pending = [a for a in self._pending if a.get("action_id") != action_id]

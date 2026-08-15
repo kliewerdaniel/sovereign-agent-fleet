@@ -87,6 +87,18 @@ class AgentRegistry:
         """Latest cert regardless of revocation/expiry (inspection only)."""
         return self._certs.get(agent_id)
 
+    def human_cert(self) -> Optional[AgentCert]:
+        """Return the live (root-signed, unrevoked, unexpired) human approver cert.
+
+        Used by the Operator to verify ApprovalRecords (D17). Looks up by ROLE,
+        not a hard-coded id, so the human agent can be named anything.
+        """
+        for agent_id in self._certs:
+            cert = self.discover(agent_id)
+            if cert is not None and cert.role == "human":
+                return cert
+        return None
+
     def is_known(self, agent_id: str) -> bool:
         return agent_id in self._certs
 
