@@ -56,22 +56,39 @@ def scan_injection(text: str) -> List[str]:
     return hits
 
 
+def scan_injection_deep(obj: Any) -> List[str]:
+    """Recurse into dict/list/str values (M1). A nested field whose *value* is an
+    instruction must not bypass the per-string check. Strings are scanned directly;
+    containers are walked; non-string leaves are ignored (they have no text surface
+    that could carry a free-text instruction).
+    """
+    hits: List[str] = []
+    if isinstance(obj, str):
+        hits.extend(scan_injection(obj))
+    elif isinstance(obj, dict):
+        for v in obj.values():
+            hits.extend(scan_injection_deep(v))
+    elif isinstance(obj, (list, tuple, set)):
+        for v in obj:
+            hits.extend(scan_injection_deep(v))
+    return hits
+
+
 def sanitize_tool_result(raw: Dict[str, Any], allowed_fields: List[str]) -> Dict[str, Any]:
     """Model Armor step 1: project tool output to declared structured fields.
 
     Anything outside `allowed_fields` is dropped (no free-text instruction
     surface reaches the model). If a value contains an injection fragment,
     raise InjectionError so the Runtime records an injection attempt instead
-    of forwarding it.
+    of forwarding it. Nested dict/list values are scanned recursively (M1).
     """
     structured: Dict[str, Any] = {}
     for field in allowed_fields:
         if field in raw:
             value = raw[field]
-            if isinstance(value, str):
-                hits = scan_injection(value)
-                if hits:
-                    raise InjectionError(f"injection fragment in field '{field}': {hits}")
+            hits = scan_injection_deep(value)
+            if hits:
+                raise InjectionError(f"injection fragment in field '{field}': {hits}")
             structured[field] = value
     return structured
 
@@ -125,20 +142,49 @@ def verify_tool_envelope(env: ToolEnvelope, tool_cert_pem: str) -> bool:
 
 # Deterministic format scanner. These are demo-grade patterns for CRM/outreach
 # artifacts; a production deployment would add more. Matching spans are
-# redacted, never logged in plaintext.
+# redacted, never logged in plaintext. The card pattern is deliberately
+# conservative: it requires >=13 consecutive digits (optionally grouped with
+# single spaces/hyphens) so it does not greedily mis-redact phone numbers,
+# IDs, or normal text (M2).
 _PII_PATTERNS = [
     ("email", re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}")),
-    ("phone", re.compile(r"(?<!\d)(?:\+?\d[\s.-]?){9,15}(?!\d)")),
     ("ssn", re.compile(r"\b\d{3}-\d{2}-\d{4}\b")),
-    ("card", re.compile(r"\b(?:\d[ -]*?){13,19}\b")),
+    ("phone", re.compile(r"(?<![\d-])(?:\+?\d[\s.-]?){9,15}(?![\d-])")),
+    ("card", re.compile(r"\b(?:\d[ -]?){13,19}\b")),
 ]
+
+
+def _count_digits(span: str) -> int:
+    return sum(1 for ch in span if ch.isdigit())
 
 
 def scan_pii(text: str) -> List[Tuple[str, str]]:
     findings = []
     for kind, pat in _PII_PATTERNS:
         for m in pat.finditer(text):
+            # card needs >=13 digits to avoid matching short numeric IDs.
+            if kind == "card" and _count_digits(m.group(0)) < 13:
+                continue
             findings.append((kind, m.group(0)))
+    return findings
+
+
+def scan_pii_deep(obj: Any) -> List[Tuple[str, str]]:
+    """Recurse into dict/list/str values, scanning every string for PII (M2).
+
+    Used at the Researcher evidence boundary so a raw SSN embedded in a tool
+    result's `extract` (or any nested field) is caught before it becomes a
+    persisted record, not only at the final artifact.
+    """
+    findings: List[Tuple[str, str]] = []
+    if isinstance(obj, str):
+        findings.extend(scan_pii(obj))
+    elif isinstance(obj, dict):
+        for v in obj.values():
+            findings.extend(scan_pii_deep(v))
+    elif isinstance(obj, (list, tuple, set)):
+        for v in obj:
+            findings.extend(scan_pii_deep(v))
     return findings
 
 
@@ -146,10 +192,40 @@ def redact_pii(text: str) -> Tuple[str, int]:
     """Replace every detected PII span with a token. Returns (redacted, n_finds)."""
     n = 0
     out = text
+    # per-kind substitution so tokens name the PII class
     for kind, pat in _PII_PATTERNS:
-        def _sub(m, k=kind):
+        def _sub_kind(m, k=kind):
             nonlocal n
+            if k == "card" and _count_digits(m.group(0)) < 13:
+                return m.group(0)
             n += 1
             return f"<REDACTED:{k}>"
-        out = pat.sub(_sub, out)
+        out = pat.sub(_sub_kind, out)
     return out, n
+
+
+def redact_pii_deep(obj: Any) -> Tuple[Any, int]:
+    """Recurse into dict/list/str values, redacting every string (M2). Returns the
+    redacted copy and total number of PII spans replaced. Used at the Researcher
+    evidence boundary so a raw SSN/email embedded in a tool result is redacted
+    before it becomes a persisted record.
+    """
+    total = 0
+    if isinstance(obj, str):
+        out, n = redact_pii(obj)
+        return out, n
+    if isinstance(obj, dict):
+        out = {}
+        for k, v in obj.items():
+            rv, n = redact_pii_deep(v)
+            out[k] = rv
+            total += n
+        return out, total
+    if isinstance(obj, (list, tuple, set)):
+        out = []
+        for v in obj:
+            rv, n = redact_pii_deep(v)
+            out.append(rv)
+            total += n
+        return (out if isinstance(obj, list) else type(obj)(out)), total
+    return obj, total

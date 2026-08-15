@@ -27,6 +27,7 @@ from fleet.crypto.foundation import SecretVault, canonical_bytes, sha256
 from fleet.layers.armor import (
     InjectionError,
     redact_pii,
+    redact_pii_deep,
     sanitize_tool_result,
     verify_tool_envelope,
 )
@@ -172,6 +173,17 @@ class Researcher:
         except InjectionError as e:
             self.rt.log_audit("runtime.injection", who=self.agent.agent_id, detail=str(e))
             raise
+        # 2b. PII defense at the evidence boundary (M2): a tool returning a raw
+        #     SSN/email in `extract` must be redacted BEFORE it becomes a persisted
+        #     record, not only at the final artifact. Deep-scan + redact the
+        #     structured result; record that a redaction occurred.
+        redacted, n_pii = redact_pii_deep(structured)
+        if n_pii:
+            self.rt.log_audit(
+                "researcher.pii_redacted", who=self.agent.agent_id,
+                n=n_pii, evidence_boundary=True,
+            )
+        structured = redacted
         now = int(self.rt._now())
         evidence_id = f"ev_{sha256(json.dumps(structured, sort_keys=True).encode())[:12]}"
         payload = {

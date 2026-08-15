@@ -19,9 +19,11 @@ from fleet.layers.armor import (
     InjectionError,
     ToolEnvelope,
     redact_pii,
+    redact_pii_deep,
     sanitize_tool_result,
     scan_injection,
     scan_pii,
+    scan_pii_deep,
     verify_tool_envelope,
 )
 from fleet.layers.brain import (
@@ -75,6 +77,8 @@ __all__ = [
     "scan_injection",
     "scan_pii",
     "redact_pii",
+    "scan_pii_deep",
+    "redact_pii_deep",
     "Runtime",
     "Researcher",
     "Analyst",

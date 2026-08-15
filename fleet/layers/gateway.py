@@ -38,6 +38,7 @@ class AuthorityResponse:
     decision: str                       # "grant" | "require_approval" | "deny"
     capability: str
     agent_id: str
+    cert_seq: int                      # cert version bound into the verdict (A3)
     require_approval: bool
     deny_reason: Optional[str]
     idempotency_key: Optional[str]
@@ -58,7 +59,10 @@ class Gateway:
         self._key = signing_key
         self._signer = signing_agent_id
         self._now = now_fn or time.time
-        self._cache: Dict[str, AuthorityResponse] = {}  # idempotency_key -> prior verdict
+        # idempotency_key -> (verdict, agent_id, cert_seq). The cert binding is
+        # part of the key so that a revoked/rotated cert (cert_seq bump) forces a
+        # re-authentication instead of replaying a stale GRANT (A3/D14).
+        self._cache: Dict[str, tuple] = {}
 
     def request_authority(
         self,
@@ -67,15 +71,23 @@ class Gateway:
         idempotency_key: Optional[str] = None,
     ) -> AuthorityResponse:
         # --- idempotency (13.7) ------------------------------------------------
-        # A replay of a key returns the PRIOR authority outcome verbatim; it is
-        # not a fresh denial. This prevents the Gateway from double-charging the
-        # same consequential action and lets a legit retry of a granted request
-        # succeed. True "no double-execution" enforcement lives at the Runtime
-        # write layer (failure #12); here we only memoize the verdict.
-        if idempotency_key is not None:
-            if idempotency_key in self._cache:
-                return self._cache[idempotency_key]
-            response = None  # set below, then cached
+        # A replay of a key returns the PRIOR authority outcome verbatim, but
+        # ONLY while the requesting cert's identity + cert_seq are unchanged. A
+        # revoke or root rotation bumps cert_seq, so a stale replay must NOT
+        # reuse a prior GRANT — it re-enters authentication and is denied (A3).
+        if idempotency_key is not None and idempotency_key in self._cache:
+            cached_resp, cached_agent, cached_seq = self._cache[idempotency_key]
+            if cached_agent == cert.agent_id and cached_seq == cert.cert_seq:
+                # Re-verify the cert is STILL live before replaying a prior GRANT.
+                # A revoke (or any registry state change) must not let a stale
+                # positive verdict survive — the cache is re-validated, not just
+                # memoized (A3/D14).
+                live = self._registry.discover(cert.agent_id)
+                if live is not None and live.cert_seq == cert.cert_seq \
+                        and self._registry._root.verify_cert(cert):
+                    return cached_resp
+            # Cert state changed since the cached verdict -> invalidate + re-eval.
+            del self._cache[idempotency_key]
 
         # --- authentication (root-signed, unrevoked, unexpired) ---------------
         live = self._registry.discover(cert.agent_id)
@@ -110,7 +122,7 @@ class Gateway:
         return self._record(
             AuthorityResponse(
                 granted=True, policy_id=pol.policy_id, decision=pol.decision,
-                capability=capability, agent_id=cert.agent_id,
+                capability=capability, agent_id=cert.agent_id, cert_seq=cert.cert_seq,
                 require_approval=require_approval, deny_reason=None,
                 idempotency_key=idempotency_key, signed_deny_event=None,
             ),
@@ -119,9 +131,12 @@ class Gateway:
 
     # --- internal -----------------------------------------------------------
     def _record(self, response, idempotency_key):
-        """Cache a verdict under its idempotency key (13.7 replay = prior outcome)."""
+        """Cache a verdict under its idempotency key (13.7 replay = prior outcome).
+
+        Bound to (agent_id, cert_seq) so a revoke/rotation invalidates it (A3).
+        """
         if idempotency_key is not None:
-            self._cache[idempotency_key] = response
+            self._cache[idempotency_key] = (response, response.agent_id, response.cert_seq)
         return response
 
     def _deny(self, agent_id, capability, reason, idempotency_key) -> AuthorityResponse:
@@ -140,7 +155,7 @@ class Gateway:
         return self._record(
             AuthorityResponse(
                 granted=False, policy_id="deny", decision="deny",
-                capability=capability, agent_id=agent_id,
+                capability=capability, agent_id=agent_id, cert_seq=0,
                 require_approval=False, deny_reason=reason,
                 idempotency_key=idempotency_key, signed_deny_event=signed,
             ),
