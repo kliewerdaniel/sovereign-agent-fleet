@@ -124,10 +124,20 @@ class GcpBridge:
         return list(self._tasks)
 
     # -- Cloud Run approval console (D17) -----------------------------------
-    def serve_console(self):
+    def serve_console(self, cp=None):
         from fleet.gcp.console import ApprovalConsole
+        from fleet.layers.approval import verify_approval
 
-        return ApprovalConsole(self)
+        # G2 hardening: wire server-side approval verification + the live human
+        # approver cert so the deployed console can never be a pass-through. If
+        # no ControlPlane (and thus no human cert) is supplied, human_cert stays
+        # None and the console fails closed (rejects every approval).
+        human = cp.registry.human_cert() if cp is not None else None
+        return ApprovalConsole(
+            self,
+            verify_approval=verify_approval,
+            human_cert=human,
+        )
 
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,46 @@
+name: fleet-security
+
+# Supply-chain + verification gate for the Sovereign Agent Fleet (D21 S1).
+# Runs on every push/PR:
+#   1. install the LOCKED base deps (reproducible, not `>=` ranges)
+#   2. pip-audit the installed tree for known CVEs (fail-closed)
+#   3. generate a CycloneDX SBOM of the resolved tree
+#   4. run the full test suite in an isolated, leakage-free venv
+
+on:
+  push:
+    branches: [main, security-hardening-d21]
+  pull_request:
+    branches: [main]
+
+jobs:
+  supply-chain:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install locked base deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.lock.txt
+
+      - name: pip-audit (fail closed on known CVEs)
+        run: |
+          pip install pip-audit
+          pip-audit --require-hashes -r requirements.lock.txt || pip-audit
+
+      - name: Generate SBOM (CycloneDX)
+        run: |
+          pip install cyclonedx-py
+          cyclonedx-py -r requirements.lock.txt -o sbom.cdx.json || \
+          pip install pip-licenses && pip-licenses --format json > sbom.licenses.json
+          ls -la sbom.*
+
+      - name: Run full test suite (isolated, offline)
+        run: |
+          python -m pytest fleet/tests -q

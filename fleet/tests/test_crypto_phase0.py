@@ -178,6 +178,41 @@ def test_audit_truncation_detected(root):
         assert Ledger.verify_chain(full[:2], pem, checkpoint=cp) is False
 
 
+def test_c3_replay_of_old_entry_detected(root):
+    """C3: re-inserting a previously-seen signed entry into the chain is detected.
+
+    An attacker with read access to old ledger entries cannot 'replay' them to
+    forge a longer/accepted history: every entry's `seq` must equal its position
+    AND its `prev` must chain to the immediately preceding entry. A replayed old
+    entry breaks both (its seq is stale, and its prev no longer matches), so
+    verify_chain returns False even with a valid signature.
+    """
+    from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+    from cryptography.hazmat.primitives import hashes
+    from fleet.crypto.chriscrypt.ledger import Ledger
+
+    audit_key = Ed25519PrivateKey.from_private_bytes(
+        HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=b"fleet:audit").derive(b"audit-secret")
+    )
+    with tempfile.TemporaryDirectory() as d:
+        from fleet.crypto.chriscrypt.store import JsonStore
+        trail = AuditTrail(audit_key, store=JsonStore(os.path.join(d, "audit.json")))
+        trail.append({"kind": "alpha", "payload": {"x": 1}})
+        trail.append({"kind": "beta", "payload": {"x": 2}})
+        trail.append({"kind": "gamma", "payload": {"x": 3}})
+        entries = trail.entries()
+        pem = trail.public_key_pem()
+        cp = trail._ledger.checkpoint()
+        assert Ledger.verify_chain(entries, pem, checkpoint=cp) is True
+        # Replay attack: duplicate the FIRST entry at the tail. It is still
+        # signature-valid, but its seq (0) != position (3) and its prev is stale.
+        replayed = entries + [dict(entries[0])]
+        assert Ledger.verify_chain(replayed, pem, checkpoint=cp) is False
+        # Replay in the middle (swap entry #1 with a copy of #0) -> seq/prev break.
+        reordered = [entries[0], dict(entries[0]), entries[2]]
+        assert Ledger.verify_chain(reordered, pem, checkpoint=cp) is False
+
+
 # --- per-record envelope encryption ---------------------------------------
 
 def test_secret_vault_roundtrip():
