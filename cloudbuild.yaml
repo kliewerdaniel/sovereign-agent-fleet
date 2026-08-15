@@ -1,0 +1,18 @@
+# Cloud Build: build the approval-console image from deployment/Dockerfile
+# and push it to Artifact Registry. Deploy separately with:
+#   gcloud run deploy fleet-approval-console --image=$_IMAGE --region=us-central1 ...
+steps:
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      - "build"
+      - "-f"
+      - "deployment/Dockerfile"
+      - "-t"
+      - "${_IMAGE}"
+      - "."
+images:
+  - "${_IMAGE}"
+options:
+  logging: CLOUD_LOGGING_ONLY
+substitutions:
+  _IMAGE: "us-central1-docker.pkg.dev/project-3ba93cec-8ca6-43c0-ba4/cloud-run-source-deploy/fleet-approval-console"

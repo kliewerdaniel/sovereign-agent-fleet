@@ -39,9 +39,9 @@ def header(d, title, sub=None):
         d.text((62, 92), sub, font=font(18), fill=GREY)
     rule(d, 130, PANEL, 2)
 
-def footer(d, idx):
+def footer(d, idx, total=12):
     d.text((60, H - 46), "Sovereign Agent Fleet  -  hackathon demo", font=font(15), fill=GREY)
-    d.text((W - 160, H - 46), f"{idx}/10", font=font(15), fill=GREY)
+    d.text((W - 160, H - 46), f"{idx}/{total}", font=font(15), fill=GREY)
 
 def wrap_lines(d, x, y, text, fnt, fill, maxw, lh, maxlines=None):
     lines = []
@@ -100,7 +100,6 @@ img.save(os.path.join(F, "T02.png"))
 img, d = new()
 header(d, "Architecture", "Deterministic control plane + pluggable brain")
 d.text((60, 175), "MODEL PROPOSES   ->   CONTROL PLANE DECIDES", font=font(24, bold=True), fill=ACCENT)
-# pipeline boxes
 bx, by, bw, bh = 60, 280, 340, 120
 for i, (t, s) in enumerate([("RESEARCHER", "gather evidence"), ("ANALYST", "qualify -> verified"), ("OPERATOR", "act (with approval)")]):
     x = bx + i * (bw + 40)
@@ -145,14 +144,8 @@ header(d, "Signed, Chained, Replicated", "Every action mirrored as a signed docu
 d.text((60, 190), "operator.final and all preceding events", font=font(22), fill=WHITE)
 d.text((60, 226), "are mirrored to the cloud store.", font=font(22), fill=WHITE)
 badge(d, 60, 300, "LOCAL_CHAIN_OK = TRUE", GREEN)
-d.text((420, 308), "-> 12 signed documents replicated", font=font(20), fill=GREY)
-footer(d, 6)
-img, d = new()
-header(d, "Signed, Chained, Replicated", "Every action mirrored as a signed document")
-d.text((60, 190), "operator.final and all preceding events", font=font(22), fill=WHITE)
-d.text((60, 226), "are mirrored to the cloud store.", font=font(22), fill=WHITE)
-badge(d, 60, 300, "LOCAL_CHAIN_OK = TRUE", GREEN)
-d.text((420, 308), "-> 12 signed documents replicated", font=font(20), fill=GREY)
+n = gcp.get("REPLICATED_DOCS", 11)
+d.text((420, 308), f"-> {n} signed documents replicated to live Firestore", font=font(20), fill=GREY)
 footer(d, 6)
 img.save(os.path.join(F, "T06.png"))
 
@@ -177,7 +170,44 @@ for k, v in rows:
 footer(d, 7)
 img.save(os.path.join(F, "T07.png"))
 
-# ============================ T08 brain boundary ============================
+# ============================ T08 LIVE deployment ============================
+img, d = new()
+header(d, "This Is the LIVE Deployment", "Real Google Cloud Run, not a local mirror")
+badge(d, 60, 185, "GCP = LIVE", GREEN)
+d.text((260, 193), gcp["CONSOLE_URL"], font=font(19, mono=True), fill=ACCENT)
+y = 270
+for t in [
+    "region us-central1 - Cloud Run approval console",
+    "real Firestore database holds the signed ledger",
+    "real Pub/Sub topic carries the handoffs",
+    "console NEVER holds the root key or signs artifacts",
+    "console only VERIFIES human signatures - fail closed",
+]:
+    d.text((80, y), "- " + t, font=font(19), fill=GREY)
+    y += 50
+badge(d, 60, 540, "CONSOLE_LIVE = TRUE", GREEN)
+footer(d, 8)
+img.save(os.path.join(F, "T08.png"))
+
+# ============================ T09 live console ============================
+img, d = new()
+header(d, "Watch the Live Console", "D17 - bound human signature or rejection")
+d.text((60, 185), "A consequential action is queued into the", font=font(22), fill=WHITE)
+d.text((60, 221), "live Cloud Run approval console.", font=font(22), fill=WHITE)
+y = 300
+for t in [
+    "console accepts only a valid Ed25519 human signature",
+    "signature bound to exact action_id + capability + hash",
+    "mis-bound approval -> rejected outright (fail-closed)",
+    "console requires the signature; it cannot forge one",
+]:
+    d.text((80, y), "- " + t, font=font(20), fill=GREY)
+    y += 52
+badge(d, 60, 540, "approval accepted, mis-bound REJECTED", GREEN)
+footer(d, 9)
+img.save(os.path.join(F, "T09.png"))
+
+# ============================ T10 brain boundary ============================
 img, d = new()
 header(d, "Model Brain Is Sandboxed by Contract", "D15 - proposes, never decides")
 d.text((60, 185), "Brain proposes classifications; control plane", font=font(22), fill=WHITE)
@@ -188,27 +218,33 @@ for t in ["malformed / out-of-range proposals -> REJECTED", "no policy / approva
     d.text((80, y), "- " + t, font=font(20), fill=GREY)
     y += 52
 badge(d, 60, 540, "SCHEMA_ENFORCED", GREEN)
-footer(d, 8)
-img.save(os.path.join(F, "T08.png"))
-
-# ============================ T09 honest ============================
-img, d = new()
-header(d, "The Honest Version", "Local-first, verifiable, sovereign")
-d.text((60, 200), "The GCP proof runs entirely on PUBLIC-KEY", font=font(22), fill=WHITE)
-d.text((60, 236), "verification:", font=font(22), fill=WHITE)
-for i, t in enumerate(["no private key in the verifier", "no live cloud spend in the demo", "local first, verifiable, sovereign"]):
-    badge(d, 60, 300 + i * 70, t, ACCENT)
-footer(d, 9)
-img.save(os.path.join(F, "T09.png"))
-
-# ============================ T10 close ============================
-img, d = new()
-header(d, "Sovereign Agent Fleet", "Thank you - good luck to all teams")
-d.text((60, 210), "Cryptographic identity.", font=font(26), fill=WHITE)
-d.text((60, 256), "Human-in-the-loop authority.", font=font(26), fill=WHITE)
-d.text((60, 302), "Verifiable replication.", font=font(26), fill=WHITE)
-d.text((60, 348), "A model that proposes but never decides.", font=font(26), fill=WHITE)
 footer(d, 10)
 img.save(os.path.join(F, "T10.png"))
+
+# ============================ T11 honest ============================
+img, d = new()
+header(d, "The Honest Version", "Local-first, verifiable, sovereign")
+d.text((60, 200), "The GCP proof is LIVE:", font=font(22), fill=WHITE)
+y = 270
+for i, t in enumerate([
+    "real Firestore database",
+    "real Pub/Sub topic",
+    "real Cloud Run console",
+    "all on public-key verification",
+    "no private key in the verifier",
+]):
+    badge(d, 60, y + i * 62, t, ACCENT)
+footer(d, 11)
+img.save(os.path.join(F, "T11.png"))
+
+# ============================ T12 close ============================
+img, d = new()
+header(d, "Sovereign Agent Fleet", "Thank you - good luck to all teams")
+d.text((60, 200), "Cryptographic identity.", font=font(26), fill=WHITE)
+d.text((60, 246), "Human-in-the-loop authority.", font=font(26), fill=WHITE)
+d.text((60, 292), "Verifiable replication on live infrastructure.", font=font(26), fill=WHITE)
+d.text((60, 338), "A model that proposes but never decides.", font=font(26), fill=WHITE)
+footer(d, 12)
+img.save(os.path.join(F, "T12.png"))
 
 print("frames written:", sorted(os.listdir(F)))

@@ -1,9 +1,16 @@
 {
   "GCP_PROJECT": "project-3ba93cec-8ca6-43c0-ba4",
+  "GCP_REGION": "us-central1",
+  "CONSOLE_URL": "https://fleet-approval-console-85569899488.us-central1.run.app",
+  "FIRESTORE_COLLECTION": "fleet_ledger_live",
+  "PUBSUB_TOPIC": "fleet_handoffs_live",
   "OPERATOR_FINAL": true,
   "LOCAL_CHAIN_OK": true,
-  "REPLICATED_DOCS": 12,
+  "REPLICATED_DOCS": 11,
   "TAMPER_DETECTED": true,
   "PRIVATE_KEY_USED_BY_VERIFIER": false,
-  "FINAL_COMMITTED": true
+  "FINAL_COMMITTED": true,
+  "FIRESTORE_VERIFY": true,
+  "CONSOLE_LIVE": true,
+  "MODE": "gcp-live"
 }

@@ -9,7 +9,7 @@ AU = os.path.join(ROOT, "demo", "audio")
 CL = os.path.join(ROOT, "demo", "_clips")
 os.makedirs(CL, exist_ok=True)
 
-SCENES = ["T01", "T02", "T03", "T04", "T05", "T06", "T07", "T08", "T09", "T10"]
+SCENES = ["T01", "T02", "T03", "T04", "T05", "T06", "T07", "T08", "T09", "T10", "T11", "T12"]
 
 def dur(path):
     out = subprocess.check_output([FP, "-v", "error", "-show_entries",

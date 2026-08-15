@@ -1,0 +1,17 @@
+# Keep the Cloud Run image minimal and free of local secrets/build artifacts.
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+demo/
+docs/
+*.log
+.git/
+.gitignore
+.env
+*.pem
+scc-groundtruth/
+.circleci/
+.github/
+requirements-ui.txt

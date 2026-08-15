@@ -24,8 +24,13 @@ action is recorded in a tamper-evident, signed audit ledger.
 
 The demo is assembled entirely from **real artifacts**: the pytest beat output,
 the GCP public-key verification proof (`GcpBridge` + `FirestoreVerifier`), and
-the pluggable-brain schema boundary. GCP is not live in the demo (Cloud Run
-min-instances 0) — the identical local code path is used and labeled as such.
+the pluggable-brain schema boundary. **GCP is LIVE**, not a local mirror: the
+fleet replicates signed artifacts to a real Firestore database
+(`project-3ba93cec-8ca6-43c0-ba4`), publishes handoff envelopes to Pub/Sub, and
+the **D17 human-approval console runs on Cloud Run**
+(`fleet-approval-console-85569899488.us-central1.run.app`, `min-instances=0`).
+The Cloud Run instance never holds the root key or signs artifacts — it only
+verifies human-signed approvals against public keys (fail-closed).
 
 ## What's here (Phases 0–5, all complete)
 
@@ -46,7 +51,7 @@ min-instances 0) — the identical local code path is used and labeled as such.
 | `fleet/layers/approval.py` | D21 A1/A2: `verify_approval` — Ed25519-verifies + binds the human `ApprovalRecord` to exact action/capability/artifact (fail-closed). |
 | `fleet/layers/compliance.py` | D21 E1 (D22): selective-disclosure compliance attestation — Ed25519-signed proof that an action complied + was human-approved + under live epoch, without revealing CRM/source data (not a zero-knowledge proof). |
 | `fleet/layers/consensus.py` | D21 E2 (D23): multi-brain consensus gate — two distinct Brain backends must agree to VERIFY; disagreement → ASSERTED + signed event. |
-| `fleet/gcp/` | `GcpBridge` (Firestore/Pub-Sub mirror), `FirestoreVerifier` (public-key), `OtelExporter`, D17 Cloud Run approval console. |
+| `fleet/gcp/` | `GcpBridge` (Firestore/Pub-Sub mirror — **LIVE** on `project-3ba93cec-8ca6-43c0-ba4`), `FirestoreVerifier` (public-key), `OtelExporter`, D17 Cloud Run approval console (`deploy.py`), `cloudbuild.yaml` + `deployment/Dockerfile`. Console never holds authority; verifies human-signed approvals (fail-closed). |
 | `fleet/tests/` | 167 tests: Phases 0–5 + D21 hardening + Round-2 extensions (R1–R4) + D26 incident-triage use case (SimEnv/policy/e2e). |
 | `docs/planning/` | Living design docs: D1–destructure decision ADRs, D21 security audit + hardening, D22 selective-disclosure attestation, D23 consensus gate, D25 Operator-sandbox re-eval. (D24 = real-ZK variant scoped but intentionally unimplemented — see D22.) |
 
@@ -198,8 +203,11 @@ Each beat is a passing automated test (`fleet/tests/test_adversarial_beats_phase
 - **Model:** Gemini 3.5 Flash (used only at the submission demo; dev/test run on
   a local Gemma4 brain behind a pluggable model interface).
 - **Framework:** Google GenAI SDK (Gemini API called directly).
-- **Cloud:** ≥1 GCP service — Cloud Run (runtime + approval console), Firestore
-  (ledger + Memory Bank mirror), Pub/Sub (async bus).
+- **Cloud:** LIVE GCP deployment — Cloud Run (D17 approval console,
+  `fleet-approval-console-85569899488.us-central1.run.app`, `min-instances=0`),
+  Firestore (ledger mirror + Memory Bank, `project-3ba93cec-8ca6-43c0-ba4`),
+  Pub/Sub (async handoff bus). The Cloud Run instance never holds authority; it
+  only verifies human-signed approvals (fail-closed).
 - **Track:** Fortified Enterprise Fleet.
 
 ## License
