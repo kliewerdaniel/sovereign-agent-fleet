@@ -48,6 +48,16 @@ from fleet.layers.incident import (
     required_authorization,
 )
 from fleet.simenv.env import ACTIONS, SimEnv
+from fleet.fin.domain import (
+    Disposition,
+    assess,
+    bind_trade,
+    proposal_hash,
+    account_state_hash,
+    required_trade_authorization,
+)
+from fleet.fin.authorization import build_trade_authorization
+from fleet.fin.exchange_sim import ExchangeSim
 
 
 class Lifecycle(str, Enum):
@@ -443,6 +453,146 @@ class Operator:
         proposal = self.rt.brain.propose("operator", instruction, "operator_outreach")
         redacted, _ = redact_pii(proposal.get("body", ""))
         return redacted
+
+    # -----------------------------------------------------------------------
+    # Financial workload fork (D27): second consequential domain.
+    # Parallel to _act_remediation. Reuses the SAME four-gate governance:
+    #   1. Evidence (D16): intel must be VERIFIED/ASSERTED, not HALLUCINATION.
+    #   2. Capability (Gateway): cert must permit "trade_execute".
+    #   3. Risk-policy: fleet.fin.required_trade_authorization(AUTO/HUMAN/BLOCKED).
+    #   4. Approval (D17): HUMAN disposition needs a cryptographically-bound
+    #      human ApprovalRecord (bound to the exact TA hash).
+    # Then ExchangeSim.apply() re-verifies signature + state-binding + limits
+    # inside its own Layer-3 decision. Passing one gate NEVER implies another.
+    # -----------------------------------------------------------------------
+    def act_trade(self, intel_handoff: Handoff, proposal, account, market,
+                  mandate, exchange_sim: "ExchangeSim",
+                  idempotency_key: str, approval: Optional[dict] = None,
+                  consensus: Optional[str] = None, now: Optional[int] = None) -> dict:
+        """Consume QualifiedIntel + a financial TradeProposal; enforce the four
+        governance gates; build + sign a TradeAuthorization; execute it inside
+        the idempotent commit through ExchangeSim.
+
+        ``proposal`` is the model output (or deterministic strategy output) — a
+        PROPOSAL only. The Operator never asks the model whether the trade is
+        authorized; the gates below decide that deterministically (M0).
+        """
+        from fleet.fin.domain import (
+            Disposition, assess, bind_trade, proposal_hash, account_state_hash,
+        )
+        from fleet.fin.authorization import build_trade_authorization
+
+        live = self.rt.cp.registry.discover(self.agent.agent_id)
+        if live is None:
+            raise RuntimeError_("operator identity not authenticated")
+        intel = intel_handoff.consume(
+            self.rt.cp.registry, known_evidence=set(self.rt.evidence_meta())
+        )
+        verification = intel.get("verification")
+        now = now if now is not None else int(self.rt._now())
+
+        # Gate 1: Evidence (D16). HALLUCINATION intel -> BLOCKED (fail-closed).
+        if verification == HALLUCINATION:
+            self.rt.log_audit("operator.blocked", who=self.agent.agent_id,
+                              gate="evidence", reason="hallucination-intel")
+            return {"final": False, "blocked": True,
+                    "reason": "HALLUCINATION intel rejected"}
+
+        # Gate 2: Capability (Gateway). Cert must permit "trade_execute".
+        resp = self.rt.cp.request_authority(live, "trade_execute",
+                                            idempotency_key=idempotency_key)
+        if not resp.granted:
+            return {"final": False, "blocked": True, "gate": "capability",
+                    "reason": resp.deny_reason or "capability denied"}
+
+        # Gate 3: Risk-policy (pure fn). Evaluate against the LIVE account so the
+        # logged portfolio_pre_hash reflects exactly what the risk engine saw.
+        portfolio_pre = account.state()
+        portfolio_pre_hash = account_state_hash(account)
+        risk = assess(proposal, account, market, mandate, now)
+        disposition = required_trade_authorization(risk, consensus)
+
+        if disposition is Disposition.BLOCKED:
+            self.rt.log_audit("operator.blocked", who=self.agent.agent_id,
+                              gate="risk-policy", symbol=proposal.symbol,
+                              reason="policy BLOCKED",
+                              risk_reason=risk.reason)
+            return {"final": False, "blocked": True, "gate": "risk-policy",
+                    "authorization": disposition.value, "reason": risk.reason}
+
+        # Gate 4: Approval (only when disposition == HUMAN).
+        ta_approval_id = None
+        if disposition is Disposition.HUMAN:
+            human_cert = self.rt.cp.registry.human_cert()
+            bound_hash = bind_trade(account.account_id, proposal,
+                                    portfolio_pre_hash, market.snapshot_hash,
+                                    risk.risk_assessment_hash)
+            if human_cert is None or approval is None:
+                return {"final": False, "needs_approval": True,
+                        "authorization": disposition.value,
+                        "artifact_hash": bound_hash}
+            if not verify_approval(approval, human_cert, idempotency_key,
+                                   "trade_execute", bound_hash):
+                self.rt.log_audit("operator.approval.rejected",
+                                  who=self.agent.agent_id, gate="approval",
+                                  reason="approval signature invalid or mis-bound")
+                return {"final": False, "blocked": True, "gate": "approval",
+                        "reason": "approval signature invalid or mis-bound"}
+            ta_approval_id = approval.get("approval_id")
+
+        # Build + sign the TradeAuthorization binding the evaluated state.
+        ta = build_trade_authorization(
+            operator_cert=live, operator_key=self.agent.key,
+            strategy_id=proposal.strategy_id, account_id=account.account_id,
+            symbol=proposal.symbol, side=proposal.side, qty=proposal.qty,
+            price_constraint=proposal.price_constraint,
+            proposal_hash=proposal_hash(proposal),
+            portfolio_pre_hash=portfolio_pre_hash,
+            market_hash=market.snapshot_hash,
+            risk_assessment_hash=risk.risk_assessment_hash,
+            policy_id=resp.policy_id, disposition=disposition,
+            approval_id=ta_approval_id, nonce=idempotency_key, ts=now,
+        )
+
+        def _commit():
+            # ExchangeSim owns the final Layer-3 decision (signature, state
+            # binding S1==S2, limits). Only mutate on REFUSE-free apply.
+            res = exchange_sim.apply(ta, live, self.agent.key, now=now)
+            if not res.ok:
+                self.rt.log_audit(
+                    "operator.final.refused", who=self.agent.agent_id,
+                    account_id=account.account_id, symbol=proposal.symbol,
+                    reason=res.refuse_reason,
+                )
+                return {"final": False, "blocked": True, "gate": "environment",
+                        "authorization": disposition.value,
+                        "reason": res.refuse_reason}
+            assert res.receipt is not None, "receipt must exist on successful apply"
+            receipt = res.receipt
+            # Full canonical risk/input logging (D27 §6) for verifier recompute.
+            self.rt.log_audit(
+                "operator.final", who=self.agent.agent_id,
+                capability="trade_execute", verification=verification,
+                account_id=account.account_id, symbol=proposal.symbol,
+                side=proposal.side, qty=proposal.qty,
+                disposition=disposition.value, policy_id=resp.policy_id,
+                portfolio_pre=portfolio_pre,
+                portfolio_pre_hash=portfolio_pre_hash,
+                market=market.state(), market_hash=market.snapshot_hash,
+                mandate=(mandate.__dict__ if hasattr(mandate, "__dict__")
+                          else dict(mandate)),
+                proposal=proposal.state(), proposal_hash=proposal_hash(proposal),
+                risk=risk.state(), risk_assessment_hash=risk.risk_assessment_hash,
+                ta=ta.to_dict(), receipt=receipt.to_dict(),
+                authorization=disposition.value,
+            )
+            return {"final": True, "authorization": disposition.value,
+                    "verification": verification,
+                    "disposition": disposition.value,
+                    "require_approval": (disposition is Disposition.HUMAN),
+                    "receipt": receipt.to_dict()}
+
+        return self.rt.idempotent(idempotency_key, _commit)
 
 
 # ---------------------------------------------------------------------------

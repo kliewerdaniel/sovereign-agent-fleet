@@ -11,9 +11,17 @@ Outcomes:
 Capability vocabulary (12.1):
   researcher: emit_evidence
   analyst:    qualify, verify_gate
-  operator:   prepare_artifact, crm_write (REQUIRE_APPROVAL), outreach_send (REQUIRE_APPROVAL)
+  operator:   prepare_artifact, crm_write (REQUIRE_APPROVAL), outreach_send (REQUIRE_APPROVAL),
+              incident_remediate, trade_execute
   human:      approve_deny
   tool:       tool_result
+
+NOTE: ``trade_execute`` is a capability (identity/role authorization — Gate 2),
+NOT a consequential capability. The AUTO / HUMAN / BLOCKED disposition for a
+trade is decided by the separate financial risk engine
+(``fleet.fin.required_trade_authorization`` — Gate 3). Marking it consequential
+here would short-circuit that engine, so it stays a plain GRANT at the
+capability layer.
 """
 from __future__ import annotations
 
@@ -39,7 +47,7 @@ class PolicyResult:
 _ROLE_CAPS: Dict[str, List[str]] = {
     "researcher": ["emit_evidence"],
     "analyst": ["qualify", "verify_gate"],
-    "operator": ["prepare_artifact", "crm_write", "outreach_send", "incident_remediate"],
+    "operator": ["prepare_artifact", "crm_write", "outreach_send", "incident_remediate", "trade_execute"],
     "human": ["approve_deny"],
     "tool": ["tool_result"],
 }

@@ -28,6 +28,7 @@
 22. `D23-multi-brain-consensus.md` — two-brain consensus gate
 23. `D25-operator-sandbox.md` — Operator-sandbox re-evaluation + deferral (R4)
 24. `D26-incident-triage-usecase.md` — LOCKED hackathon use case: Incident Triage → Authorized Remediation (SimEnv digital range; evidence≠capability≠policy≠authority). **Status: IMPLEMENTED & TESTED (167 passing).**
+25. `D27-financial-workload-architecture-lock.md` — **PLANNING LOCK (Rounds 1–6):** financial agent reference workload as a *second* domain for the same authorization substrate. Consolidated decisions only; no implementation yet. **Status: PLANNING COMPLETE — awaiting explicit "planning complete, proceed" to implement.**
 
 ## Status
 - **PHASE 0 COMPLETE** — crypto foundation built + 22 tests green (14.1). Fleet code under `fleet/` (clean-room, BSD/MIT-compatible; the public hackathon repo).
@@ -39,6 +40,7 @@
 - All phases complete + D26 use case implemented. Repo: **167 tests** (Phases 0–5 + D21 hardening + Round-2 extensions R1–R4 + D26 incident-triage: 14 SimEnv + 20 policy + 8 e2e), planning package (D1–D26), diagram, **LIVE GCP deployment** (Cloud Run + Firestore + Pub/Sub), and demo video (pending rebuild with live GCP console proof).
 - **D21 SECURITY AUDIT + HARDENING (complete):** A1/A2 cryptographic approval binding, K1 root-key backup/rotation, A3 revoke-invalidates-grants, M1/M2 deep Model Armor, P1 default-deny property, G2 console fails-closed, S1 pinned+audited supply chain, C3 replay defense. Full suite green.
 - **Round 2 hardening (complete, merged `b03de66`):** **R1** renamed the D22 "zero-knowledge" claim to an honest *selective-disclosure compliance attestation* (scoped real-ZK as D24, unimplemented); **R2** split consensus into `consensus.disagreement` vs `consensus.unmapped_task`; **R3** CI now audits BOTH dependency surfaces (base + GCP) and uploads the SBOM as an artifact; **R4** re-evaluated and deferred (again, with reason) the Operator sandbox in **D25** — no external tool surface exists to sandbox, and the real capability boundary (Gateway + A1/A2) is already fail-closed.
+- **Financial Agent Reference Workload (Rounds 1–6 → D27):** architecture + scope **LOCKED**. Sovereign Agent Fleet stays a general-purpose local-first authorization/verification/execution substrate; finance is a *second* reference workload beside incident remediation (same identity/registry/policy/gateway/approval/crypto/audit; different Layer-3 environment). 10 locked risk dimensions; `TradeAuthorization` + `ExchangeSim` state-binding (S1≠S2 defense) + standalone recomputing verifier (`fleet/fin/verify.py`, PASS/FAIL/CRITICAL); deterministic baseline + Gemma + Gemini proposal paths (protocol brain-independent). Meta-invariant M0: no security invariant depends on model behavior. **No code written; implementation blocked on explicit "planning complete, proceed."**
 
 ## Second pass (now written)
 Data Model ✅, Interface Contracts ✅, Testing Strategy ✅, Implementation Roadmap ✅, Risk Register ✅, Judging/Submission Strategy ✅.

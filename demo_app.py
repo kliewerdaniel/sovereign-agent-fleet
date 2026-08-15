@@ -43,10 +43,133 @@ from fleet.layers import (
 )
 from fleet.layers.incident import Authorization, bind_artifact, required_authorization
 from fleet.simenv.env import ACTIONS, SimEnv, WorkloadState, asset_class
+from fleet.fin.domain import Account, Mandate, TradeProposal, assess, required_trade_authorization
+from fleet.fin.market_adapter import ReplayFixture
+from fleet.fin.exchange_sim import ExchangeSim
+from fleet.fin.verify import verify_control_plane
 
 
 # ---------------------------------------------------------------------------
-# Fleet bootstrap (local demo env; mirrors the beats/e2e fixtures)
+# Financial workload bootstrap (mirrors the financial e2e fixtures)
+# ---------------------------------------------------------------------------
+@st.cache_resource
+def build_fleet_fin():
+    tmp = tempfile.mkdtemp(prefix="saf_fin_")
+    master = b"fin-demo-master"
+    audit = Ed25519PrivateKey.from_private_bytes(
+        HKDF(algorithm=hashes.SHA256(), length=32, salt=None,
+             info=b"fleet:audit").derive(b"audit-fin-demo"))
+    store = JsonStore(os.path.join(tmp, "fin_audit.json"))
+    now_fn = lambda: 2000  # deterministic demo clock
+    cp = ControlPlane(master, audit, store=store, now_fn=now_fn, run_id="demo-fin")
+    kek = HKDF(algorithm=hashes.SHA256(), length=32, salt=None,
+               info=b"fleet:mem").derive(b"mem-fin-demo")
+    mem = MemBank(kek)
+    rt = Runtime(cp, mem, now_fn=now_fn,
+                 brain=__import__("fleet.layers.brain", fromlist=["StubBrain"]).StubBrain())
+    r = cp.publish_agent("researcher-1", "researcher", ["emit_evidence"])
+    a = cp.publish_agent("analyst-1", "analyst", ["qualify", "verify_gate"])
+    o = cp.publish_agent("operator-1", "operator", ["trade_execute"])
+    human = cp.publish_agent("human-1", "human", ["approve_deny"])
+    tool_cert, tool_key = cp.root.issue_cert("mkt", "tool", ["retrieve"], 2000, 9_999_999_999)
+    cp.registry._certs["mkt"] = tool_cert
+    account = Account("acct-1", cash=100_000.0, positions={},
+                      mandate=Mandate(allowed_assets=["AAPL"]))
+    market = ReplayFixture("AAPL", 2000, 150.0, 150.2, 150.1, 1.0e6, "replay").to_market_data()
+    return {"cp": cp, "rt": rt, "r": r, "a": a, "o": o, "human": human,
+            "tool_key": tool_key, "tool_cert": tool_cert,
+            "account": account, "market": market}
+
+
+def run_fin_scenario(env, symbol, side, qty, consensus, human_approves, adversarial):
+    """Run one financial trade through the REAL four-gate pipeline.
+
+    The UI decides NOTHING: every gate (Evidence, Capability, Risk-policy,
+    Approval) is enforced by fleet.fin code exactly as in production/e2e.
+    """
+    stages = {}
+    cp = env["cp"]
+    account = env["account"]
+    market = env["market"]
+
+    # 1) Model proposal (the model only PROPOSES; the gates decide).
+    stages["proposal"] = {
+        "symbol": symbol, "side": side, "qty": qty,
+        "thesis": "deterministic baseline strategy signal",
+    }
+
+    # 2) Evidence — Researcher -> SourcedEvidence
+    extract = f"{symbol} strong momentum on verified feed"
+    ev_out = json.dumps({"citation": "https://mkt.example/snap", "extract": extract}).encode()
+    ev_handoff = Researcher(env["r"], env["rt"]).gather(
+        ToolEnvelope.make(env["tool_key"], "mkt", ev_out), "signal?", ["citation", "extract"])
+    stages["evidence"] = ev_handoff.payload
+
+    # 3) Verification — Analyst qualifies (+ D16 stamp)
+    intel_handoff = Analyst(env["a"], env["rt"]).qualify(ev_handoff, [{
+        "claim": "momentum=bullish", "claim_type": "icp_fit", "confidence": 0.9,
+        "evidence_refs": [ev_handoff.payload["evidence_id"]],
+    }])
+    intel = intel_handoff.payload
+    stages["intel"] = intel
+    stages["verification"] = intel.get("verification")
+
+    # 4) Proposal object
+    proposal = TradeProposal(symbol, side, float(qty), {"type": "MARKET"},
+                             "thesis", 0.9, [ev_handoff.payload["evidence_id"]], "s1")
+
+    # Adversarial injection: forge the approval with the OPERATOR key (not human).
+    approval = None
+    if adversarial == "forged_approval":
+        # Build the artifact hash the operator WOULD bind, then sign with wrong key.
+        from fleet.fin.domain import bind_trade, account_state_hash
+        pre = account_state_hash(account)
+        risk = assess(proposal, account, market, account.mandate, 2000)
+        artifact = bind_trade(account.account_id, proposal, pre,
+                              market.snapshot_hash, risk.risk_assessment_hash)
+        forged = Approval.sign(env["human"].cert, env["o"].key,  # WRONG key
+                               "operator-1", "idem-fin", "trade_execute",
+                               artifact, "approve", "forged", 2000)
+        approval = forged.__dict__
+    elif adversarial == "revoked_operator":
+        cp.registry.revoke("operator-1")
+    elif adversarial == "replay":
+        # Executes twice with the same idempotency key (second is a replay).
+        consensus_used = "weak" if consensus == "weak" else None
+        first = Operator(env["o"], env["rt"]).act_trade(
+            intel_handoff, proposal, account, market, account.mandate,
+            ExchangeSim(account, market, now=2000), idempotency_key="idem-fin",
+            approval=approval, consensus=consensus_used)
+        res = Operator(env["o"], env["rt"]).act_trade(
+            intel_handoff, proposal, account, market, account.mandate,
+            ExchangeSim(account, market, now=2000), idempotency_key="idem-fin",
+            approval=approval, consensus=consensus_used)
+        stages["result"] = res
+        stages["replayed"] = True
+        return stages
+
+    # 5) Capability + 6) Risk-policy via the real Operator.act_trade (all gates).
+    sim = ExchangeSim(account, market, now=2000)
+    # A forged approval is only meaningful if the trade reaches the HUMAN tier
+    # (where the approval is actually verified). Force the advisory escalation.
+    consent = "weak" if (consensus == "weak" or adversarial == "forged_approval") else None
+    res = Operator(env["o"], env["rt"]).act_trade(
+        intel_handoff, proposal, account, market, account.mandate, sim,
+        idempotency_key="idem-fin", approval=approval, consensus=consent)
+    stages["result"] = res
+
+    # 7) Independent verifier (read-only, public certs only).
+    final_entries = [e for e in cp.audit.entries() if e.get("kind") == "operator.final"]
+    if final_entries:
+        agg = verify_control_plane(cp, env["o"].cert, env["human"].cert, 2000)
+        stages["verifier"] = agg
+    else:
+        stages["verifier"] = {"overall": "N/A", "note": "no execution recorded"}
+    return stages
+
+
+# ---------------------------------------------------------------------------
+# Run one incident scenario through the REAL pipeline, capturing each stage.
 # ---------------------------------------------------------------------------
 @st.cache_resource
 def build_fleet():
@@ -157,6 +280,103 @@ st.caption("Incident Triage → Authorized Remediation — a window INTO the pro
            "(the UI decides nothing; every gate is enforced by the fleet code).")
 
 env = build_fleet()
+
+# Mode selector: incident remediation (existing) or financial workload (D27).
+MODE = st.radio("Workload", ["Incident remediation", "Financial trade (D27)"], horizontal=True)
+
+if MODE == "Financial trade (D27)":
+    fen = build_fleet_fin()
+    st.divider()
+    st.subheader("Financial Trade — golden path + adversarial controls")
+    st.caption("A window INTO the financial protocol. The UI proposes; the four gates "
+               "(Evidence, Capability, Risk-policy, Approval) and the independent "
+               "verifier enforce everything, exactly as in the fleet code.")
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        symbol = st.selectbox("Symbol", ["AAPL", "TSLA"], index=0)
+    with col2:
+        side = st.selectbox("Side", ["BUY", "SELL"], index=0)
+    with col3:
+        qty = st.number_input("Quantity", min_value=1, max_value=2000, value=10, step=1)
+
+    col4, col5 = st.columns(2)
+    with col4:
+        consensus = st.selectbox("Advisory consensus", ["none", "weak", "severe"], index=0)
+    with col5:
+        adversarial = st.selectbox(
+            "Adversarial injection",
+            ["none", "forged_approval", "revoked_operator", "replay"], index=0)
+
+    if st.button("Run financial scenario", type="primary"):
+        stages = run_fin_scenario(
+            fen, symbol, side, qty,
+            consensus if consensus != "none" else None,
+            human_approves=True, adversarial=adversarial)
+        panels = st.container()
+
+        def fpanel(n, title, body, tone="info"):
+            with panels:
+                box = panels.expander(f"{n}. {title}", expanded=True)
+                with box:
+                    if tone == "good":
+                        st.success(body)
+                    elif tone == "bad":
+                        st.error(body)
+                    elif tone == "warn":
+                        st.warning(body)
+                    else:
+                        st.write(body)
+
+        fpanel(1, "Model proposal (model only proposes)", stages["proposal"])
+        fpanel(2, "Evidence — SourcedEvidence", stages["evidence"])
+        v = stages["verification"]
+        vtone = "good" if v == "VERIFIED" else ("warn" if v == "ASSERTED" else "bad")
+        fpanel(3, f"Verification (D16) — {v}", f"Evidence gate verdict: {v}", vtone)
+
+        res = stages.get("result", {})
+        cap = res.get("gate") == "capability"
+        blocked = res.get("blocked")
+        authorized = res.get("authorization")
+        gate_tone = "bad" if blocked else ("good" if authorized == "AUTO" else "warn")
+        fpanel(4, "Capability + Risk-policy (Operator.act_trade)",
+               {k: res.get(k) for k in ("final", "blocked", "gate", "authorization",
+                                        "disposition", "require_approval", "reason")},
+               gate_tone)
+
+        if adversarial == "forged_approval":
+            fpanel(5, "Adversarial — forged approval",
+                   "Forged approval (signed by operator key, not human) was "
+                   "presented. Expect: blocked at the approval gate.", "warn")
+        elif adversarial == "revoked_operator":
+            fpanel(5, "Adversarial — revoked operator",
+                   "Operator cert was revoked before the run. Expect: capability "
+                   "denied at the gateway.", "warn")
+        elif adversarial == "replay":
+            fpanel(5, "Adversarial — replay (same idempotency key x2)",
+                   "The same request was submitted twice. Expect: the second is an "
+                   "idempotent replay (cached result, no new ledger entry).", "warn")
+
+        # Independent verifier (read-only, public certs only).
+        ver = stages.get("verifier", {})
+        overall = ver.get("overall")
+        vt = {"PASS": "good", "FAIL": "bad", "CRITICAL": "bad", "N/A": "info"}.get(overall, "info")
+        fpanel(6, f"Independent verifier — {overall}",
+               ver if overall != "N/A" else ver.get("note", "no execution"), vt)
+
+        # Outcome banner
+        if stages.get("replayed"):
+            st.banner("Replay handled: cached fill returned, no duplicate ledger entry.",
+                      icon="🔁")
+        elif res.get("final"):
+            st.banner("Trade executed and verified.", icon="✅")
+        elif res.get("blocked"):
+            st.banner(f"BLOCKED at gate '{res.get('gate')}': {res.get('reason')}", icon="🛑")
+        elif res.get("needs_approval"):
+            st.banner("Awaiting valid human approval (HUMAN tier).", icon="⏳")
+        else:
+            st.banner("No execution occurred.", icon="ℹ️")
+    st.stop()  # financial mode renders its own panels; do not fall through
 
 col_l, col_r = st.columns(2)
 with col_l:

@@ -24,6 +24,9 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
+from fleet.layers.handoff import Handoff
+from fleet.fin.domain import TradeProposal
+
 # Policy/approval vocabulary that must NEVER reach the probabilistic brain (D15).
 _FORBIDDEN_PROMPT_TOKENS = (
     "policy", "approval", "approve", "deny", "capability", "capabilities",
@@ -83,6 +86,20 @@ SCHEMAS: Dict[str, Dict[str, Any]] = {
     "operator_outreach": {
         "required": ["subject", "body"],
         "types": {"subject": str, "body": str},
+    },
+    "trade_signal": {
+        "required": ["symbol", "side", "qty", "price_constraint",
+                     "thesis", "confidence", "evidence_refs", "strategy_id"],
+        "types": {
+            "symbol": str,
+            "side": str,
+            "qty": (int, float),
+            "price_constraint": dict,
+            "thesis": str,
+            "confidence": (int, float),
+            "evidence_refs": list,
+            "strategy_id": str,
+        },
     },
 }
 
@@ -246,8 +263,68 @@ def operator_instruction(target: str, draft_spec: Dict[str, Any]) -> str:
     )
 
 
+def strategist_instruction(ev_payload: Dict[str, Any], universe: List[str]) -> str:
+    """D15: build a TRADE PROPOSAL prompt from evidence ONLY. The brain never
+    receives policy / approval / capability / position context — it proposes a
+    trade, it does not authorize one. It must pick from the allowed universe."""
+    citation = ev_payload.get("citation", "")
+    extract = ev_payload.get("extract", "")
+    eid = ev_payload.get("evidence_id", "")
+    universe_s = ", ".join(universe)
+    return (
+        f"Propose a single trade based ONLY on the sourced evidence below.\n"
+        f"Evidence id: {eid}\nCitation: {citation}\nExtract: {extract}\n"
+        f"Allowed universe: {universe_s}\n"
+        f"Return JSON with: symbol (string, from allowed universe), side (string),\n"
+        f"qty (number), price_constraint (object with type MARKET|LIMIT, "
+        f"limit number, band number), thesis (string), confidence (float 0-1),\n"
+        f"evidence_refs (list of evidence ids), strategy_id (string)."
+    )
+
+
 def assert_no_policy_leak(instruction: str) -> None:
     low = instruction.lower()
     for tok in _FORBIDDEN_PROMPT_TOKENS:
         if tok in low:
             raise BrainSchemaError(f"prompt leaks policy vocabulary '{tok}' (D15)")
+
+
+# ---------------------------------------------------------------------------
+# Trade strategist (financial Layer-1 proposal boundary, D27).
+# Parallel to Analyst: the probabilistic brain PROPOSES a trade; this class
+# schema-validates it and produces a fleet.fin.TradeProposal. The strategist
+# never decides authorization, risk, or policy — those are Layer 2/3.
+# ---------------------------------------------------------------------------
+
+class TradeStrategist:
+    def __init__(self, agent, runtime, universe: List[str]):
+        self.agent = agent
+        self.rt = runtime
+        self.universe = universe
+
+    def propose_from_evidence(self, evidence_handoff: "Handoff", strategy_id: str,
+                              side_hint: str = "BUY") -> "TradeProposal":
+        """Consume Researcher evidence, let the brain PROPOSE via the
+        'trade_signal' schema, then validate and return a TradeProposal."""
+        from fleet.fin.domain import TradeProposal
+
+        ev_payload = evidence_handoff.consume(
+            self.rt.cp.registry, known_evidence=set(self.rt.evidence_meta())
+        )
+        instruction = strategist_instruction(ev_payload, self.universe)
+        assert_no_policy_leak(instruction)  # D15: evidence only, no policy vocab
+        raw = self.rt.brain.propose("strategist", instruction, "trade_signal")
+        # schema-validated at the boundary before it becomes a proposal (D15)
+        validated = validate_brain_output("trade_signal", raw)
+        # evidence_refs MUST cite the evidence the strategist actually consumed
+        validated["evidence_refs"] = [str(ev_payload.get("evidence_id"))]
+        return TradeProposal(
+            symbol=validated["symbol"],
+            side=validated.get("side", side_hint),
+            qty=float(validated["qty"]),
+            price_constraint=validated["price_constraint"],
+            thesis=validated["thesis"],
+            confidence=float(validated["confidence"]),
+            evidence_refs=validated["evidence_refs"],
+            strategy_id=validated.get("strategy_id", strategy_id),
+        )
