@@ -1,0 +1,17 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.14.6, pytest-9.1.1, pluggy-1.6.0 -- /Users/danielkliewer/Documents/Projects/sovereign-agent-fleet/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/danielkliewer/Documents/Projects/sovereign-agent-fleet
+collecting ... collected 9 items
+
+fleet/tests/test_adversarial_beats_phase5.py::test_beat1_prompt_injection_blocked_structurally PASSED [ 11%]
+fleet/tests/test_adversarial_beats_phase5.py::test_beat2_capability_denial_signed_event PASSED [ 22%]
+fleet/tests/test_adversarial_beats_phase5.py::test_beat3_consequential_requires_approval PASSED [ 33%]
+fleet/tests/test_adversarial_beats_phase5.py::test_beat4_human_approval_granted PASSED [ 44%]
+fleet/tests/test_adversarial_beats_phase5.py::test_beat5_execution_replicated_and_verifiable PASSED [ 55%]
+fleet/tests/test_adversarial_beats_phase5.py::test_beat6_tamper_detected_public_key_verify PASSED [ 66%]
+fleet/tests/test_adversarial_beats_phase5.py::test_beat7_forged_identity_rejected PASSED [ 77%]
+fleet/tests/test_adversarial_beats_phase5.py::test_beat8_revoke_rotate_recovery PASSED [ 88%]
+fleet/tests/test_adversarial_beats_phase5.py::test_registry_publish_discover_versioned PASSED [100%]
+
+============================== 9 passed in 1.00s ===============================

@@ -1,0 +1,189 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="900" font-family="'Segoe UI', Helvetica, Arial, sans-serif">
+  <!-- ============ background ============ -->
+  <rect width="1280" height="900" fill="#0d1117"/>
+  <defs>
+    <linearGradient id="locgrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#11251a"/><stop offset="1" stop-color="#0d1117"/>
+    </linearGradient>
+    <linearGradient id="gcpgrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a1d0e"/><stop offset="1" stop-color="#0d1117"/>
+    </linearGradient>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#8b949e"/>
+    </marker>
+    <marker id="arrowB" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#bc8cff"/>
+    </marker>
+  </defs>
+
+  <!-- ============ header ============ -->
+  <text x="24" y="40" fill="#e6edf3" font-size="26" font-weight="bold">Sovereign Agent Fleet — Architecture</text>
+  <text x="24" y="62" fill="#8b949e" font-size="15">Thesis: do NOT trust the model. Trust the execution protocol. Authority (keys, signing, approval) stays local-first; only signed, verifiable artifacts replicate to GCP.</text>
+  <line x1="24" y1="76" x2="1256" y2="76" stroke="#30363d" stroke-width="1"/>
+
+  <!-- ============ LOCAL column ============ -->
+  <rect x="20" y="92" width="612" height="556" rx="10" fill="url(#locgrad)" stroke="#238636" stroke-width="1.5"/>
+  <text x="36" y="116" fill="#3fb950" font-size="17" font-weight="bold">LOCAL — sovereign runtime (keys never leave)</text>
+
+  <!-- Control Plane panel -->
+  <rect x="40" y="130" width="356" height="500" rx="8" fill="#0d1117" stroke="#30363d"/>
+  <text x="56" y="152" fill="#58a6ff" font-size="15" font-weight="bold">Control Plane — deterministic</text>
+
+  <rect x="56" y="162" width="324" height="42" rx="6" fill="#161b22" stroke="#30363d"/>
+  <text x="68" y="188" fill="#c9d1d9" font-size="13">Identity Root · root-of-trust certs, revoke, rotate</text>
+
+  <rect x="56" y="212" width="324" height="42" rx="6" fill="#161b22" stroke="#30363d"/>
+  <text x="68" y="238" fill="#c9d1d9" font-size="13">Registry · publish / version / discover</text>
+
+  <rect x="56" y="262" width="324" height="42" rx="6" fill="#0f2d1c" stroke="#3fb950"/>
+  <text x="68" y="288" fill="#3fb950" font-size="13" font-weight="bold">Policy / Gateway — the ONLY issuer of authority</text>
+
+  <rect x="56" y="312" width="324" height="42" rx="6" fill="#161b22" stroke="#30363d"/>
+  <text x="68" y="338" fill="#c9d1d9" font-size="13">Runtime · lifecycle, checkpoint, idempotency</text>
+
+  <rect x="56" y="362" width="324" height="42" rx="6" fill="#161b22" stroke="#30363d"/>
+  <text x="68" y="388" fill="#c9d1d9" font-size="13">Memory Bank · encrypted cross-session state</text>
+
+  <rect x="56" y="412" width="324" height="42" rx="6" fill="#161b22" stroke="#30363d"/>
+  <text x="68" y="438" fill="#c9d1d9" font-size="13">Model Armor · injection / poison / PII guards</text>
+
+  <rect x="56" y="462" width="324" height="42" rx="6" fill="#161b22" stroke="#30363d"/>
+  <text x="68" y="488" fill="#c9d1d9" font-size="13">Observability · signed audit ledger + OTel</text>
+
+  <rect x="56" y="512" width="324" height="42" rx="6" fill="#161b22" stroke="#30363d"/>
+  <text x="68" y="538" fill="#c9d1d9" font-size="13">Verification gate (D16) · evidence-backed verdicts</text>
+
+  <rect x="56" y="562" width="324" height="42" rx="6" fill="#161b22" stroke="#30363d"/>
+  <text x="68" y="588" fill="#c9d1d9" font-size="13">Human approver (D17) · Ed25519-signed approvals</text>
+
+  <!-- Fleet workers panel -->
+  <rect x="416" y="130" width="200" height="474" rx="8" fill="#0d1117" stroke="#bc8cff" stroke-width="1.5"/>
+  <text x="428" y="152" fill="#bc8cff" font-size="15" font-weight="bold">Fleet — probabilistic</text>
+
+  <rect x="432" y="166" width="168" height="76" rx="6" fill="#1c1530" stroke="#bc8cff"/>
+  <text x="444" y="192" fill="#e6d4ff" font-size="14" font-weight="bold">Researcher</text>
+  <text x="444" y="211" fill="#bc8cff" font-size="11">gather</text>
+  <text x="444" y="227" fill="#8b949e" font-size="10.5">SourcedEvidence</text>
+
+  <rect x="432" y="306" width="168" height="76" rx="6" fill="#1c1530" stroke="#bc8cff"/>
+  <text x="444" y="332" fill="#e6d4ff" font-size="14" font-weight="bold">Analyst</text>
+  <text x="444" y="351" fill="#bc8cff" font-size="11">judge</text>
+  <text x="444" y="367" fill="#8b949e" font-size="10.5">QualifiedIntel</text>
+
+  <rect x="432" y="446" width="168" height="76" rx="6" fill="#1c1530" stroke="#bc8cff"/>
+  <text x="444" y="472" fill="#e6d4ff" font-size="14" font-weight="bold">Operator</text>
+  <text x="444" y="491" fill="#bc8cff" font-size="11">act</text>
+  <text x="444" y="507" fill="#8b949e" font-size="10.5">Artifact + approval</text>
+
+  <!-- R -> A -> O signed handoff arrows -->
+  <line x1="516" y1="242" x2="516" y2="304" stroke="#bc8cff" stroke-width="2" marker-end="url(#arrowB)"/>
+  <text x="522" y="278" fill="#bc8cff" font-size="9.5">signed handoff</text>
+  <line x1="516" y1="382" x2="516" y2="444" stroke="#bc8cff" stroke-width="2" marker-end="url(#arrowB)"/>
+  <text x="522" y="418" fill="#bc8cff" font-size="9.5">signed handoff</text>
+
+  <!-- worker -> gateway authority requests -->
+  <line x1="432" y1="204" x2="396" y2="283" stroke="#8b949e" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+  <text x="300" y="256" fill="#8b949e" font-size="9.5" transform="rotate(-62 300 256)">requests authority</text>
+
+  <!-- ============ GCP column ============ -->
+  <rect x="648" y="92" width="608" height="556" rx="10" fill="url(#gcpgrad)" stroke="#f0883e" stroke-width="1.5"/>
+  <text x="664" y="116" fill="#f0883e" font-size="17" font-weight="bold">GCP — verifiable artifacts (NO authority)</text>
+
+  <rect x="668" y="138" width="568" height="92" rx="8" fill="#0d1117" stroke="#30363d"/>
+  <text x="684" y="164" fill="#f0883e" font-size="14" font-weight="bold">Cloud Run</text>
+  <text x="684" y="186" fill="#c9d1d9" font-size="12.5">runtime + gateway endpoints + D17 approval console</text>
+  <text x="684" y="206" fill="#8b949e" font-size="11.5">Deployed proof; authority stays local. min-instances 0.</text>
+
+  <rect x="668" y="244" width="568" height="92" rx="8" fill="#0d1117" stroke="#30363d"/>
+  <text x="684" y="270" fill="#f0883e" font-size="14" font-weight="bold">Firestore</text>
+  <text x="684" y="292" fill="#c9d1d9" font-size="12.5">tamper-evident audit ledger + Memory Bank manifest mirror</text>
+  <text x="684" y="312" fill="#8b949e" font-size="11.5">Verifiable by PUBLIC keys only — holds data, not authority (D3/D6).</text>
+
+  <rect x="668" y="350" width="568" height="92" rx="8" fill="#0d1117" stroke="#30363d"/>
+  <text x="684" y="376" fill="#f0883e" font-size="14" font-weight="bold">Pub/Sub</text>
+  <text x="684" y="398" fill="#c9d1d9" font-size="12.5">async R→A→O handoff bus + redelivery (idempotent keys)</text>
+  <text x="684" y="418" fill="#8b949e" font-size="11.5">Signed envelopes only; consumer re-verifies sender identity.</text>
+
+  <rect x="668" y="456" width="568" height="92" rx="8" fill="#0d1117" stroke="#30363d"/>
+  <text x="684" y="482" fill="#f0883e" font-size="14" font-weight="bold">Vertex AI — Gemini 3.5 Flash</text>
+  <text x="684" y="504" fill="#c9d1d9" font-size="12.5">Brain ONLY (D15) — called via GenAI SDK directly (D20)</text>
+  <text x="684" y="524" fill="#8b949e" font-size="11.5">Dev/test run on local abliterated Gemma4 (D18); Gemini at demo.</text>
+
+  <!-- replicate arrow LOCAL -> GCP -->
+  <line x1="632" y1="380" x2="648" y2="380" stroke="#f0883e" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <text x="600" y="372" fill="#f0883e" font-size="10.5" transform="rotate(-90 600 372)">signed artifacts replicate →</text>
+
+  <!-- ============ 8 adversarial beats strip ============ -->
+  <rect x="20" y="664" width="1236" height="216" rx="10" fill="#0d1117" stroke="#30363d"/>
+  <text x="36" y="688" fill="#f85149" font-size="15" font-weight="bold">Adversarial 8-Beat Governability Demo (provably tested — pytest fixtures)</text>
+  <g font-size="10.5">
+    <!-- beat cards: x 36,190,344,498,652,806,960,1114 ; width 146 ; y 700 ; height 168 -->
+    <g>
+      <rect x="36" y="700" width="146" height="168" rx="6" fill="#1a1015" stroke="#f85149"/>
+      <text x="48" y="722" fill="#f85149" font-size="12.5" font-weight="bold">1 · Injection</text>
+      <text x="48" y="746" fill="#c9d1d9" font-size="10.5">Tool result carrying</text>
+      <text x="48" y="762" fill="#c9d1d9" font-size="10.5">an instruction is</text>
+      <text x="48" y="778" fill="#c9d1d9" font-size="10.5">stripped at the</text>
+      <text x="48" y="794" fill="#c9d1d9" font-size="10.5">structured boundary.</text>
+      <text x="48" y="810" fill="#c9d1d9" font-size="10.5">No exfil path exists.</text>
+      <text x="48" y="848" fill="#8b949e" font-size="9.5">assert: injection event</text>
+    </g>
+    <g>
+      <rect x="190" y="700" width="146" height="168" rx="6" fill="#1a1015" stroke="#f85149"/>
+      <text x="202" y="722" fill="#f85149" font-size="12.5" font-weight="bold">2 · Capability deny</text>
+      <text x="202" y="746" fill="#c9d1d9" font-size="10.5">Op never issued the</text>
+      <text x="202" y="762" fill="#c9d1d9" font-size="10.5">capability → Gateway</text>
+      <text x="202" y="778" fill="#c9d1d9" font-size="10.5">denies + emits a</text>
+      <text x="202" y="794" fill="#c9d1d9" font-size="10.5">signed deny event.</text>
+      <text x="202" y="848" fill="#8b949e" font-size="9.5">verify: gateway_sig</text>
+    </g>
+    <g>
+      <rect x="344" y="700" width="146" height="168" rx="6" fill="#1a1015" stroke="#f85149"/>
+      <text x="356" y="722" fill="#f85149" font-size="12.5" font-weight="bold">3 · No approval</text>
+      <text x="356" y="746" fill="#c9d1d9" font-size="10.5">Consequential crm_write</text>
+      <text x="356" y="762" fill="#c9d1d9" font-size="10.5">with no ApprovalRecord</text>
+      <text x="356" y="778" fill="#c9d1d9" font-size="10.5">→ blocked pre-FINAL.</text>
+      <text x="356" y="848" fill="#8b949e" font-size="9.5">D17 separation</text>
+    </g>
+    <g>
+      <rect x="498" y="700" width="146" height="168" rx="6" fill="#101a14" stroke="#3fb950"/>
+      <text x="510" y="722" fill="#3fb950" font-size="12.5" font-weight="bold">4 · Approval</text>
+      <text x="510" y="746" fill="#c9d1d9" font-size="10.5">Human signs an</text>
+      <text x="510" y="762" fill="#c9d1d9" font-size="10.5">ApprovalRecord in</text>
+      <text x="510" y="778" fill="#c9d1d9" font-size="10.5">the D17 console.</text>
+      <text x="510" y="848" fill="#8b949e" font-size="9.5">verify: human_sig</text>
+    </g>
+    <g>
+      <rect x="652" y="700" width="146" height="168" rx="6" fill="#101a14" stroke="#3fb950"/>
+      <text x="664" y="722" fill="#3fb950" font-size="12.5" font-weight="bold">5 · Execute</text>
+      <text x="664" y="746" fill="#c9d1d9" font-size="10.5">Artifact + evidence +</text>
+      <text x="664" y="762" fill="#c9d1d9" font-size="10.5">audit entry: signed,</text>
+      <text x="664" y="778" fill="#c9d1d9" font-size="10.5">chained, replicated.</text>
+      <text x="664" y="848" fill="#8b949e" font-size="9.5">GCP verifier (pubkey)</text>
+    </g>
+    <g>
+      <rect x="806" y="700" width="146" height="168" rx="6" fill="#1a1015" stroke="#f85149"/>
+      <text x="818" y="722" fill="#f85149" font-size="12.5" font-weight="bold">6 · Tamper</text>
+      <text x="818" y="746" fill="#c9d1d9" font-size="10.5">Edit one audit record</text>
+      <text x="818" y="762" fill="#c9d1d9" font-size="10.5">post-hoc → next hash-</text>
+      <text x="818" y="778" fill="#c9d1d9" font-size="10.5">chain verify fails.</text>
+      <text x="818" y="848" fill="#8b949e" font-size="9.5">location reported</text>
+    </g>
+    <g>
+      <rect x="960" y="700" width="146" height="168" rx="6" fill="#1a1015" stroke="#f85149"/>
+      <text x="972" y="722" fill="#f85149" font-size="12.5" font-weight="bold">7 · Forged ID</text>
+      <text x="972" y="746" fill="#c9d1d9" font-size="10.5">Agent presents an</text>
+      <text x="972" y="762" fill="#c9d1d9" font-size="10.5">Ed25519 cert NOT</text>
+      <text x="972" y="778" fill="#c9d1d9" font-size="10.5">signed by root → reject.</text>
+      <text x="972" y="848" fill="#8b949e" font-size="9.5">cannot chain anything</text>
+    </g>
+    <g>
+      <rect x="1114" y="700" width="146" height="168" rx="6" fill="#101a14" stroke="#3fb950"/>
+      <text x="1126" y="722" fill="#3fb950" font-size="12.5" font-weight="bold">8 · Revoke→Rotate</text>
+      <text x="1126" y="746" fill="#c9d1d9" font-size="10.5">Root revokes a worker,</text>
+      <text x="1126" y="762" fill="#c9d1d9" font-size="10.5">re-issues a fresh key;</text>
+      <text x="1126" y="778" fill="#c9d1d9" font-size="10.5">resumes, chain intact.</text>
+      <text x="1126" y="848" fill="#8b949e" font-size="9.5">D14 live rotation</text>
+    </g>
+  </g>
+</svg>

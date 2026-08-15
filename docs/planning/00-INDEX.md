@@ -31,7 +31,8 @@
 - **Deviation D4a:** Sovereign Worker control plane NOT vendored — its repos are all-rights-reserved (no license). Audit-ledger wrapper + Gateway written clean-room. Documented below.
 - GCP live (project `project-3ba93cec-8ca6-43c0-ba4`); dev on local Gemma4, Gemini at demo only; conservative credits.
 - **PHASE 4 COMPLETE** — Pluggable Brain (Gemini 3.5 Flash + local Gemma4) + schema enforcement built + 10 tests green, 69 total. `fleet/layers/brain.py`: `Brain` interface + `DeterministicBrain`/`GemmaBrain` (local, D18)/`GeminiBrain` (GenAI SDK direct, demo-only D18/D20)/`SchemaEnforcedBrain` (D15 boundary validation); prompts evidence-only, no policy leakage (D15). Workers `classify_with_brain`/`draft_with_brain` let the model PROPOSE, protocol decides.
-- Next: Phase 5 (adversarial beats 1–8 as pytest fixtures + 4-min demo video + architecture diagram).
+- **PHASE 5 COMPLETE** — Adversarial 8-beat governability demo (beats 1–8 + registry setup) as 9 passing pytest fixtures (`fleet/tests/test_adversarial_beats_phase5.py`); full suite **78 tests green**. Dark-first architecture diagram (`docs/assets/architecture.svg` + `.png`). 4-min narrated demo video (`demo/sovereign_agent_fleet_demo.mp4`) assembled from real artifacts: live pytest beat output, `GcpBridge`/`FirestoreVerifier` public-key proof, and the pluggable-brain schema boundary. GCP not live in demo (min-instances 0); identical local code path used and labeled.
+- All phases complete. Repo: 78 tests, planning package (D1–D20), diagram, demo video. Ready for submission.
 
 ## Second pass (now written)
 Data Model ✅, Interface Contracts ✅, Testing Strategy ✅, Implementation Roadmap ✅, Risk Register ✅, Judging/Submission Strategy ✅.

@@ -1,0 +1,5 @@
+GCP_PROJECT      = project-3ba93cec-8ca6-43c0-ba4
+LOCAL_CHAIN_OK   = True
+REPLICATED_DOCS  = 10
+VERIFIER(pubkey) = True (no private key used)
+FINAL_COMMITTED  = True | verification = VERIFIED

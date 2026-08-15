@@ -12,17 +12,35 @@ Operator** — that qualifies B2B sales prospects (ICP fit) against a *simulated
 CRM, with a hard verification gate and human-in-the-loop approval, while every
 action is recorded in a tamper-evident, signed audit ledger.
 
-## What's here (Phase 0 — crypto foundation)
+## Demo
+
+- **4-minute demo video:** [`demo/sovereign_agent_fleet_demo.mp4`](demo/sovereign_agent_fleet_demo.mp4)
+  — the live adversarial 8-beat governability demo, narrated.
+- **Architecture diagram:** [`docs/assets/architecture.png`](docs/assets/architecture.png)
+  (dark-first; source SVG alongside).
+
+The demo is assembled entirely from **real artifacts**: the pytest beat output,
+the GCP public-key verification proof (`GcpBridge` + `FirestoreVerifier`), and
+the pluggable-brain schema boundary. GCP is not live in the demo (Cloud Run
+min-instances 0) — the identical local code path is used and labeled as such.
+
+## What's here (Phases 0–5, all complete)
 
 | Path | Purpose |
 |------|---------|
 | `fleet/crypto/chriscrypt/` | Vendored **ChrisCryptSN** (MIT): Argon2id, XChaCha20-Poly1305 envelopes w/ per-record HKDF, Ed25519-signed hash-chain ledger. |
-| `fleet/crypto/foundation.py` | Root-of-trust identity hierarchy, agent certs, per-record secret vault, tamper-evident `AuditTrail` — built clean-room on ChrisCryptSN. |
-| `fleet/tests/test_crypto_phase0.py` | 22 crypto unit tests (key hierarchy, sign/verify, tamper + truncation detection, rotation/revocation). |
-| `docs/planning/` | 19 living design docs: architecture, data model, interface contracts, testing strategy, roadmap, risk register, judging/submission strategy (D1–D20). |
-
-Later phases add the **Control Plane** (Identity Registry + capability Gateway),
-the three workers, and the GCP layer (Cloud Run / Firestore / Pub/Sub).
+| `fleet/crypto/foundation.py` | Root-of-trust identity hierarchy, agent certs, per-record secret vault, tamper-evident `AuditTrail`. |
+| `fleet/layers/registry.py` | Agent Registry: publish / version / discover / revoke / rotate (on IdentityRoot + AuditTrail). |
+| `fleet/layers/policy.py` | Deterministic policy engine `(role, capability) → GRANT / REQUIRE_APPROVAL / DENY`. Never calls the model. |
+| `fleet/layers/gateway.py` | Capability Gateway: `request_authority`, root-signed cert auth, signed deny events, idempotency. |
+| `fleet/layers/handoff.py` | Signed cross-agent handoff envelopes; D8 separation (R→raw evidence, A→qualified intel). |
+| `fleet/layers/runtime.py` | Runtime lifecycle (03.7) + checkpointing + idempotency; `Researcher`/`Analyst`/`Operator` workers; `Approval` (D17). |
+| `fleet/layers/armor.py` | Model Armor (D12): injection strip, signed tool envelopes, PII scan/redact. |
+| `fleet/layers/verification.py` | D16 verification gate: `VERIFIED` / `ASSERTED` / `HALLUCINATION`. |
+| `fleet/layers/brain.py` | Pluggable Brain interface: `GemmaBrain` (local, D18) / `GeminiBrain` (demo-only, D18/D20) / `SchemaEnforcedBrain` (D15 boundary). |
+| `fleet/gcp/` | `GcpBridge` (Firestore/Pub-Sub mirror), `FirestoreVerifier` (public-key), `OtelExporter`, D17 Cloud Run approval console. |
+| `fleet/tests/` | 78 tests across Phases 0–5 (crypto, control plane, runtime, GCP, brain, adversarial beats). |
+| `docs/planning/` | 19 living design docs (D1–D20) + roadmap + adversarial test plan. |
 
 ## Quick start
 
@@ -31,25 +49,48 @@ the three workers, and the GCP layer (Cloud Run / Firestore / Pub/Sub).
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-# 2. run the Phase 0 crypto verification suite
-PYTHONPATH=. python -m pytest fleet/tests/test_crypto_phase0.py -q
+# 2. run the full suite (all phases)
+python -m pytest fleet/tests -q
 ```
 
-All tests should pass. The vendored ChrisCryptSN suite also runs green against
-this same environment.
+All **78 tests** should pass. The vendored ChrisCryptSN suite also runs green
+against this same environment.
 
-## Security properties (tested in Phase 0)
+## Security properties (tested across Phases 0–5)
 
 - **Root of trust:** an Argon2id-strengthened master derives a root Ed25519 key;
   every agent identity is a root-signed certificate. A forged/unsigned cert is
-  rejected by the gateway.
+  rejected by the gateway (beat 7).
 - **Confidentiality:** local secrets are sealed with XChaCha20-Poly1305 under
   per-record HKDF subkeys (key-bound, name-bound — no plaintext fallback).
 - **Tamper-evidence:** the audit ledger is an Ed25519-signed hash chain with a
   signed checkpoint, so any modification, reordering, or truncation is detected
-  at verify time (fail-closed).
-- **Live rotation:** an agent's key can be revoked and re-issued while the chain
-  stays continuous (adversarial "revoke → rotate → resume" story).
+  at verify time (fail-closed) — beat 6.
+- **Deterministic authority:** policy + capability + signing live in the
+  Control Plane, never in the model. The model proposes; the protocol decides.
+- **Probabilistic-content separation (D15):** brain prompts carry evidence only,
+  never policy/approval vocabulary; model output is schema-enforced at the
+  boundary before it becomes any record.
+- **Human-in-the-loop (D17):** consequential actions (`crm_write`) require a
+  human-signed `ApprovalRecord` even for verified intel — beat 3 blocks without
+  one, beat 4 grants with one.
+- **Live rotation (D14):** an agent's key can be revoked and re-issued while the
+  chain stays continuous — beat 8.
+- **Public verifiability:** GCP holds only signed, verifiable artifacts; a
+  public-key holder can verify any record without ever holding authority.
+
+## Adversarial 8-beat governability demo (Phase 5)
+
+Each beat is a passing automated test (`fleet/tests/test_adversarial_beats_phase5.py`):
+
+1. Prompt injection stripped at the structured boundary (Model Armor)
+2. Capability denial → Gateway DENY + signed deny event
+3. Consequential action without approval blocked pre-FINAL
+4. Human-signed `ApprovalRecord` grants authority
+5. Execution succeeds; artifact signed, chained, replicated
+6. Post-hoc audit edit detected by the hash-chain verifier
+7. Forged identity (not signed by root) rejected
+8. Revoke + rotate: fresh key, chain intact
 
 ## Mandatory hackathon constraints
 
