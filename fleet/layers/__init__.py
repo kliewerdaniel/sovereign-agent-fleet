@@ -31,7 +31,7 @@ from fleet.layers.compliance import (
     build_compliance_proof,
     verify_compliance_proof,
 )
-from fleet.layers.consensus import ConsensusGate, same_verdict
+from fleet.layers.consensus import ConsensusGate, same_verdict, unmapped_task
 from fleet.layers.brain import (
     Brain,
     BrainSchemaError,
@@ -90,6 +90,7 @@ __all__ = [
     "verify_compliance_proof",
     "ConsensusGate",
     "same_verdict",
+    "unmapped_task",
     "Runtime",
     "Researcher",
     "Analyst",
