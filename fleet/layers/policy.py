@@ -39,7 +39,7 @@ class PolicyResult:
 _ROLE_CAPS: Dict[str, List[str]] = {
     "researcher": ["emit_evidence"],
     "analyst": ["qualify", "verify_gate"],
-    "operator": ["prepare_artifact", "crm_write", "outreach_send"],
+    "operator": ["prepare_artifact", "crm_write", "outreach_send", "incident_remediate"],
     "human": ["approve_deny"],
     "tool": ["tool_result"],
 }

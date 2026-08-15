@@ -41,6 +41,13 @@ from fleet.layers.brain import (
     analyst_instruction,
     operator_instruction,
 )
+from fleet.layers.incident import (
+    Authorization,
+    Severity,
+    bind_artifact,
+    required_authorization,
+)
+from fleet.simenv.env import ACTIONS, SimEnv
 
 
 class Lifecycle(str, Enum):
@@ -258,12 +265,32 @@ class Operator:
 
     def act(self, intel_handoff: Handoff, artifact_text: str,
             capability: str, idempotency_key: str,
-            approval: Optional[dict] = None) -> dict:
+            approval: Optional[dict] = None,
+            target_workload: Optional[str] = None,
+            action_name: Optional[str] = None,
+            simenv: Optional["SimEnv"] = None) -> dict:
         """Consume QualifiedIntel; enforce D16 boundary; execute consequential op.
 
         D16 boundary: HALLUCINATION intel is BLOCKED; ASSERTED intel requires a
         signed ApprovalRecord; VERIFIED intel auto-allows (low risk).
         FINAL only after authority + (for ASSERTED) approval (#13).
+
+        Incident remediation (D26): when ``target_workload`` + ``action_name`` +
+        ``simenv`` are supplied, this is a bounded SimEnv remediation. The
+        action clears FOUR independent gates in order — any one failing blocks
+        execution:
+
+          1. Evidence (D16): HALLUCINATION intel -> blocked.
+          2. Capability (Gateway): cert must permit ``capability`` -> denied w/
+             signed deny event otherwise.
+          3. Policy (incident.required_authorization): VERIFIED x severity x
+             blast_radius x asset_class -> AUTO / HUMAN / BLOCKED.
+          4. Approval (D17): HUMAN decisions require a cryptographically-bound
+             human ApprovalRecord (bound to the exact state transition).
+             AUTO decisions execute without a human.
+
+        Passing one gate NEVER implies another. Evidence that a workload is
+        compromised does not authorize isolating it (act 3).
         """
         live = self.rt.cp.registry.discover(self.agent.agent_id)
         if live is None:
@@ -280,6 +307,14 @@ class Operator:
         # PII guard (D12): redact before the artifact becomes a record.
         redacted, n_pii = redact_pii(artifact_text)
         artifact_hash = sha256(redacted.encode("utf-8"))
+
+        # --- Incident remediation fork (dormant for non-incident callers) ---
+        if target_workload is not None and action_name is not None:
+            return self._act_remediation(
+                live, intel, verification, artifact_hash, n_pii,
+                capability, idempotency_key, approval,
+                target_workload, action_name, simenv,
+            )
 
         if verification == ASSERTED and approval is None:
             self.rt.log_audit("operator.needs_approval", who=self.agent.agent_id,
@@ -318,6 +353,81 @@ class Operator:
             return {"final": True, "artifact_hash": artifact_hash,
                     "verification": verification, "pii_redacted": n_pii,
                     "require_approval": bool(resp.require_approval)}
+        return self.rt.idempotent(idempotency_key, _commit)
+
+    def _act_remediation(self, live, intel, verification, artifact_hash, n_pii,
+                         capability, idempotency_key, approval,
+                         target_workload, action_name, simenv) -> dict:
+        """Incident remediation: clears the four independent gates then
+        executes a deterministic SimEnv transition inside the idempotent _commit.
+        """
+        severity = intel.get("severity")
+        if severity is None:
+            # fall back to the (first) predicate's severity if present
+            preds = intel.get("predicates") or []
+            severity = (preds[0].get("severity") if preds else None) or "LOW"
+        auth = required_authorization(
+            verification, Severity(severity), action_name, target_workload
+        )
+
+        # Gate 1 already passed (HALLUCINATION blocked in act()).
+        # Gate 2: Capability (Gateway) — cert must permit this capability.
+        resp = self.rt.cp.request_authority(live, capability, idempotency_key=idempotency_key)
+        if not resp.granted:
+            return {"final": False, "blocked": True, "gate": "capability",
+                    "reason": resp.deny_reason or "capability denied"}
+
+        # Gate 3: Policy decision.
+        if auth == Authorization.BLOCKED:
+            self.rt.log_audit("operator.blocked", who=self.agent.agent_id,
+                              gate="policy", target=target_workload,
+                              action=action_name, reason="policy BLOCKED")
+            return {"final": False, "blocked": True, "gate": "policy",
+                    "authorization": auth.value,
+                    "reason": "policy BLOCKED: action not permitted on this target"}
+
+        # Gate 4: Approval (only when policy says HUMAN).
+        if auth == Authorization.HUMAN:
+            human_cert = self.rt.cp.registry.human_cert()
+            target_state = ACTIONS[action_name][0].value
+            bound_hash = bind_artifact(target_workload, action_name, target_state)
+            if human_cert is None or approval is None:
+                return {"final": False, "needs_approval": True,
+                        "authorization": auth.value,
+                        "artifact_hash": bound_hash, "pii_redacted": n_pii}
+            if not verify_approval(approval, human_cert, idempotency_key,
+                                   capability, bound_hash):
+                self.rt.log_audit("operator.approval.rejected", who=self.agent.agent_id,
+                                  gate="approval", target=target_workload,
+                                  reason="approval bound to a different action/state")
+                return {"final": False, "blocked": True, "gate": "approval",
+                        "reason": "approval signature invalid or mis-bound",
+                        "pii_redacted": n_pii}
+
+        # All gates cleared (AUTO or HUMAN-with-valid-approval). Execute the
+        # deterministic SimEnv transition INSIDE the idempotent commit so a
+        # replay returns the recorded result instead of double-transitioning.
+        target_state = ACTIONS[action_name][0].value
+
+        def _commit():
+            prev = simenv.state_of(target_workload) if simenv is not None else None
+            res = simenv.apply(target_workload, action_name) if simenv is not None else None
+            new_state = res.new_state.value if res is not None else target_state
+            self.rt.log_audit(
+                "operator.final", who=self.agent.agent_id,
+                capability=capability, verification=verification,
+                target=target_workload, action=action_name,
+                prev_state=(prev.value if prev is not None else None),
+                new_state=new_state, authorization=auth.value,
+                pii_redacted=n_pii,
+            )
+            return {"final": True, "authorization": auth.value,
+                    "verification": verification, "pii_redacted": n_pii,
+                    "require_approval": (auth == Authorization.HUMAN),
+                    "target": target_workload, "action": action_name,
+                    "prev_state": (prev.value if prev is not None else None),
+                    "new_state": new_state,
+                    "simenv_ok": bool(res and res.ok) if res is not None else None}
         return self.rt.idempotent(idempotency_key, _commit)
 
     def draft_with_brain(self, intel_handoff: Handoff, target: str,

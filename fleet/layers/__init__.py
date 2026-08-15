@@ -57,6 +57,13 @@ from fleet.layers.runtime import (
     Runtime,
     StubBrain,
 )
+from fleet.layers.incident import (
+    Authorization,
+    Severity,
+    bind_artifact,
+    decision_summary,
+    required_authorization,
+)
 from fleet.layers.verification import (
     ASSERTED,
     HALLUCINATION,
@@ -64,6 +71,7 @@ from fleet.layers.verification import (
     evaluate_intel,
     stamp,
 )
+from fleet.simenv import SimEnv, WorkloadState, AssetClass
 
 __all__ = [
     "AgentRegistry",
@@ -113,6 +121,14 @@ __all__ = [
     "SchemaEnforcedBrain",
     "validate_brain_output",
     "assert_no_policy_leak",
+    "Authorization",
+    "Severity",
+    "bind_artifact",
+    "decision_summary",
+    "required_authorization",
+    "SimEnv",
+    "WorkloadState",
+    "AssetClass",
     "ControlPlane",
 ]
 

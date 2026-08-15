@@ -27,6 +27,7 @@
 21. `D22-zk-policy-proof.md` — selective-disclosure compliance attestation (honestly named; real-ZK variant scoped as D24, unimplemented)
 22. `D23-multi-brain-consensus.md` — two-brain consensus gate
 23. `D25-operator-sandbox.md` — Operator-sandbox re-evaluation + deferral (R4)
+24. `D26-incident-triage-usecase.md` — LOCKED hackathon use case: Incident Triage → Authorized Remediation (SimEnv digital range; evidence≠capability≠policy≠authority). **Status: IMPLEMENTED & TESTED (167 passing).**
 
 ## Status
 - **PHASE 0 COMPLETE** — crypto foundation built + 22 tests green (14.1). Fleet code under `fleet/` (clean-room, BSD/MIT-compatible; the public hackathon repo).
@@ -35,7 +36,7 @@
 - GCP live (project `project-3ba93cec-8ca6-43c0-ba4`); dev on local Gemma4, Gemini at demo only; conservative credits.
 - **PHASE 4 COMPLETE** — Pluggable Brain (Gemini 3.5 Flash + local Gemma4) + schema enforcement built + 10 tests green, 69 total. `fleet/layers/brain.py`: `Brain` interface + `DeterministicBrain`/`GemmaBrain` (local, D18)/`GeminiBrain` (GenAI SDK direct, demo-only D18/D20)/`SchemaEnforcedBrain` (D15 boundary validation); prompts evidence-only, no policy leakage (D15). Workers `classify_with_brain`/`draft_with_brain` let the model PROPOSE, protocol decides.
 - **PHASE 5 COMPLETE** — Adversarial 8-beat governability demo (beats 1–8 + registry setup) as 9 passing pytest fixtures (`fleet/tests/test_adversarial_beats_phase5.py`); full suite **78 tests green**. Dark-first architecture diagram (`docs/assets/architecture.svg` + `.png`). 4-min narrated demo video (`demo/sovereign_agent_fleet_demo.mp4`) assembled from real artifacts: live pytest beat output, `GcpBridge`/`FirestoreVerifier` public-key proof, and the pluggable-brain schema boundary. GCP not live in demo (min-instances 0); identical local code path used and labeled.
-- All phases complete. Repo: **125 tests** (Phases 0–5 + D21 hardening + Round-2 extensions R1–R4), planning package (D1–D25), diagram, demo video.
+- All phases complete + D26 use case implemented. Repo: **167 tests** (Phases 0–5 + D21 hardening + Round-2 extensions R1–R4 + D26 incident-triage: 14 SimEnv + 20 policy + 8 e2e), planning package (D1–D26), diagram, demo video (pending rebuild).
 - **D21 SECURITY AUDIT + HARDENING (complete):** A1/A2 cryptographic approval binding, K1 root-key backup/rotation, A3 revoke-invalidates-grants, M1/M2 deep Model Armor, P1 default-deny property, G2 console fails-closed, S1 pinned+audited supply chain, C3 replay defense. Full suite green.
 - **Round 2 hardening (complete, merged `b03de66`):** **R1** renamed the D22 "zero-knowledge" claim to an honest *selective-disclosure compliance attestation* (scoped real-ZK as D24, unimplemented); **R2** split consensus into `consensus.disagreement` vs `consensus.unmapped_task`; **R3** CI now audits BOTH dependency surfaces (base + GCP) and uploads the SBOM as an artifact; **R4** re-evaluated and deferred (again, with reason) the Operator sandbox in **D25** — no external tool surface exists to sandbox, and the real capability boundary (Gateway + A1/A2) is already fail-closed.
 

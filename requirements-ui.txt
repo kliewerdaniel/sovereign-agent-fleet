@@ -1,0 +1,11 @@
+# UI dependency surface (D26 use-case window).
+#
+# INTENTIONALLY NOT part of the base runtime (requirements.txt) or the GCP
+# deploy surface (requirements-gcp.txt). The Streamlit app is a VIEWER that
+# sits OUTSIDE the trust boundary — it drives the real fleet stack but decides
+# nothing, so it is excluded from the R3 supply-chain audit surfaces (base +
+# GCP). Install only to run the demo console:
+#
+#   pip install -r requirements-ui.txt
+#   streamlit run demo_app.py
+streamlit>=1.30

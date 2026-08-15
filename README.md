@@ -40,12 +40,14 @@ min-instances 0) — the identical local code path is used and labeled as such.
 | `fleet/layers/runtime.py` | Runtime lifecycle (03.7) + checkpointing + idempotency; `Researcher`/`Analyst`/`Operator` workers; `Approval` (D17). |
 | `fleet/layers/armor.py` | Model Armor (D12): injection strip, signed tool envelopes, PII scan/redact. |
 | `fleet/layers/verification.py` | D16 verification gate: `VERIFIED` / `ASSERTED` / `HALLUCINATION`. |
+| `fleet/layers/incident.py` | D26 incident authorization: `required_authorization` (pure policy: verification × severity × blast × asset_class → AUTO/HUMAN/BLOCKED) + `bind_artifact` (transition hash fed into D17 approval). |
+| `fleet/simenv/` | D26 SimEnv digital range: `WorkloadState`/`AssetClass`/`WORKLOADS`/`ACTIONS` + `SimEnv.apply` deterministic transition (one-directional, PROTECTED second-line defense). |
 | `fleet/layers/brain.py` | Pluggable Brain interface: `GemmaBrain` (local, D18) / `GeminiBrain` (demo-only, D18/D20) / `SchemaEnforcedBrain` (D15 boundary). |
 | `fleet/layers/approval.py` | D21 A1/A2: `verify_approval` — Ed25519-verifies + binds the human `ApprovalRecord` to exact action/capability/artifact (fail-closed). |
 | `fleet/layers/compliance.py` | D21 E1 (D22): selective-disclosure compliance attestation — Ed25519-signed proof that an action complied + was human-approved + under live epoch, without revealing CRM/source data (not a zero-knowledge proof). |
 | `fleet/layers/consensus.py` | D21 E2 (D23): multi-brain consensus gate — two distinct Brain backends must agree to VERIFY; disagreement → ASSERTED + signed event. |
 | `fleet/gcp/` | `GcpBridge` (Firestore/Pub-Sub mirror), `FirestoreVerifier` (public-key), `OtelExporter`, D17 Cloud Run approval console. |
-| `fleet/tests/` | 125 tests across Phases 0–5 + D21 hardening + Round-2 extensions (R1–R4). |
+| `fleet/tests/` | 167 tests: Phases 0–5 + D21 hardening + Round-2 extensions (R1–R4) + D26 incident-triage use case (SimEnv/policy/e2e). |
 | `docs/planning/` | Living design docs: D1–destructure decision ADRs, D21 security audit + hardening, D22 selective-disclosure attestation, D23 consensus gate, D25 Operator-sandbox re-eval. (D24 = real-ZK variant scoped but intentionally unimplemented — see D22.) |
 
 ## Quick start
@@ -59,7 +61,7 @@ pip install -r requirements.txt
 python -m pytest fleet/tests -q
 ```
 
-All **125 tests** should pass. The vendored ChrisCryptSN suite also runs green
+All **167 tests** should pass. The vendored ChrisCryptSN suite also runs green
 against this same environment.
 
 ## Security properties (tested across Phases 0–5)
@@ -129,6 +131,54 @@ against this same environment.
   `consensus.unmapped_task` event instead of silently masquerading as a
   permanent disagreement (R2). The model stays proposal-only; the deterministic
   gate decides.
+
+## Incident Triage → Authorized Remediation (D26 use case)
+
+The locked hackathon use case proves the thesis: **the model proposes; it cannot
+grant itself authority to execute.** Evidence that a workload is compromised does
+**not** authorize isolating it — evidence, capability, policy, and authority are
+four independent gates, and passing one never implies another.
+
+The bounded "digital range" is a deterministic SimEnv (`fleet/simenv/`): 4 seeded
+workloads (`web-edge`/`app-db`/`revenue-svc`/`identity-svc`), 3 graded
+remediations (`block_egress`/`isolate`/`quarantine`), one-directional states.
+`identity-svc` is **PROTECTED**: evidence can VERIFY that it is compromised, yet
+policy still BLOCKS containment (no self-inflicted auth DoS).
+
+Pipeline (each gate is enforced by real fleet code, every step is a passing test):
+
+```
+Evidence (D16) → Capability (Gateway) → Policy (incident) → Approval (D17)
+               → SimEnv transition (inside idempotent _commit) → signed audit
+```
+
+- **Path A (LOW+VERIFIED+low-blast):** `web-edge → block_egress` → **AUTO**, no
+  human. (autonomy is safe where it can be)
+- **Path B (HIGH+VERIFIED or revenue-svc):** `revenue-svc → isolate` → **HUMAN**;
+  a cryptographically-bound `ApprovalRecord` (sha256 of the exact
+  workload+action+target_state) is required and verified fail-closed.
+- **Act 3 (evidence ≠ authority):** `identity-svc` VERIFIED-compromised →
+  `isolate` → evidence pass → capability pass → **policy BLOCKS**.
+- **Attacks (all blocked):** mis-bound human approval rejected (D17); capability
+  absence → Gateway DENY; HALLUCINATION intel blocked at the evidence gate;
+  direct SimEnv containment on PROTECTED refused by the second-line defense.
+
+Drive the real protocol through the 8-panel viewer (outside the trust boundary):
+
+```bash
+pip install -r requirements-ui.txt
+streamlit run demo_app.py
+```
+
+### Tests
+
+- `fleet/tests/test_simenv.py` (14) — pure transitions, idempotency,
+  identity-svc prohibition, blast-radius metadata.
+- `fleet/tests/test_incident_policy.py` (20) — full D26 policy matrix +
+  property checks (hallucination-always-blocked, evidence≠authority,
+  severity/confidence are separate axes).
+- `fleet/tests/test_incident_e2e.py` (8) — Path A, Path B, Act 3, Attacks 1–4,
+  idempotent replay, all against the live ControlPlane/Runtime/SimEnv.
 
 ## Adversarial 8-beat governability demo (Phase 5)
 
