@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Assemble the brit-narrated demo: per-scene clips + xfade concat."""
+"""Assemble the brit-narrated demo: per-scene clips + hard-cut concat."""
 import json, os, subprocess
 FF = "/opt/homebrew/bin/ffmpeg"
 FP = "/opt/homebrew/bin/ffprobe"
@@ -10,7 +10,6 @@ CL = os.path.join(ROOT, "demo", "_clips")
 os.makedirs(CL, exist_ok=True)
 
 SCENES = ["T01", "T02", "T03", "T04", "T05", "T06", "T07", "T08", "T09", "T10"]
-XF = 0.4  # crossfade seconds
 
 def dur(path):
     out = subprocess.check_output([FP, "-v", "error", "-show_entries",
@@ -27,68 +26,42 @@ for s in SCENES:
     cmd = [FF, "-y", "-loop", "1", "-i", frame, "-i", audio,
            "-vf", "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2",
            "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", "24",
-           "-c:a", "aac", "-b:a", "160k", "-shortest", "-t", f"{ad:.3f}", out]
+           "-c:a", "aac", "-ar", "44100", "-b:a", "160k", "-shortest", "-t", f"{ad:.3f}", out]
     subprocess.check_call(cmd)
     clip_paths.append(out)
     print(s, "clip", f"{ad:.2f}s")
 
-# Silent intro hold (poster) + silent outro hold
-intro = os.path.join(CL, "intro.mp4")
-subprocess.check_call([FF, "-y", "-loop", "1", "-i", os.path.join(FR, "T01.png"),
-                       "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
-                       "-t", "14", "-vf", "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2",
-                       "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", "24",
-                       "-shortest", "-t", "14", intro])
+# Short silent outro tail only — speech begins immediately at t=0 (T01
+# narration) and ends on the last slide; a brief 2s hold keeps a clean
+# ending instead of an abrupt cut. (No silent intro: user wants the video
+# to open with speech, not a silent title card.)
+OUTRO_TAIL = 2.0
 outro = os.path.join(CL, "outro.mp4")
 subprocess.check_call([FF, "-y", "-loop", "1", "-i", os.path.join(FR, "T10.png"),
                        "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
-                       "-t", "14", "-vf", "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2",
+                       "-t", f"{OUTRO_TAIL:.1f}", "-vf", "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2",
                        "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", "24",
-                       "-shortest", "-t", "14", outro])
-clip_paths = [intro] + clip_paths + [outro]
-print("intro/outro holds added")
+                       "-shortest", "-t", f"{OUTRO_TAIL:.1f}", outro])
+clip_paths = clip_paths + [outro]
+print("outro hold added; speech starts at t=0")
 
-# xfade concat
-n = len(clip_paths)
-if n == 1:
-    final = clip_paths[0]
-else:
-    # inputs
-    cmd = [FF, "-y"]
-    for c in clip_paths:
-        cmd += ["-i", c]
-    # build filter_complex chain
-    fc = ""
-    prev = "[0:v]"
-    off = 0.0
-    # We need audio xfade too; do video xfade then audio amix across.
-    # Simpler: xfade video stream, and for audio use acrossfade.
-    vinputs = "".join(f"[{i}:v]" for i in range(n))
-    ainputs = "".join(f"[{i}:a]" for i in range(n))
-    # Video xfade chain
-    chain = ""
-    chain += f"[0:v][1:v]xfade=transition=fade:duration={XF}:offset={dur(clip_paths[0])-XF}[v01];"
-    labels = ["[v01]"]
-    off = dur(clip_paths[0])
-    for i in range(2, n):
-        off += dur(clip_paths[i-1])
-        prevlabel = labels[-1]
-        outlabel = f"[v{i:02d}]"
-        chain += f"{prevlabel}[{i}:v]xfade=transition=fade:duration={XF}:offset={off-XF}{outlabel};"
-        labels.append(outlabel)
-    vlast = labels[-1]
-    # Audio acrossfade chain (clean, sequential)
-    achain = ""
-    alabels = ["[0:a]"]
-    for i in range(1, n):
-        alabels.append(f"[a{i:02d}]")
-        achain += f"{alabels[i-1]}[{i}:a]acrossfade=duration={XF}:c1=exp:c2=exp{alabels[i]};"
-    fc = chain + achain + f"{vlast}{alabels[-1]}concat=n=1:v=1:a=1[outv][outa]"
-    cmd += ["-filter_complex", fc, "-map", "[outv]", "-map", "[outa]",
-            "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", "24",
-            "-c:a", "aac", "-b:a", "160k", os.path.join(ROOT, "demo", "sovereign_agent_fleet_demo.mp4")]
-    print("FILTER:", fc)
-    subprocess.check_call(cmd)
-
+# Concat with HARD CUTS (no audio crossfade, no video xfade).
+#
+# WHY NO acrossfade: fading the last XF seconds of every clip ducks each slide's
+# closing syllable (the "end of audio cut off" complaint). Discrete per-slide
+# narration must not overlap, so we glue clips with a frame-accurate concat
+# FILTER (hard cuts) preserving every slide's full tail. Using the filter (not
+# the concat demuxer) avoids the mp4 edit-list duration bug.
 final = os.path.join(ROOT, "demo", "sovereign_agent_fleet_demo.mp4")
+inp = []
+for c in clip_paths:
+    inp += ["-i", c]
+streams = "".join(f"[{i}:v][{i}:a]" for i in range(len(clip_paths)))
+# v=1:a=1 hard-concatenates N (video,audio) pairs in order, no fade.
+cmd = [FF, "-y"] + inp + ["-filter_complex", f"{streams}concat=n={len(clip_paths)}:v=1:a=1[outv][outa]",
+       "-map", "[outv]", "-map", "[outa]",
+       "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", "24",
+       "-c:a", "aac", "-b:a", "160k", final]
+print("CONCAT hard-cut (no audio fade):", len(clip_paths), "segments")
+subprocess.check_call(cmd)
 print("FINAL:", dur(final), "s ->", final)
