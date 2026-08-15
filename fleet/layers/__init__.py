@@ -26,6 +26,12 @@ from fleet.layers.armor import (
     scan_pii_deep,
     verify_tool_envelope,
 )
+from fleet.layers.compliance import (
+    ComplianceProof,
+    build_compliance_proof,
+    verify_compliance_proof,
+)
+from fleet.layers.consensus import ConsensusGate, same_verdict
 from fleet.layers.brain import (
     Brain,
     BrainSchemaError,
@@ -79,6 +85,11 @@ __all__ = [
     "redact_pii",
     "scan_pii_deep",
     "redact_pii_deep",
+    "ComplianceProof",
+    "build_compliance_proof",
+    "verify_compliance_proof",
+    "ConsensusGate",
+    "same_verdict",
     "Runtime",
     "Researcher",
     "Analyst",
