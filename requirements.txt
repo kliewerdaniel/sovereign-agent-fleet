@@ -1,0 +1,11 @@
+# Sovereign Agent Fleet — Python dependencies (Phase 0)
+# The fleet runtime is intentionally minimal: standard-library crypto
+# (cryptography, pynacl) plus pytest for the verification gate. GCP SDKs and
+# the Gemini/GenAI client are added in later phases (see docs/planning/15-implementation-roadmap.md).
+
+cryptography>=42.0
+pynacl>=1.5
+argon2-cffi>=23.1
+
+# testing
+pytest>=8.0

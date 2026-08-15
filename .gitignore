@@ -1,0 +1,31 @@
+# python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# virtual env
+venv/
+.venv/
+
+# env / secrets (NEVER commit real credentials)
+.env
+*.env
+*.key
+*.pem
+service_account*.json
+*gcp*credentials*.json
+
+# local runtime state (machine-local, not part of the repo)
+.hermes/
+agent_state/
+logs/
+
+# OS
+.DS_Store
+
+# local knowledge graph is kept local per design (docs/planning/11-knowledge-architecture.md)
+knowledge/
+
+# rendered demo media / scratch
+episodes/
+_dump/

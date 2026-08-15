@@ -1,0 +1,69 @@
+# Sovereign Enterprise Agent Fleet — Planning Package (LIVING)
+
+> **Status:** Planning / documentation phase. No implementation code yet.
+> **Deadline pressure:** All Things Agentic Hackathon — Aug 31, 2026 5:00pm PDT (~17 days from kickoff). Every decision below is scoped to be buildable in that window.
+> **Track:** Fortified Enterprise Fleet (primary) + Best Architectural Design (secondary judging target).
+
+## Reading order (FULL — first + second pass complete)
+1. `01-project-brief.md` — what we're building and why
+2. `02-goals-nongoals.md` — in/out of scope
+3. `03-architecture.md` — system, agent, control-plane, topology
+4. `04-security-model.md` — the 7 security properties + threat model + Model Armor
+5. `05-cryptographic-design.md` — exact keys, signatures, hashes, derivation, rotation
+6. `06-failure-model.md` — behavior for each failure mode
+7. `07-adversarial-test-plan.md` — the runnable 8-beat governability demo
+8. `08-demo-script.md` — the 4-min video shot plan + ICP scenario
+9. `09-hackathon-mapping.md` — requirements → implementation checklist
+10. `10-decisions-ADR.md` — every decision in ADR format (D1–D17)
+11. `11-knowledge-architecture.md` — where SKC / GraphRAG / vectors fit
+12. `12-data-model.md` — field-level record schemas
+13. `13-interface-contracts.md` — agent/gateway/GCP/Gemini/Gemma contracts
+14. `14-testing-strategy.md` — every beat + failure mode provably tested
+15. `15-implementation-roadmap.md` — ~17-day build plan
+16. `16-risk-register.md` — risks + accepted scope boundaries
+17. `17-judging-submission-strategy.md` — criteria, submission, bonus
+18. `18-executive-summary.md` — one-page thesis + hackathon fit
+19. `19-MASTER-SUBMISSION.md` — single combined doc (all 27 sections)
+
+## Status
+- **PHASE 0 COMPLETE** — crypto foundation built + 22 tests green (14.1). Fleet code under `fleet/` (clean-room, BSD/MIT-compatible; the public hackathon repo).
+- Reuse: vendored `ChrisCryptSN` (MIT) into `fleet/crypto/chriscrypt` — Argon2id, XChaCha20-Poly1305, HKDF per-record, Ed25519 signed hash-chain. All 12 upstream tests + 22 new tests pass.
+- **Deviation D4a:** Sovereign Worker control plane NOT vendored — its repos are all-rights-reserved (no license). Audit-ledger wrapper + Gateway written clean-room. Documented below.
+- GCP live (project `project-3ba93cec-8ca6-43c0-ba4`); dev on local Gemma4, Gemini at demo only; conservative credits.
+- Next: Phase 1 (Control Plane — Identity Registry + capability Gateway).
+
+## Second pass (now written)
+Data Model ✅, Interface Contracts ✅, Testing Strategy ✅, Implementation Roadmap ✅, Risk Register ✅, Judging/Submission Strategy ✅.
+
+## Decision log (summary — full text in 10-decisions-ADR.md)
+| ID | Decision | Status |
+|----|----------|--------|
+| D1 | Track = Fortified Enterprise Fleet (+ Architecture secondary) | Accepted |
+| D2 | Gemini 3.5 Flash mandatory; Gemma locally for bonus | Accepted |
+| D3 | Crypto + execution protocol stay local-first; Gemini/ADK = cloud brain only | Accepted |
+| D4 | Reuse ChrisCrypt + Sovereign modules, don't rewrite | Accepted |
+| D5 | GCP = Cloud Run + Firestore + Pub/Sub | Accepted |
+| D6 | Authority/keys local; verifiable artifacts replicate to GCP | Accepted |
+| D7 | Public vocab = hackathon 7 components → Sovereign impl | Accepted |
+| D8 | Hard handoff: Researcher=sourced evidence; Analyst=qualified intel | Accepted |
+| D9 | Control Plane = deterministic infra, not fleet agents | Accepted |
+| D10 | 3 executing workers; Registry discovery shown as setup beat | Accepted |
+| D11 | Demo = simulated DailySalesOS CRM, no real sends/PII | Accepted |
+| D12 | Model Armor = structural + deterministic (no classifier) | Accepted |
+| D13 | Key hierarchy + root-of-trust certifies each agent identity | Accepted |
+| D14 | Live key rotation in scope (revoke + re-issue + resume) | Accepted |
+| D15 | Gemini = probabilistic brain only; never for policy/signing | Accepted |
+| D16 | Verification gate quantifies VERIFIED vs ASSERTED (weights + 0.6 + hallucination flag) | Accepted |
+| D17 | Human approver = root-cert Ed25519 id; approval console on Cloud Run, key local | Accepted |
+| D18 | Local abliterated Gemma4 = dev/test brain all use cases; Gemini = demo brain | Accepted |
+| D19 | Graph stays local; Firestore mirror = manifest-only | Accepted |
+| D20 | Google framework = GenAI SDK direct; Sovereign = orchestration/enforcement | Accepted |
+
+## Two precision corrections baked into the design
+- **"Evidence is deterministic" is imprecise.** The *record* (hash/signature/chain position) is deterministic; the *content* a model extracts is probabilistic. Threat model splits **content correctness** (Verification layer) from **integrity** (signature+hashchain).
+- **"Researcher tries unauthorized op → blocked" is weak** unless capability-based. The honest design: Gateway denies because the capability was never issued (optionally surfaced by a simulated prompt-injection). The adversarial demo is built on this.
+
+## Open items carried forward
+- Exact GCP region / cost guardrails (credits form not yet claimed — action for owner).
+- Whether ADK agents wrap the local Sovereign runtime, or Sovereign runtime calls Gemini directly and ADK is the orchestration shell. (Recommend: ADK = outer orchestration/agent shell; Sovereign = inner deterministic protocol. To confirm in implementation phase.)
+- Final record schemas (EvidenceRecord, AuditEntry, AgentCert) — specified structurally in 05 but field-level contract lands in Interface Contracts (second pass).
