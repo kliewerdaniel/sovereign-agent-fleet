@@ -1,13 +1,17 @@
-"""Zero-knowledge policy-compliance proof (D22 / E1, D21 Phase 3).
+"""Selective-disclosure compliance attestation (E1 / D22, D21 Phase 3).
 
 Lets an Operator prove to a third party that *"this consequential action complied
 with policy `policy_id`, was approved by a human, and was rooted in the live
 identity epoch"* WITHOUT revealing the CRM/source data the action touched.
 
-The proof is an Ed25519 signature (reusing the vendored crypto) over a commitment
-to (policy_id, artifact_hash, approval_sig, root_epoch, action_id). The verifier
-holds only public keys and checks the math, not the data. No model authority is
-added — the proof is built/verified by the deterministic Control Plane only.
+This is a **selective-disclosure signed attestation**, not a zero-knowledge proof:
+the construction is an Ed25519 signature (reusing the vendored crypto) over a
+commitment to (policy_id, artifact_hash, approval_sig, root_epoch, action_id). The
+verifier holds only public keys and checks the math, not the data. The two fields
+that identify the action (`policy_id`, `artifact_hash`) are disclosed in plaintext
+by design — the proof hides the *CRM payload and the raw approval signature*, not
+those selectors. No model authority is added: the attestation is built/verified by
+the deterministic Control Plane only.
 """
 from __future__ import annotations
 

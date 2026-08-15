@@ -295,14 +295,50 @@ execution protocol* without granting the model new authority:
   Suite now 107 green (`b1a7423` A1/A2, `952e0b9` K1/A3, `ca414fb` M1/M2/A3,
   `4a531d4` P1/G2/S1/C3).
 - **Phase 3 extensions — ALL COMMITTED (`8ebb2f1`).** (E1) `fleet/layers/compliance.py`:
-  zero-knowledge policy-compliance proof — prove compliance + valid human approval
-  + live identity epoch without revealing source data; tampered/rebound/forged
-  proof rejected (design `D22`). (E2) `fleet/layers/consensus.py`: multi-brain
-  consensus gate — two distinct Brain backends must agree to VERIFY; disagreement →
-  ASSERTED + signed `consensus.disagreement` audit event (design `D23`). (E3, the
-  formal policy property test, is already delivered as P1.) Suite now **120 green**.
+  selective-disclosure compliance **attestation** (NOT a zero-knowledge proof) —
+  prove compliance + valid human approval + live identity epoch without revealing
+  source data; tampered/rebound/forged attestation rejected (design `D22`). (E2)
+  `fleet/layers/consensus.py`: multi-brain consensus gate — two distinct Brain
+  backends must agree to VERIFY; disagreement → ASSERTED + signed
+  `consensus.disagreement` audit event (design `D23`). (E3, the formal policy
+  property test, is already delivered as P1.) Suite now **120 green**.
 - **Phase 4 — README + docs.** Security-properties section expanded with the D21
   hardening (A1/A2, K1, A3, M1/M2, P1, G2, S1, C3) and extensions (E1, E2) entries;
   layout table + test count (120) updated; this changelog section finalized. Core
   trust boundary (model proposal-only, Control Plane decides) unchanged, so the
   architecture diagram's boundary is still accurate — no redraw required.
+
+---
+
+## Round 2 (findings R1–R4) — changelog
+
+- **R1 (terminology, HIGH — branch `r2-terminology-fix`):** renamed `compliance.py`
+  from "zero-knowledge policy-compliance proof" to **"selective-disclosure
+  compliance attestation"** everywhere it appears (module docstring, `D22-zk-policy-proof.md`
+  → rewritten to add an explicit "Why NOT zero-knowledge" section, README table + E1
+  bullet, the D21 changelog, and the test module docstring). The code is unchanged in
+  behavior — only the overclaim is removed. The honest name reflects what the
+  construction actually provides (discloses `policy_id`/`artifact_hash` by design;
+  hides only the CRM payload + raw `approval_sig`). Option (a) taken; (b) real ZK
+  scoped as `D24` and explicitly left unimplemented (would need a new primitive /
+  trusted setup, contradicting D5/D6). Suite stays **120 green**.
+- **R2 (consensus unmapped-task, MEDIUM — branch `r2-consensus-unmapped-task`):**
+  `ConsensusGate.evaluate` now distinguishes a brain *disagreement*
+  (`consensus.disagreement`) from a *task with no verdict-field mapping*
+  (`consensus.unmapped_task`) as two distinct signed audit events; the latter fails
+  loud and distinguishable instead of silently behaving like a permanent disagreement.
+  New test asserts the unmapped-task path emits `consensus.unmapped_task`.
+- **R3 (CI GCP audit, MEDIUM — branch `r2-ci-gcp-audit`):** `fleet-security.yml`
+  now runs a second supply-chain leg over `requirements-gcp.lock.txt` (same
+  pip-audit + CycloneDX SBOM), and the SBOM is uploaded as a build artifact via
+  `actions/upload-artifact` rather than discarded. Suite stays green.
+- **R4 (operator sandbox, LOW — branch `r2-operator-sandbox`):** re-evaluated the
+  *narrower* sandbox option (capability-scoped subprocess/WASM around the `Operator`'s
+  `crm_write` execution). **Deferred again, with a new reason.** `Operator.act` has no
+  external tool surface to sandbox — its only effect is a deterministic `log_audit`
+  commit inside `Runtime.idempotent()`. There is no subprocess/CRM adapter in the
+  codebase; wrapping a logged write in a sandbox would be theater, not a trust-boundary
+  improvement. The real capability boundary (Gateway `request_authority` + A1/A2
+  `verify_approval`) is already enforced *before* that commit and remains the correct
+  control point. Written up in `D25-operator-sandbox.md`. The attested-runtime (TPM/
+  enclave) half stays correctly deferred (infra this repo doesn't have).
