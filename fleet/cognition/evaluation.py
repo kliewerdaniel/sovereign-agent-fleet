@@ -1,0 +1,158 @@
+"""Sovereign Cognitive Architecture — Evaluation layer (D28, L2).
+
+The EvaluationArtifact is the **enrichment envelope** attached to a governance
+proposal. It records observed signals from the epistemic evaluation of a
+proposal:
+
+  * ``uncertainty``          -- model self-reported / calibrated uncertainty
+  * ``popper``               -- documented falsification ATTEMPT (not truth oracle)
+  * ``evidence_quality``     -- Page-Quality style ratings
+  * ``needs_met``            -- Needs-Met style ratings
+  * ``persona_analyses``     -- competing lenses (NOT votes)
+  * ``contradiction_count``  -- count of detected contradictions
+
+CRITICAL D-H INVARIANT (ratified refinement #1):
+  This artifact carries **signals, never flags**. It MUST NOT contain a field
+  like ``requires_human_review``. Cognition may *describe* conditions; it may
+  never *instruct* the authority layer. The deterministic adapter
+  ``escalate_to_asserted`` maps signals -> a boolean; the *policy* decides what
+  to do with that boolean. This is the zero-trust cognition model: the model
+  generates a proposal + all its reasoning/disagreement/uncertainty, then an
+  independent deterministic layer decides authorization.
+
+DESIGN CONSTRAINT:
+  This module imports ONLY ``fleet.crypto`` + ``fleet.layers.handoff``. It does
+  not import gateway / policy / runtime / fin / simenv / gcp. The escalation
+  adapter receives the governance surface as an opaque passthrough (Any) so it
+  never needs to know the typed proposal shape.
+"""
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass, field
+from typing import Any, Dict, List, Tuple
+
+from fleet.crypto.foundation import AgentCert, canonical_bytes, sha256
+from fleet.layers.handoff import HandoffError, verify_payload_sig, sign_payload
+
+
+# --- Escalation thresholds (the adapter only OBSERVES these) --------------
+# Policy owns the ASSERTED -> HUMAN transition. These are NOT authority knobs;
+# they are the observation thresholds that flip a deterministic boolean.
+UNCERTAINTY_THRESHOLD = 0.7
+CONTRADICTION_THRESHOLD = 0      # any detected contradiction escalates
+POPPER_FAILED_THRESHOLD = 0      # any failed falsification attempt escalates
+
+
+# D-H: the artifact must NEVER carry an instruction field. If any of these
+# appear, the artifact is rejected structurally (signals-not-flags discipline).
+_FORBIDDEN_EVAL_FIELDS = {
+    "requires_human_review", "authorization", "approval", "capability",
+    "disposition", "decision", "granted", "blocked", "final",
+}
+
+
+@dataclass
+class EvaluationArtifact:
+    """Observed signals about a proposal. Never an authorization instruction."""
+
+    producer_cert_id: str
+    uncertainty: float = 0.0
+    popper: Dict[str, Any] = field(default_factory=lambda: {
+        "falsifiers": [], "passed": 0, "failed": 0,
+    })
+    evidence_quality: Dict[str, Any] = field(default_factory=lambda: {
+        "authenticity": 0.0, "originality": 0.0, "expertise": 0.0,
+        "freshness": 0.0, "spam": 0.0,
+    })
+    needs_met: Dict[str, Any] = field(default_factory=lambda: {
+        "intent": False, "constraints_satisfied": False, "gaps": [],
+    })
+    persona_analyses: List[Dict[str, Any]] = field(default_factory=list)
+    contradiction_count: int = 0
+
+    # --- serialization + signing ------------------------------------------
+    def to_payload(self) -> Dict[str, Any]:
+        """Deterministic canonical dict (no governance fields)."""
+        return {k: v for k, v in asdict(self).items()}
+
+    @property
+    def enrichment_hash(self) -> str:
+        """Content hash bound into the operator.final audit record (D-D)."""
+        return sha256(canonical_bytes(self.to_payload()))
+
+    def sign(self, producer_cert: AgentCert, producer_key) -> str:
+        """Sign the enrichment with the producer's Ed25519 key (D-D: signed)."""
+        return sign_payload(self.to_payload(), producer_key)
+
+    def verify_sig(self, sig_hex: str, producer_cert: AgentCert) -> bool:
+        return verify_payload_sig(self.to_payload(), sig_hex, producer_cert)
+
+
+@dataclass
+class ProposalArtifact:
+    """The split made explicit (D28 6.3): governance surface + enrichment.
+
+    ``governance_surface`` is the ONLY thing the gates read (TradeProposal /
+    QualifiedIntel). It is an opaque passthrough here so this module never
+    imports its typed definition. ``enrichment`` is logged + verified for
+    binding/integrity, never passed to a gate.
+    """
+
+    governance_surface: Any
+    enrichment: EvaluationArtifact
+
+    def bind(self, producer_cert: AgentCert, producer_key) -> Dict[str, Any]:
+        """Produce the enrichment block the Operator embeds in operator.final.
+
+        Returns the signed enrichment + content hash for binding/integrity
+        verification (D-D: verifier proves present, unaltered, signed).
+        """
+        return {
+            "enrichment": self.enrichment.to_payload(),
+            "enrichment_sig": self.enrichment.sign(producer_cert, producer_key),
+            "enrichment_hash": self.enrichment.enrichment_hash,
+            "enrichment_producer": producer_cert.agent_id,
+        }
+
+
+# ---------------------------------------------------------------------------
+# Deterministic escalation adapter (D28 6.4) -- the only seam cognition touches
+# ---------------------------------------------------------------------------
+
+def escalate_to_asserted(evaluation: EvaluationArtifact) -> bool:
+    """PURE FUNCTION of observed signals. Never reads a gate, never imports one.
+
+    D-B + D-H: evaluation may only RAISE scrutiny. It escalates a proposal up
+    the human-review path; it never emits BLOCKED, never auto-GRANTs, never
+    lowers a threshold. The *policy* consumes this boolean.
+    """
+    if evaluation.popper.get("failed", 0) > POPPER_FAILED_THRESHOLD:
+        return True
+    if evaluation.uncertainty > UNCERTAINTY_THRESHOLD:
+        return True
+    if evaluation.contradiction_count > CONTRADICTION_THRESHOLD:
+        return True
+    return False
+
+
+def to_gateway_intent(governance_surface: Any,
+                      evaluation: EvaluationArtifact) -> Tuple[Any, bool]:
+    """The single seam: returns (intel, force_asserted).
+
+    The governance surface passes through untouched (cognition never mutates
+    or types it). The only cognition-derived signal is the escalation boolean.
+    """
+    return governance_surface, escalate_to_asserted(evaluation)
+
+
+def validate_evaluation_payload(p: Dict[str, Any]) -> None:
+    """Reject any evaluation payload that carries governance instructions.
+
+    Used by the verifier (D-D / D-H correction #1) to prove the enrichment is
+    signals-only. Raises HandoffError on a leaked flag field.
+    """
+    leaked = _FORBIDDEN_EVAL_FIELDS & set(p)
+    if leaked:
+        raise HandoffError(
+            f"EvaluationArtifact must carry signals, not governance flags: {leaked}"
+        )
