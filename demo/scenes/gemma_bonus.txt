@@ -1,6 +1,0 @@
-INTERFACE    = Brain.propose(role, instruction, schema_hint)  # D15/D18
-INSTRUCTION  = evidence-only, no policy/approval vocabulary
-RAW_PROPOSAL = {"claim": "icp_fit=true", "claim_type": "icp_fit", "confidence": 0.9, "evidence_refs": ["ev_1", "ev_2"]}
-SCHEMA_ENFORCED = PASS (malformed probabilistic output is rejected)
-NOTES: live Gemma4 reached via Ollama endpoint; Gemini 3.5 Flash
-       swaps in behind the same interface at the demo (D20).

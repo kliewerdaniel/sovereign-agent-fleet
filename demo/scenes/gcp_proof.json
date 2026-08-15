@@ -1,0 +1,9 @@
+{
+  "GCP_PROJECT": "project-3ba93cec-8ca6-43c0-ba4",
+  "OPERATOR_FINAL": true,
+  "LOCAL_CHAIN_OK": true,
+  "REPLICATED_DOCS": 12,
+  "TAMPER_DETECTED": true,
+  "PRIVATE_KEY_USED_BY_VERIFIER": false,
+  "FINAL_COMMITTED": true
+}

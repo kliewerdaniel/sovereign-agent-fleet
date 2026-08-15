@@ -14,10 +14,13 @@ action is recorded in a tamper-evident, signed audit ledger.
 
 ## Demo
 
-- **4-minute demo video:** [`demo/sovereign_agent_fleet_demo.mp4`](demo/sovereign_agent_fleet_demo.mp4)
-  — the live adversarial 8-beat governability demo, narrated.
-- **Architecture diagram:** [`docs/assets/architecture.png`](docs/assets/architecture.png)
-  (dark-first; source SVG alongside).
+- **~3.5-minute narrated demo video:** [`demo/sovereign_agent_fleet_demo.mp4`](demo/sovereign_agent_fleet_demo.mp4)
+  — the live adversarial 9-beat governability demo (8 adversarial scenarios + registry),
+  narrated with a local `brit` TTS voice, assembled entirely from real artifacts.
+- **Demo pipeline (reproducible):** `demo/scenes/` holds the artifact-capture scripts
+  (`gcp_proof.py`, `brain_proof.py`), the narration (`scripts.txt`), the frame renderer
+  (`render_frames.py`), and the assembler (`assemble.py`). Per-scene narration WAVs live in
+  `demo/audio/`, source frames in `demo/frames/`.
 
 The demo is assembled entirely from **real artifacts**: the pytest beat output,
 the GCP public-key verification proof (`GcpBridge` + `FirestoreVerifier`), and

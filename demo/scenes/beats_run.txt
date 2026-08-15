@@ -14,4 +14,4 @@ fleet/tests/test_adversarial_beats_phase5.py::test_beat7_forged_identity_rejecte
 fleet/tests/test_adversarial_beats_phase5.py::test_beat8_revoke_rotate_recovery PASSED [ 88%]
 fleet/tests/test_adversarial_beats_phase5.py::test_registry_publish_discover_versioned PASSED [100%]
 
-============================== 9 passed in 1.00s ===============================
+============================== 9 passed in 0.93s ===============================
