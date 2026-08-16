@@ -69,6 +69,15 @@ class LiveFleet:
         self.analyst = self.cp.publish_agent("analyst", "analyst", ["qualify"])
         self.operator = self.cp.publish_agent("operator", "operator", ["incident_remediate"])
         self.human = self.cp.publish_agent("human-approver", "human", ["approve"])
+        # Synced view of live agent certs/keys: agent_id -> (cert, key).
+        # revoke_rotate() refreshes an entry here so incident runs always sign
+        # with the registry-current cert (Handoff.verify rejects stale seqs).
+        self._agents = {
+            self.researcher.agent_id: (self.researcher.cert, self.researcher.key),
+            self.analyst.agent_id: (self.analyst.cert, self.analyst.key),
+            self.operator.agent_id: (self.operator.cert, self.operator.key),
+            self.human.agent_id: (self.human.cert, self.human.key),
+        }
 
     # -- ledger -------------------------------------------------------------
     def _raw_entries(self) -> List[Dict[str, Any]]:
@@ -272,8 +281,23 @@ class LiveFleet:
             ana = Analyst(self.analyst, rt)
             op = Operator(self.operator, rt)
 
+            # Resolve sender identity from the SYNCED live agents. revoke-rotate
+            # advances a cert's seq and reissues a fresh key; revoke_rotate()
+            # refreshes the entry in self._agents, so reading from it always
+            # yields a cert whose seq matches the registry (otherwise
+            # Handoff.verify rejects with "sender identity not authenticated").
+            from fleet.layers.registry import PublishedAgent as RegistryAgent
+
+            def live_agent(agent_id: str) -> RegistryAgent:
+                pair = self._agents.get(agent_id)
+                if pair is None:
+                    raise KeyError(f"no live agent {agent_id}")
+                cert, key = pair
+                return RegistryAgent(cert=cert, key=key)
+
             pre_count = len(self._raw_entries())
             # Researcher gathers schema-valid evidence (real handoff, real sig).
+            researcher = live_agent(self.researcher.agent_id)
             evidence_payload = {
                 "evidence_id": f"ev_{secrets.token_hex(6)}",
                 "agent_id": self.researcher.agent_id,
@@ -285,7 +309,7 @@ class LiveFleet:
             }
             from fleet.layers.handoff import Handoff as RealHandoff
             ev_handoff = RealHandoff.make(
-                self.researcher.cert, self.researcher.key, "SourcedEvidence", evidence_payload
+                researcher.cert, researcher.key, "SourcedEvidence", evidence_payload
             )
             rt.record_evidence_meta(evidence_payload["evidence_id"], int(time.time()))
 
@@ -297,6 +321,7 @@ class LiveFleet:
                 "severity": severity,
             }]
             if verification == HALLUCINATION:
+                analyst = live_agent(self.analyst.agent_id)
                 base_intel = {
                     "intel_id": f"iq_{secrets.token_hex(6)}",
                     "agent_id": self.analyst.agent_id,
@@ -310,7 +335,7 @@ class LiveFleet:
                 }
                 intel = stamp(base_intel, {}, int(time.time()))
                 intel_handoff = RealHandoff.make(
-                    self.analyst.cert, self.analyst.key, "QualifiedIntel", intel
+                    analyst.cert, analyst.key, "QualifiedIntel", intel
                 )
             else:
                 intel_handoff = ana.qualify(ev_handoff, predicates)
@@ -384,6 +409,9 @@ class LiveFleet:
         with self._lock:
             self.cp.registry.revoke(agent_id)
             pa = self.cp.registry.rotate(agent_id)
+            # Keep the synced live-agent view current so incident runs sign with
+            # the rotated cert (Handoff.verify rejects stale seqs).
+            self._agents[agent_id] = (pa.cert, pa.key)
             cert: AgentCert = pa.cert
             return {
                 "agent_id": agent_id,
