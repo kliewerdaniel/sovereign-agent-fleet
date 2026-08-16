@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { SiteNav } from "@/components/SiteNav";
 import { ChainIntegrityBanner } from "@/components/ChainIntegrityBanner";
+import { NarratedTour } from "@/components/NarratedTour";
 import { fetchChainIntegrity } from "@/lib/fleet";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -42,6 +44,9 @@ export default async function RootLayout({
           do not trust the model · trust the execution protocol · artifacts are
           signed &amp; hash-chained
         </footer>
+        <Suspense fallback={null}>
+          <NarratedTour />
+        </Suspense>
       </body>
     </html>
   );
