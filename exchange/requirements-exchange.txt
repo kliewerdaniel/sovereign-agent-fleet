@@ -1,0 +1,4 @@
+# Exchange substrate (River-Markets re-implementation) dependency surface.
+# Additive; NOT part of the base runtime (requirements.txt) or GCP deploy surface.
+# Imports fleet.crypto + fleet.layers as a library (same venv).
+pytest>=8.0

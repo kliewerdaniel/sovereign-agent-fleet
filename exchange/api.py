@@ -1,0 +1,320 @@
+"""Exchange REST + SSE control surface.
+
+Wires the sovereign exchange core (matching engine, books, shadow ledger),
+the market event bus/SSE stream, the venue adapters + router, and the
+risk-tiered governance wrap into a single FastAPI app.
+
+Honesty contract (mirrors fleet/api):
+* The front end has ZERO authority. It never signs, approves, or writes to the
+  trust boundary. Orders arrive as requests; the server decides authorization
+  (decide_trade) and only executes AUTO-tier orders. HUMAN-tier orders return a
+  pending approval token the operator must sign out-of-band (D17 path).
+* Venues are STUBS until live creds exist — the API labels every route result
+  with its ``status`` (NOT_LIVE for stubs) so the UI can show it honestly.
+* All execution is simulated/local; no customer funds are held.
+"""
+from __future__ import annotations
+
+import time
+import uuid
+from typing import Dict, List, Optional
+
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
+
+from exchange.core import (
+    ExchangeBus,
+    MatchingEngine,
+    OrderBook,
+    bus_stream_gen,
+    make_limit_order,
+)
+from exchange.core.events import EventType
+from exchange.governance import (
+    Authorization,
+    approve_trade,
+    decide_trade,
+    verify_trade_approval,
+)
+from exchange.routing import Router
+from exchange.venues import KalshiStub
+
+app = FastAPI(title="Sovereign Exchange API", version="0.1.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # demo front end; tighten in production
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ---- in-process exchange state --------------------------------------------
+_state: Dict[int, "Exchange"] = {}
+
+
+class Exchange:
+    """One sovereign trading venue instance (per exchange_id)."""
+
+    def __init__(self, exchange_id: int, live_venues: bool = False):
+        self.exchange_id = exchange_id
+        self.bus = ExchangeBus()
+        self.book = OrderBook(exchange_id)
+        self.engine = MatchingEngine(self.book, bus=self.bus)
+        self.router = Router({"kalshi": KalshiStub(simulate=True)})
+        self.pending: Dict[str, dict] = {}  # approval_token -> decision
+        self.live_venues = live_venues
+
+
+def get_exchange(exchange_id: int = 1) -> Exchange:
+    ex = _state.get(exchange_id)
+    if ex is None:
+        ex = Exchange(exchange_id)
+        _state[exchange_id] = ex
+    return ex
+
+
+# ---- request/response models ----------------------------------------------
+class OrderRequest(BaseModel):
+    side: str  # BUY / SELL
+    qty: int = Field(gt=0)
+    limit_cents: Optional[int] = Field(None, ge=1)
+    subaccount_id: str
+    venue_hint: Optional[str] = None
+    intel: str = "VERIFIED"  # HALLUCINATION -> blocked by policy
+
+
+class OrderResponse(BaseModel):
+    order_id: str
+    authorization: str
+    risk: str
+    executed_qty: int = 0
+    fills: List[dict] = Field(default_factory=list)
+    route: Optional[dict] = None
+    approval_token: Optional[str] = None
+    reason: str = ""
+
+
+class ApprovalRequest(BaseModel):
+    token: str
+    human_id: str
+    # In a real deployment the human_sig is produced by the operator's signed
+    # console. Here we accept the bound signature fields directly for the demo.
+    human_sig: str
+    human_pubkey_pem: str  # PEM-encoded Ed25519 public key of the human approver
+    approval_id: str
+    capability: str = "exchange.trade_execute"
+    artifact_hash: str
+    decision: str = "approve"
+    reason: str = ""
+    ts: int
+
+
+class ApprovalResponse(BaseModel):
+    token: str
+    accepted: bool
+    detail: str = ""
+
+
+# ---- endpoints ------------------------------------------------------------
+@app.get("/health")
+def health():
+    return {"status": "ok", "service": "sovereign-exchange"}
+
+
+@app.get("/book/{exchange_id}")
+def book(exchange_id: int = 1):
+    ex = get_exchange(exchange_id)
+    snap = ex.book.snapshot().to_dict()
+    return {"exchange_id": exchange_id, "book": snap, "depth": ex.book.depth()}
+
+
+@app.post("/order", response_model=OrderResponse)
+def place_order(req: OrderRequest):
+    ex = get_exchange()
+    venue_live = ex.live_venues
+    client_order_id = f"o_{uuid.uuid4().hex[:12]}"
+    decision = decide_trade(
+        client_order_id=client_order_id,
+        exchange_id=ex.exchange_id,
+        side=req.side,
+        qty=req.qty,
+        limit_cents=req.limit_cents,
+        venue=list(ex.router.adapters)[0] if ex.router.adapters else "kalshi",
+        venue_live=venue_live,
+        intel=req.intel,
+    )
+
+    if decision.authorization == Authorization.BLOCKED:
+        raise HTTPException(status_code=403, detail=decision.reason)
+
+    if decision.authorization == Authorization.HUMAN:
+        # hand back a pending token; operator must sign out-of-band
+        token = f"apr_{uuid.uuid4().hex[:12]}"
+        venue_name = list(ex.router.adapters)[0] if ex.router.adapters else "kalshi"
+        ex.pending[token] = {
+            "client_order_id": client_order_id,
+            "exchange_id": ex.exchange_id,
+            "venue": venue_name,
+            "side": req.side,
+            "qty": req.qty,
+            "limit_cents": req.limit_cents,
+            "subaccount_id": req.subaccount_id,
+            "venue_hint": req.venue_hint,
+            "artifact_hash": decision.artifact_hash,
+            "decision": decision.to_dict(),
+        }
+        return OrderResponse(
+            order_id=client_order_id,
+            authorization=decision.authorization.value,
+            risk=decision.risk.value,
+            approval_token=token,
+            reason=decision.reason,
+        )
+
+    # AUTO: execute internally + route to venue
+    order = make_limit_order(
+        ex.exchange_id,
+        side=_side(req.side),
+        qty=req.qty,
+        price=(req.limit_cents or 0) / 100.0,
+        subaccount_id=req.subaccount_id,
+        order_id=client_order_id,
+    )
+    if req.venue_hint is not None:
+        order.venue_hint = req.venue_hint
+    res = ex.engine.match(order)
+    # route the executed qty to the venue adapter (pass-through intent)
+    route = None
+    if res.fills:
+        from exchange.venues.base import NormalizedOrder
+
+        venue = list(ex.router.adapters)[0]
+        norm = NormalizedOrder(
+            exchange_id=ex.exchange_id,
+            side=req.side,
+            qty=sum(f.qty for f in res.fills),
+            limit_cents=req.limit_cents,
+            client_order_id=client_order_id,
+            venue_hint=venue,
+        )
+        route = ex.router.route(norm).to_dict()
+    return OrderResponse(
+        order_id=client_order_id,
+        authorization=decision.authorization.value,
+        risk=decision.risk.value,
+        executed_qty=sum(f.qty for f in res.fills),
+        fills=[_fill_to_dict(f) for f in res.fills],
+        route=route,
+        reason=decision.reason,
+    )
+
+
+@app.get("/approvals/pending")
+def pending():
+    ex = get_exchange()
+    return [
+        {"token": t, **{k: v for k, v in meta.items() if k != "decision"}}
+        for t, meta in ex.pending.items()
+    ]
+
+
+@app.post("/approvals/{token}/decide", response_model=ApprovalResponse)
+def decide_approval(token: str, body: ApprovalRequest):
+    ex = get_exchange()
+    meta = ex.pending.get(token)
+    if meta is None:
+        raise HTTPException(status_code=404, detail="unknown approval token")
+    # verify the human signature binds to the EXACT order (fail-closed)
+    from fleet.crypto.foundation import AgentCert  # type: ignore
+
+    # reconstruct the human cert from the PEM pubkey the operator signed with
+    ok = _verify_bound(
+        ex, meta, body, AgentCert(
+            agent_id=body.human_id,
+            pubkey_pem=body.human_pubkey_pem,
+            role="human-approver",
+            capabilities=[body.capability],
+            issued_at=0,
+            expires_at=0,
+            cert_seq=0,
+            root_sig="",
+        )
+    )
+    if not ok:
+        return ApprovalResponse(token=token, accepted=False, detail="approval verification failed")
+    # execute the now-authorized order
+    order = make_limit_order(
+        ex.exchange_id,
+        side=_side(meta["side"]),
+        qty=meta["qty"],
+        price=(meta["limit_cents"] or 0) / 100.0,
+        subaccount_id=meta["subaccount_id"],
+        order_id=meta["client_order_id"],
+    )
+    if meta.get("venue_hint") is not None:
+        order.venue_hint = meta["venue_hint"]
+    res = ex.engine.match(order)
+    del ex.pending[token]
+    return ApprovalResponse(
+        token=token,
+        accepted=True,
+        detail=f"executed {sum(f.qty for f in res.fills)} contracts",
+    )
+
+
+@app.get("/stream/{exchange_id}")
+def stream(exchange_id: int = 1):
+    """Server-Sent Events: market data for the exchange (trades + book)."""
+    ex = get_exchange(exchange_id)
+    return StreamingResponse(
+        bus_stream_gen(ex.bus), media_type="text/event-stream"
+    )
+
+
+# ---- helpers --------------------------------------------------------------
+def _side(s: str):
+    from exchange.core import OrderSide
+
+    return OrderSide.BUY if s == "BUY" else OrderSide.SELL
+
+
+def _fill_to_dict(f):
+    return {
+        "fill_id": f.fill_id,
+        "price_cents": f.price_cents,
+        "qty": f.qty,
+        "maker_order_id": f.maker_order_id,
+        "taker_order_id": f.taker_order_id,
+    }
+
+
+def _verify_bound(ex, meta, body, cert) -> bool:
+    """Verify the approval record binds to the exact order (D17 semantics)."""
+    record = {
+        "approval_id": body.approval_id,
+        "agent_id": "exchange-operator",
+        "action_id": meta["client_order_id"],
+        "capability": body.capability,
+        "artifact_hash": body.artifact_hash,
+        "decision": body.decision,
+        "reason": body.reason,
+        "human_id": body.human_id,
+        "human_sig": body.human_sig,
+        "ts": body.ts,
+    }
+    return verify_trade_approval(
+        record=record,
+        human_cert=cert,
+        client_order_id=meta["client_order_id"],
+        capability=body.capability,
+        exchange_id=ex.exchange_id,
+        side=meta["side"],
+        qty=meta["qty"],
+        limit_cents=meta["limit_cents"],
+        venue=list(ex.router.adapters)[0],
+    )
+
+
+def create_app() -> FastAPI:
+    return app
