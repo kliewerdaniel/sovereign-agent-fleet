@@ -360,25 +360,6 @@ class LiveFleet:
                     capability="incident_remediate", idempotency_key=idempotency_key,
                     target_workload=workload_id, action_name=action, simenv=simenv,
                 )
-                # Genuine-fleet gap: the remediation fork (Operator._act_remediation)
-                # returns needs_approval=True for HUMAN authorization WITHOUT appending
-                # any durable ledger entry (unlike the generic act() which logs
-                # operator.needs_approval). That leaves the consequential action
-                # invisible to the pending queue + D17 decide. Append the same-shaped
-                # durable entry the operator itself logs in the generic path so the
-                # live approval console + real Approval.sign flow can observe it.
-                if result.get("needs_approval") and not result.get("final"):
-                    self.cp.audit.append({
-                        "kind": "operator.needs_approval",
-                        "who": self.operator.agent_id,
-                        "intel_id": intel.get("intel_id"),
-                        "capability": "incident_remediate",
-                        "target": workload_id,
-                        "action": action,
-                        "artifact_hash": result.get("artifact_hash"),
-                        "idempotency_key": idempotency_key,
-                        "authorization": result.get("authorization", "HUMAN"),
-                    })
             after = {"workload_id": workload_id, "state": simenv.state_of(workload_id).value}
 
             run_entries = [

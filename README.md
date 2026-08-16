@@ -23,14 +23,16 @@ action is recorded in a tamper-evident, signed audit ledger.
   `demo/audio/`, source frames in `demo/frames/`.
 
 The demo is assembled entirely from **real artifacts**: the pytest beat output,
-the GCP public-key verification proof (`GcpBridge` + `FirestoreVerifier`), and
-the pluggable-brain schema boundary. **GCP is LIVE**, not a local mirror: the
-fleet replicates signed artifacts to a real Firestore database
-(`project-3ba93cec-8ca6-43c0-ba4`), publishes handoff envelopes to Pub/Sub, and
-the **D17 human-approval console runs on Cloud Run**
-(`fleet-approval-console-85569899488.us-central1.run.app`, `min-instances=0`).
-The Cloud Run instance never holds the root key or signs artifacts — it only
-verifies human-signed approvals against public keys (fail-closed).
+a public-key verification proof (`GcpBridge` + `FirestoreVerifier`), and the
+pluggable-brain schema boundary.
+
+> **Honesty note — GCP replication.** The fleet's *target* deployment is a live
+> GCP project (`project-3ba93cec-8ca6-43c0-ba4`, Cloud Run D17 console, Firestore
+> mirror, Pub/Sub handoff bus). The **default runtime uses `GcpBridge(mode="local")`**
+> — a local Firestore-shaped mirror — so the stack runs end-to-end with no cloud
+> credentials. The Cloud Run console never holds the root key or signs artifacts;
+> it only verifies human-signed approvals against public keys (fail-closed). Flip
+> to live GCP by constructing `GcpBridge(mode="live")` with credentials present.
 
 ## What's here (Phases 0–5 + D26/D27/D28 — all complete)
 
@@ -51,9 +53,39 @@ verifies human-signed approvals against public keys (fail-closed).
 | `fleet/layers/approval.py` | D21 A1/A2: `verify_approval` — Ed25519-verifies + binds the human `ApprovalRecord` to exact action/capability/artifact (fail-closed). |
 | `fleet/layers/compliance.py` | D21 E1 (D22): selective-disclosure compliance attestation — Ed25519-signed proof that an action complied + was human-approved + under live epoch, without revealing CRM/source data (not a zero-knowledge proof). |
 | `fleet/layers/consensus.py` | D21 E2 (D23): multi-brain consensus gate — two distinct Brain backends must agree to VERIFY; disagreement → ASSERTED + signed event. |
-| `fleet/gcp/` | `GcpBridge` (Firestore/Pub-Sub mirror — **LIVE** on `project-3ba93cec-8ca6-43c0-ba4`), `FirestoreVerifier` (public-key), `OtelExporter`, D17 Cloud Run approval console (`deploy.py`), `cloudbuild.yaml` + `deployment/Dockerfile`. Console never holds authority; verifies human-signed approvals (fail-closed). |
+| `fleet/gcp/` | `GcpBridge` (Firestore/Pub-Sub mirror — **default `local`**, optional live on `project-3ba93cec-8ca6-43c0-ba4`), `FirestoreVerifier` (public-key), `OtelExporter`, D17 Cloud Run approval console (`deploy.py`), `cloudbuild.yaml` + `deployment/Dockerfile`. Console never holds authority; verifies human-signed approvals (fail-closed). |
 | `fleet/tests/` | **205 tests** (parametrized): Phases 0–5 + D21 hardening + Round-2 extensions (R1–R4) + D26 incident-triage use case (SimEnv/policy/e2e) + D27 financial reference workload + D28 cognitive architecture (cognition scaffolding + import-boundary enforcement). |
 | `docs/planning/` | Living design docs: D1–destructure decision ADRs, D21 security audit + hardening, D22 selective-disclosure attestation, D23 consensus gate, D25 Operator-sandbox re-eval. (D24 = real-ZK variant scoped but intentionally unimplemented — see D22.) |
+
+## Control surfaces (web UIs over the fleet)
+
+Two independent Next.js control surfaces sit **outside the trust boundary** — they
+read fleet projections and call write endpoints that delegate to the real control
+plane (`fleet/layers`); they never sign, approve, or hold keys themselves.
+
+| Surface | Backend | UI | Ports | Origin | Status |
+|---|---|---|---|---|---|
+| **`bridge/` + `web/`** | `bridge/app.py` — FastAPI REST + WebSocket (`/api/runs`, `/api/run/{domain}`, `/api/approve/{id}/sign`, WS `/ws`) | `web/` — Next.js 16 + Tailwind v4, 13 routes: pipeline view, D17 sign, Cytoscape audit explorer, domain panels, narrated demo | bridge `:8787`, web `:3001` | Phases 0–6 (`v1.0-control-surface`) | tagged, hands-off |
+| **`fleet/api/` + `ui/`** | `fleet/api/app.py` — FastAPI over the live `ControlPlane` (agents/ledger/chain/approvals/incident/beats) | `ui/` — Next.js 16 + Tailwind v4, 8 routes: overview, SSE ledger, adversarial demo, D17 console, registry, policy log, domains | api `:8788`, ui `:3002` | literal-rebuild (this session) | committed |
+
+### Run the `fleet/api` + `ui` control surface
+
+```bash
+# 1. API (Python 3.11+, use the deploy venv)
+python -m venv .deploy-venv && .deploy-venv/bin/pip install -r requirements.txt -r requirements-gcp.txt
+.deploy-venv/bin/python -m uvicorn fleet.api.app:app --host 127.0.0.1 --port 8788
+
+# 2. UI (Node 22+, from the ui/ dir)
+cd ui && npm install && npm run dev      # http://127.0.0.1:3002
+#    or production build + serve (recommended for e2e):
+npm run build && npm run start
+
+# 3. Frontend e2e (Playwright) — drives the real UI against the live :8788 API
+cd ui && npx playwright test             # 6 specs, all passing
+```
+
+The `bridge/`+`web/` surface uses the same shape with ports `:8787` / `:3001`
+(see `web/AGENTS.md` and `GAP_REPORT.md`).
 
 ## Quick start
 
@@ -198,12 +230,17 @@ Each beat is a passing automated test (`fleet/tests/test_adversarial_beats_phase
 7. Forged identity (not signed by root) rejected
 8. Revoke + rotate: fresh key, chain intact
 
-## Mandatory hackathon constraints
+## Mandatory hackathon constraints (original submission targets)
+
+These were the hackathon track's hard requirements; they describe the **target**
+deployment shape. The repo's default runtime uses `GcpBridge(mode="local")`
+(local mirror, no cloud credentials) so the stack runs end-to-end locally — see the
+GCP honesty note above.
 
 - **Model:** Gemini 3.5 Flash (used only at the submission demo; dev/test run on
   a local Gemma4 brain behind a pluggable model interface).
 - **Framework:** Google GenAI SDK (Gemini API called directly).
-- **Cloud:** LIVE GCP deployment — Cloud Run (D17 approval console,
+- **Cloud (target):** LIVE GCP deployment — Cloud Run (D17 approval console,
   `fleet-approval-console-85569899488.us-central1.run.app`, `min-instances=0`),
   Firestore (ledger mirror + Memory Bank, `project-3ba93cec-8ca6-43c0-ba4`),
   Pub/Sub (async handoff bus). The Cloud Run instance never holds authority; it

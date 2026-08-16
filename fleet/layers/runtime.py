@@ -405,6 +405,18 @@ class Operator:
             target_state = ACTIONS[action_name][0].value
             bound_hash = bind_artifact(target_workload, action_name, target_state)
             if human_cert is None or approval is None:
+                # G3.1 fix (fleet layer): log the held action durably so the
+                # approval queue + D17 decide() can observe it. The generic act()
+                # path already logs operator.needs_approval here; the remediation
+                # fork used to return needs_approval=True WITHOUT this entry, which
+                # left the consequential action invisible to the queue.
+                self.rt.log_audit(
+                    "operator.needs_approval", who=self.agent.agent_id,
+                    intel_id=intel.get("intel_id"),
+                    capability=capability, target=target_workload, action=action_name,
+                    artifact_hash=bound_hash, authorization=auth.value,
+                    idempotency_key=idempotency_key,
+                )
                 return {"final": False, "needs_approval": True,
                         "authorization": auth.value,
                         "artifact_hash": bound_hash, "pii_redacted": n_pii}

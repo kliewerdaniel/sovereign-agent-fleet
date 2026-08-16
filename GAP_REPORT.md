@@ -38,16 +38,18 @@ approval, secrets, KG) is local-first; only signed artifacts replicate.
 **Severity:** medium (breaks the approval-queue observability contract).
 **Where:** `fleet/layers/runtime.py`, `Operator._act_remediation()`.
 **Symptom:** When an action requires HUMAN authorization but carries no signed
-`ApprovalRecord`, the remediation fork returns `needs_approval=True` **without appending
+`ApprovalRecord`, the remediation fork returned `needs_approval=True` **without appending
 any durable ledger entry**. The generic `act()` path, by contrast, logs
 `operator.needs_approval`. Result: the pending queue (`pending_approvals()`) and the D17
 `decide()` could not see the held action → `decide` raised `KeyError` → 404 on the approval
 console.
-**Fix location (allowed layer):** `fleet/api/runtime.py:run_incident()` appends the
-same-shaped `operator.needs_approval` entry the operator itself logs in the generic path,
-so the live console + real `Approval.sign` flow can observe and resolve it.
-**Recommendation:** port this into `fleet/layers/runtime.py` so the gap exists at the
-fleet layer, not just the API projection. **This is the headline fleet bug from the build.**
+**Resolution (fixed at the fleet layer):** `fleet/layers/runtime.py:_act_remediation` now
+logs a durable `operator.needs_approval` entry (same shape the generic `act()` path uses)
+in the HUMAN-no-approval branch. The earlier API-layer patch in `fleet/api/runtime.py` has
+been **removed** — the fix now lives in the real control plane, so `bridge/`, `fleet/api/`,
+and any future surface all benefit. Verified: full `fleet/tests` suite **227 passed**,
+`fleet/tests/test_fleet_api.py` **22 passed**, no regression.
+**Recommendation:** none outstanding — root cause closed at the correct layer.
 
 ### G3.2 — `Approval.sign` blanks `approval_id` before signing (correctness subtlety)
 **Where:** `fleet/layers/runtime.py:Approval.sign`, `fleet/api/beats.py:_beat4`.
@@ -79,7 +81,7 @@ making it `Optional[str]`. Cosmetic robustness.
 | `ui/` production build (`next build`) | **green**, 8 routes |
 | `ui/` route reachability (dev server) | **all 7 pages 200** |
 | Backend↔UI data contract (curl against `:8788`) | **verified**: beats, run-incident verdicts, decide signature, chain integrity |
-| **Playwright e2e (frontend behavior)** | **OPEN — not written** |
+| **Playwright e2e (frontend behavior)** | **6 passed** (`ui/e2e/fleet.spec.ts`, against live `:8788`) |
 
 ---
 
