@@ -1,0 +1,14 @@
+{
+  "connected": true,
+  "live": true,
+  "live_ticks": 3933,
+  "last_tick_ts": 1786909852.683876,
+  "last_tick_age_s": 0.6158359050750732,
+  "reconnect_count": 1,
+  "uptime_s": 7.7013020515441895,
+  "last_error": null,
+  "ws_url": "wss://api.elections.kalshi.com/trade-api/ws/v2",
+  "market_tickers": [],
+  "subscription": "all",
+  "seen_markets": 2217
+}

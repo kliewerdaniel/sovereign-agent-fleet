@@ -1,0 +1,386 @@
+[
+  {
+    "severity": "low",
+    "action": "block_egress",
+    "workload": "web-edge",
+    "asset_class": "LOW",
+    "verification": "VERIFIED",
+    "authorization": "AUTO"
+  },
+  {
+    "severity": "low",
+    "action": "isolate",
+    "workload": "web-edge",
+    "asset_class": "LOW",
+    "verification": "VERIFIED",
+    "authorization": "HUMAN"
+  },
+  {
+    "severity": "low",
+    "action": "quarantine",
+    "workload": "web-edge",
+    "asset_class": "LOW",
+    "verification": "VERIFIED",
+    "authorization": "HUMAN"
+  },
+  {
+    "severity": "low",
+    "action": "block_egress",
+    "workload": "app-db",
+    "asset_class": "MEDIUM",
+    "verification": "VERIFIED",
+    "authorization": "AUTO"
+  },
+  {
+    "severity": "low",
+    "action": "isolate",
+    "workload": "app-db",
+    "asset_class": "MEDIUM",
+    "verification": "VERIFIED",
+    "authorization": "HUMAN"
+  },
+  {
+    "severity": "low",
+    "action": "quarantine",
+    "workload": "app-db",
+    "asset_class": "MEDIUM",
+    "verification": "VERIFIED",
+    "authorization": "HUMAN"
+  },
+  {
+    "severity": "low",
+    "action": "block_egress",
+    "workload": "revenue-svc",
+    "asset_class": "HIGH",
+    "verification": "VERIFIED",
+    "authorization": "HUMAN"
+  },
+  {
+    "severity": "low",
+    "action": "isolate",
+    "workload": "revenue-svc",
+    "asset_class": "HIGH",
+    "verification": "VERIFIED",
+    "authorization": "HUMAN"
+  },
+  {
+    "severity": "low",
+    "action": "quarantine",
+    "workload": "revenue-svc",
+    "asset_class": "HIGH",
+    "verification": "VERIFIED",
+    "authorization": "HUMAN"
+  },
+  {
+    "severity": "low",
+    "action": "block_egress",
+    "workload": "identity-svc",
+    "asset_class": "PROTECTED",
+    "verification": "VERIFIED",
+    "authorization": "AUTO"
+  },
+  {
+    "severity": "low",
+    "action": "isolate",
+    "workload": "identity-svc",
+    "asset_class": "PROTECTED",
+    "verification": "VERIFIED",
+    "authorization": "BLOCKED"
+  },
+  {
+    "severity": "low",
+    "action": "quarantine",
+    "workload": "identity-svc",
+    "asset_class": "PROTECTED",
+    "verification": "VERIFIED",
+    "authorization": "BLOCKED"
+  },
+  {
+    "severity": "medium",
+    "action": "block_egress",
+    "workload": "web-edge",
+    "asset_class": "LOW",
+    "verification": "VERIFIED",
+    "authorization": "HUMAN"
+  },
+  {
+    "severity": "medium",
+    "action": "isolate",
+    "workload": "web-edge",
+    "asset_class": "LOW",
+    "verification": "VERIFIED",
+    "authorization": "HUMAN"
+  },
+  {
+    "severity": "medium",
+    "action": "quarantine",
+    "workload": "web-edge",
+    "asset_class": "LOW",
+    "verification": "VERIFIED",
+    "authorization": "HUMAN"
+  },
+  {
+    "severity": "medium",
+    "action": "block_egress",
+    "workload": "app-db",
+    "asset_class": "MEDIUM",
+    "verification": "VERIFIED",
+    "authorization": "HUMAN"
+  },
+  {
+    "severity": "medium",
+    "action": "isolate",
+    "workload": "app-db",
+    "asset_class": "MEDIUM",
+    "verification": "VERIFIED",
+    "authorization": "HUMAN"
+  },
+  {
+    "severity": "medium",
+    "action": "quarantine",
+    "workload": "app-db",
+    "asset_class": "MEDIUM",
+    "verification": "VERIFIED",
+    "authorization": "HUMAN"
+  },
+  {
+    "severity": "medium",
+    "action": "block_egress",
+    "workload": "revenue-svc",
+    "asset_class": "HIGH",
+    "verification": "VERIFIED",
+    "authorization": "HUMAN"
+  },
+  {
+    "severity": "medium",
+    "action": "isolate",
+    "workload": "revenue-svc",
+    "asset_class": "HIGH",
+    "verification": "VERIFIED",
+    "authorization": "HUMAN"
+  },
+  {
+    "severity": "medium",
+    "action": "quarantine",
+    "workload": "revenue-svc",
+    "asset_class": "HIGH",
+    "verification": "VERIFIED",
+    "authorization": "HUMAN"
+  },
+  {
+    "severity": "medium",
+    "action": "block_egress",
+    "workload": "identity-svc",
+    "asset_class": "PROTECTED",
+    "verification": "VERIFIED",
+    "authorization": "HUMAN"
+  },
+  {
+    "severity": "medium",
+    "action": "isolate",
+    "workload": "identity-svc",
+    "asset_class": "PROTECTED",
+    "verification": "VERIFIED",
+    "authorization": "BLOCKED"
+  },
+  {
+    "severity": "medium",
+    "action": "quarantine",
+    "workload": "identity-svc",
+    "asset_class": "PROTECTED",
+    "verification": "VERIFIED",
+    "authorization": "BLOCKED"
+  },
+  {
+    "severity": "high",
+    "action": "block_egress",
+    "workload": "web-edge",
+    "asset_class": "LOW",
+    "verification": "ASSERTED",
+    "authorization": "HUMAN"
+  },
+  {
+    "severity": "high",
+    "action": "isolate",
+    "workload": "web-edge",
+    "asset_class": "LOW",
+    "verification": "ASSERTED",
+    "authorization": "HUMAN"
+  },
+  {
+    "severity": "high",
+    "action": "quarantine",
+    "workload": "web-edge",
+    "asset_class": "LOW",
+    "verification": "ASSERTED",
+    "authorization": "HUMAN"
+  },
+  {
+    "severity": "high",
+    "action": "block_egress",
+    "workload": "app-db",
+    "asset_class": "MEDIUM",
+    "verification": "ASSERTED",
+    "authorization": "HUMAN"
+  },
+  {
+    "severity": "high",
+    "action": "isolate",
+    "workload": "app-db",
+    "asset_class": "MEDIUM",
+    "verification": "ASSERTED",
+    "authorization": "HUMAN"
+  },
+  {
+    "severity": "high",
+    "action": "quarantine",
+    "workload": "app-db",
+    "asset_class": "MEDIUM",
+    "verification": "ASSERTED",
+    "authorization": "HUMAN"
+  },
+  {
+    "severity": "high",
+    "action": "block_egress",
+    "workload": "revenue-svc",
+    "asset_class": "HIGH",
+    "verification": "ASSERTED",
+    "authorization": "HUMAN"
+  },
+  {
+    "severity": "high",
+    "action": "isolate",
+    "workload": "revenue-svc",
+    "asset_class": "HIGH",
+    "verification": "ASSERTED",
+    "authorization": "HUMAN"
+  },
+  {
+    "severity": "high",
+    "action": "quarantine",
+    "workload": "revenue-svc",
+    "asset_class": "HIGH",
+    "verification": "ASSERTED",
+    "authorization": "HUMAN"
+  },
+  {
+    "severity": "high",
+    "action": "block_egress",
+    "workload": "identity-svc",
+    "asset_class": "PROTECTED",
+    "verification": "ASSERTED",
+    "authorization": "HUMAN"
+  },
+  {
+    "severity": "high",
+    "action": "isolate",
+    "workload": "identity-svc",
+    "asset_class": "PROTECTED",
+    "verification": "ASSERTED",
+    "authorization": "BLOCKED"
+  },
+  {
+    "severity": "high",
+    "action": "quarantine",
+    "workload": "identity-svc",
+    "asset_class": "PROTECTED",
+    "verification": "ASSERTED",
+    "authorization": "BLOCKED"
+  },
+  {
+    "severity": "critical",
+    "action": "block_egress",
+    "workload": "web-edge",
+    "asset_class": "LOW",
+    "verification": "HALLUCINATION",
+    "authorization": "BLOCKED"
+  },
+  {
+    "severity": "critical",
+    "action": "isolate",
+    "workload": "web-edge",
+    "asset_class": "LOW",
+    "verification": "HALLUCINATION",
+    "authorization": "BLOCKED"
+  },
+  {
+    "severity": "critical",
+    "action": "quarantine",
+    "workload": "web-edge",
+    "asset_class": "LOW",
+    "verification": "HALLUCINATION",
+    "authorization": "BLOCKED"
+  },
+  {
+    "severity": "critical",
+    "action": "block_egress",
+    "workload": "app-db",
+    "asset_class": "MEDIUM",
+    "verification": "HALLUCINATION",
+    "authorization": "BLOCKED"
+  },
+  {
+    "severity": "critical",
+    "action": "isolate",
+    "workload": "app-db",
+    "asset_class": "MEDIUM",
+    "verification": "HALLUCINATION",
+    "authorization": "BLOCKED"
+  },
+  {
+    "severity": "critical",
+    "action": "quarantine",
+    "workload": "app-db",
+    "asset_class": "MEDIUM",
+    "verification": "HALLUCINATION",
+    "authorization": "BLOCKED"
+  },
+  {
+    "severity": "critical",
+    "action": "block_egress",
+    "workload": "revenue-svc",
+    "asset_class": "HIGH",
+    "verification": "HALLUCINATION",
+    "authorization": "BLOCKED"
+  },
+  {
+    "severity": "critical",
+    "action": "isolate",
+    "workload": "revenue-svc",
+    "asset_class": "HIGH",
+    "verification": "HALLUCINATION",
+    "authorization": "BLOCKED"
+  },
+  {
+    "severity": "critical",
+    "action": "quarantine",
+    "workload": "revenue-svc",
+    "asset_class": "HIGH",
+    "verification": "HALLUCINATION",
+    "authorization": "BLOCKED"
+  },
+  {
+    "severity": "critical",
+    "action": "block_egress",
+    "workload": "identity-svc",
+    "asset_class": "PROTECTED",
+    "verification": "HALLUCINATION",
+    "authorization": "BLOCKED"
+  },
+  {
+    "severity": "critical",
+    "action": "isolate",
+    "workload": "identity-svc",
+    "asset_class": "PROTECTED",
+    "verification": "HALLUCINATION",
+    "authorization": "BLOCKED"
+  },
+  {
+    "severity": "critical",
+    "action": "quarantine",
+    "workload": "identity-svc",
+    "asset_class": "PROTECTED",
+    "verification": "HALLUCINATION",
+    "authorization": "BLOCKED"
+  }
+]

@@ -1,0 +1,6 @@
+file '/Users/danielkliewer/Documents/Projects/sovereign-agent-fleet/demo/exchange_demo/segs/b1.mp4'
+file '/Users/danielkliewer/Documents/Projects/sovereign-agent-fleet/demo/exchange_demo/segs/b2.mp4'
+file '/Users/danielkliewer/Documents/Projects/sovereign-agent-fleet/demo/exchange_demo/segs/b3.mp4'
+file '/Users/danielkliewer/Documents/Projects/sovereign-agent-fleet/demo/exchange_demo/segs/b4.mp4'
+file '/Users/danielkliewer/Documents/Projects/sovereign-agent-fleet/demo/exchange_demo/segs/b5.mp4'
+file '/Users/danielkliewer/Documents/Projects/sovereign-agent-fleet/demo/exchange_demo/segs/b6.mp4'

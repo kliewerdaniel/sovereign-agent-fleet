@@ -1,0 +1,22 @@
+{
+  "width": 1920,
+  "height": 1080,
+  "voice": "brit",
+  "speed": 1.0,
+  "monologue": {
+    "b1": "Sovereign Agent Fleet is two things wired into one core: a live prediction-market exchange, and a governability layer that refuses to trust any model. Today the exchange is the star.",
+    "b2": "Here's the live Kalshi Market Ticker. One authenticated websocket, subscribed to ALL markets. In the eight seconds before I cut this frame it received over four thousand real price ticks across more than two thousand distinct markets.",
+    "b3": "Every tick is parsed and republished with an honest flag: live equals true. Nobody fakes liveness here. The stream connects, counts, and if it ever drops, liveness just goes dark rather than inventing numbers.",
+    "b4": "The same endpoint, sim-only mode. Same code path, no credentials. The status block reports connected false, live false, zero ticks, with a note explaining exactly why. Honesty is the default, not the demo.",
+    "b5": "And here's the governability half that makes this safe. The fleet policy takes verification, severity, and asset class, and returns one of three decisions: auto, human, or blocked. A hallucinated claim is blocked at every tier. Revenue-critical always escalates to a human. Identity never gets contained.",
+    "b6": "That's the whole point. A live market feed the model can read, behind gates the model can never bypass. Exchange runs hot; the governance refuses by design. Built real, verified live, and owned by you."
+  },
+  "beats": [
+    {"id": "b1", "visual": "title", "source": "text", "kind": "title"},
+    {"id": "b2", "visual": "live_stream", "source": "data/stream_status_live.json", "kind": "json"},
+    {"id": "b3", "visual": "quote_live", "source": "data/quotes_live.json", "kind": "json"},
+    {"id": "b4", "visual": "sim_status", "source": "data/stream_status_sim.json", "kind": "json"},
+    {"id": "b5", "visual": "fleet_gov", "source": "data/fleet_gov.json", "kind": "json"},
+    {"id": "b6", "visual": "close", "source": "text", "kind": "title"}
+  ]
+}

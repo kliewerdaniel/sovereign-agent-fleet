@@ -1,0 +1,15 @@
+{
+  "connected": false,
+  "live": false,
+  "live_ticks": 0,
+  "last_tick_ts": 0.0,
+  "last_tick_age_s": null,
+  "reconnect_count": 0,
+  "uptime_s": 0.0,
+  "last_error": null,
+  "ws_url": null,
+  "market_tickers": [],
+  "subscription": "none",
+  "seen_markets": 0,
+  "note": "live feed not opted in (live_feed=False / KALSHI_LIVE_FEED unset) or no creds; running sim-only."
+}

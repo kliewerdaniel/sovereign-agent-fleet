@@ -1,0 +1,18 @@
+{
+  "feed": "sim",
+  "live": false,
+  "stream_connected": false,
+  "stream": null,
+  "quotes": [
+    {
+      "exchange_id": 1,
+      "venue": "sim",
+      "ticker": "KXFEDDECISION-26JUN-C25",
+      "bid_cents": 54,
+      "ask_cents": 58,
+      "mid_cents": 56,
+      "live": false,
+      "title": "Fed decision (sim-backed, Kalshi alias)"
+    }
+  ]
+}

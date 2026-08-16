@@ -1,0 +1,31 @@
+{
+  "feed": "kalshi-stream",
+  "live": true,
+  "stream_connected": true,
+  "stream": {
+    "connected": true,
+    "live": true,
+    "live_ticks": 4480,
+    "last_tick_ts": 1786909853.6825511,
+    "last_tick_age_s": 0.17845678329467773,
+    "reconnect_count": 1,
+    "uptime_s": 8.262598991394043,
+    "last_error": null,
+    "ws_url": "wss://api.elections.kalshi.com/trade-api/ws/v2",
+    "market_tickers": [],
+    "subscription": "all",
+    "seen_markets": 2424
+  },
+  "quotes": [
+    {
+      "exchange_id": 1,
+      "venue": "Kalshi",
+      "ticker": "KXFEDDECISION-26JUN-C25",
+      "bid_cents": 0,
+      "ask_cents": 2,
+      "mid_cents": 1,
+      "live": true,
+      "title": "Fed decision (sim-backed, Kalshi alias)"
+    }
+  ]
+}
