@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+/* Dark-first trust-surface theme.
+   Restraint: a cool verified/signed accent; red reserved for denial/tamper. */
+@theme {
+  --color-ink: #0a0c10;
+  --color-ink-2: #0f131a;
+  --color-panel: #121821;
+  --color-panel-2: #161d28;
+  --color-border: #1f2933;
+  --color-border-2: #2a3744;
+  --color-text: #d9e2ea;
+  --color-text-dim: #8a98a8;
+  --color-text-faint: #5b6878;
+  --color-accent: #34d399;       /* verified / signed / ok */
+  --color-accent-dim: #1f6f54;
+  --color-warn: #f5b945;         /* human / pending */
+  --color-danger: #f0584b;        /* denial / tamper / blocked */
+  --color-info: #5aa9e6;          /* info */
+  --font-mono: ui-monospace, "SF Mono", "Menlo", monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  background: var(--color-ink);
+  color: var(--color-text);
+  font-family: var(--font-mono), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; text-decoration: none; }
+
+/* thin scrollbars */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--color-border-2); border-radius: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+.mono { font-family: var(--font-mono), monospace; }
+.dim { color: var(--color-text-dim); }
+.faint { color: var(--color-text-faint); }
+
+.panel {
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+}
+
+.badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 2px 10px; border-radius: 999px;
+  font-size: 12px; font-weight: 600; letter-spacing: 0.04em;
+  border: 1px solid var(--color-border-2);
+}
+.badge-ok { color: var(--color-accent); border-color: var(--color-accent-dim); background: rgba(52,211,153,0.08); }
+.badge-warn { color: var(--color-warn); border-color: #6b5418; background: rgba(245,185,69,0.08); }
+.badge-danger { color: var(--color-danger); border-color: #6b2b27; background: rgba(240,88,75,0.08); }
+.badge-info { color: var(--color-info); border-color: #2b4a63; background: rgba(90,169,230,0.08); }
+
+.live-dot { width: 8px; height: 8px; border-radius: 999px; background: var(--color-accent); }
