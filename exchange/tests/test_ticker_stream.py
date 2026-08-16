@@ -113,6 +113,22 @@ def test_stream_on_quote_callback_fires():
     assert len(got) == 1 and got[0].live is True
 
 
+def test_stream_status_counts_ticks_and_tracks_age():
+    bus = ExchangeBus()
+    s = KalshiTickerStream(market_tickers=[], bus=bus, allow_network=False)
+    # no ticks yet -> zeros / None
+    st = s.status()
+    assert st["live_ticks"] == 0 and st["last_tick_ts"] == 0.0 and st["reconnect_count"] == 0
+    assert st["last_tick_age_s"] is None
+    # a ticker message increments the counter + sets last_tick_ts
+    s._handle(json.dumps({"type": "ticker", "sid": 1, "msg": {
+        "market_ticker": "KXQ", "market_id": "x", "price_dollars": "0.4",
+        "yes_bid_dollars": "0.39", "yes_ask_dollars": "0.41"}}))
+    st = s.status()
+    assert st["live_ticks"] == 1
+    assert st["last_tick_age_s"] is not None and st["last_tick_age_s"] >= 0.0
+
+
 @pytest.mark.network
 def test_stream_live_receives_real_ticker():
     """Real v2 WS: connect with creds, subscribe, receive live ticker quotes.
@@ -141,3 +157,9 @@ def test_stream_live_receives_real_ticker():
         time.sleep(0.5)
     assert any(e.payload.get("live") for e in seen), "no live ticker quote received"
     assert all(0 <= e.payload["bid_cents"] < e.payload["ask_cents"] <= 100 for e in seen)
+    # the stream should have counted the ticks it received
+    assert s.live_ticks > 0, "live_ticks counter did not increment"
+    st = s.status()
+    assert st["connected"] is True
+    assert st["live_ticks"] == s.live_ticks
+    assert st["uptime_s"] > 0

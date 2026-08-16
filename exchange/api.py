@@ -232,7 +232,8 @@ def quotes():
 
     Honest `live` flag: prefers a real streaming (WS) quote when one is cached
     for the instrument's ticker; otherwise falls back to the active feed. The
-    `stream` field reports whether the live ticker WS is connected.
+    `stream` field reports the live ticker WS status, including a running tick
+    count, last-tick age, reconnect count, and uptime (all zero when not live).
     """
     ex = get_exchange()
     out = []
@@ -245,12 +246,41 @@ def quotes():
         out.append(d)
     stream_up = bool(ex.stream and ex.stream.connected)
     live_any = any(q["live"] for q in out)
+    stream_status = ex.stream.status() if ex.stream else None
     return {
         "feed": "kalshi-stream" if stream_up else ex.feed.venue,
         "live": live_any,
         "stream_connected": stream_up,
+        "stream": stream_status,
         "quotes": out,
     }
+
+
+@app.get("/stream/status")
+def stream_status():
+    """Read-only liveness of the live Kalshi v2 Market Ticker WebSocket.
+
+    Exposes connected/live state, a cumulative live tick count, last-tick age,
+    reconnect count, and uptime — so operators can see at a glance whether the
+    real-time feed is actually flowing. No orders are placed by this stream.
+    """
+    ex = get_exchange()
+    if ex.stream is None:
+        return {
+            "connected": False,
+            "live": False,
+            "live_ticks": 0,
+            "last_tick_ts": 0.0,
+            "last_tick_age_s": None,
+            "reconnect_count": 0,
+            "uptime_s": 0.0,
+            "last_error": None,
+            "ws_url": None,
+            "market_tickers": [],
+            "note": "live feed not opted in (live_feed=False / KALSHI_LIVE_FEED unset) "
+                    "or no creds; running sim-only.",
+        }
+    return ex.stream.status()
 
 
 @app.post("/quotes/tick")

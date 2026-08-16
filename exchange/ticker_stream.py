@@ -76,6 +76,16 @@ class KalshiTickerStream:
         self.connected = False
         self.last_error: Optional[str] = None
 
+        # -- live stats (thread-safe, read by the API from another thread) ----
+        # live_ticks: count of well-formed ticker messages received since start.
+        # last_tick_ts: epoch seconds of the most recent ticker message.
+        # reconnect_count: how many times the loop has (re)connected.
+        self._stats_lock = threading.Lock()
+        self.live_ticks = 0
+        self.last_tick_ts = 0.0
+        self.reconnect_count = 0
+        self.started_ts = 0.0
+
     # -- control ------------------------------------------------------------
     def is_live(self) -> bool:
         """True only when creds are loaded AND we're allowed to connect."""
@@ -129,6 +139,10 @@ class KalshiTickerStream:
         ) as ws:
             self.connected = True
             self.last_error = None
+            with self._stats_lock:
+                self.reconnect_count += 1
+                if self.started_ts == 0.0:
+                    self.started_ts = time.time()
             # Subscribe to the ticker channel.
             await ws.send(_subscribe_cmd(self.market_tickers, self.send_initial_snapshot))
             async for raw in ws:
@@ -168,6 +182,9 @@ class KalshiTickerStream:
             live=True,
             raw={"ticker": m},
         )
+        with self._stats_lock:
+            self.live_ticks += 1
+            self.last_tick_ts = time.time()
         if self.on_quote is not None:
             try:
                 self.on_quote(q)
@@ -176,6 +193,26 @@ class KalshiTickerStream:
         self.bus.publish(
             quote_event(eid, "Kalshi", bid, ask, ticker, live=True)
         )
+
+    def status(self) -> dict:
+        """Read-only snapshot of the stream's liveness (safe across threads)."""
+        with self._stats_lock:
+            ticks = self.live_ticks
+            last_tick = self.last_tick_ts
+            reconnects = self.reconnect_count
+            started = self.started_ts
+        return {
+            "connected": self.connected,
+            "live": self.is_live(),
+            "live_ticks": ticks,
+            "last_tick_ts": last_tick,
+            "last_tick_age_s": (time.time() - last_tick) if last_tick else None,
+            "reconnect_count": reconnects,
+            "uptime_s": (time.time() - started) if started else 0.0,
+            "last_error": self.last_error,
+            "ws_url": self.base_url,
+            "market_tickers": self.market_tickers,
+        }
 
 
 # -- helpers ----------------------------------------------------------------

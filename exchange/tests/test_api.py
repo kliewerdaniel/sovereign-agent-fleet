@@ -140,8 +140,25 @@ def test_instruments_endpoint_exposes_venue_alias():
     assert inst["venue_alias_resolved"] is True
 
 
-def test_quotes_endpoint_honest_liveness():
+def test_stream_status_endpoint_reports_sim_only_when_not_live():
+    """Default client runs sim-only; /stream/status reports not-live honestly."""
     c = _client()
+    r = c.get("/stream/status")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["connected"] is False
+    assert body["live"] is False
+    assert body["live_ticks"] == 0
+    assert "note" in body  # explains sim-only state
+
+
+def test_quotes_endpoint_exposes_stream_status_block():
+    """/quotes now carries a `stream` status block (None when sim-only)."""
+    c = _client()
+    r = c.get("/quotes")
+    body = r.json()
+    assert body["stream_connected"] is False
+    assert body["stream"] is None  # no live stream in default sim mode
     r = c.get("/quotes")
     assert r.status_code == 200
     body = r.json()

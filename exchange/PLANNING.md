@@ -330,6 +330,13 @@ regressions).
   auth/DNS/parse error). Started by `Exchange(live_feed=True)` / env `KALSHI_LIVE_FEED=1`.
   VERIFIED: a held WS connection received 4,230 real ticker frames in 6s with the loaded RSA-PSS
   creds (network-marked test `test_stream_live_receives_real_ticker`).
+- **Live stream liveness is now VISIBLE.** `KalshiTickerStream.status()` exposes a thread-safe
+  snapshot: `connected`, `live`, `live_ticks` (cumulative count of well-formed ticker frames),
+  `last_tick_ts`/`last_tick_age_s`, `reconnect_count`, `uptime_s`, `last_error`, `ws_url`,
+  `market_tickers`. Surfaced two ways: a dedicated `GET /stream/status` endpoint, and a `stream`
+  block inside `GET /quotes`. In sim-only mode `/stream/status` reports `connected/live/live_ticks=0`
+  with an explanatory `note` (never fabricates liveness). The tick counter is honest — it only
+  increments on real frames received (a quiet single-instrument market shows 0; that is correct).
 - **Settlement is shadow-only.** `ShadowLedger` tracks positions/P&L per
   subaccount but holds nothing and settles nothing; real settlement is a
   pass-through to venue accounts (not implemented — would accompany live venue
