@@ -2,7 +2,7 @@
 // the real fleet via the bridge — no transformation, no invented fields.
 
 import { BRIDGE_BASE_URL, BRIDGE_PUBLIC_URL } from "./config";
-import type { ApprovalRecord, ChainIntegrity, RunResult } from "./types";
+import type { ApprovalRecord, AuditEntry, ChainIntegrity, RunResult } from "./types";
 
 async function getJson<T>(base: string, path: string): Promise<T> {
   const res = await fetch(base + path, { cache: "no-store" });
@@ -18,10 +18,11 @@ export function fetchChainIntegrity(): Promise<ChainIntegrity> {
 }
 
 export function fetchAudit(limit = 50) {
-  return getJson<{ entries: unknown[]; count: number; ledger_pubkey_pem: string }>(
-    BRIDGE_BASE_URL,
-    `/api/audit?limit=${limit}`,
-  );
+  return getJson<{
+    entries: AuditEntry[];
+    count: number;
+    ledger_pubkey_pem: string;
+  }>(BRIDGE_BASE_URL, `/api/audit?limit=${limit}`);
 }
 
 export interface RunSummary {
