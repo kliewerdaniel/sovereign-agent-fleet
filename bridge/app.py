@@ -4,10 +4,12 @@ FastAPI surface over the REAL fleet package:
 
   REST
     GET  /api/health
-    GET  /api/runs/:run_id/state        # resync snapshot (WS reconnect/backfill)
+    GET  /api/runs                      # run index (last snapshot per run_id)
+    GET  /api/runs/{run_id}/state       # full run snapshot (resync/backfill)
+    GET  /api/chain/integrity           # server-computed trust state
     GET  /api/audit?limit=50            # signed chain tail + integrity verdict
-    GET  /api/run/:run_id               # run a fresh incident pipeline (sync)
-    POST /api/approve/:request_id/sign  # produce a genuine Ed25519 ApprovalRecord
+    GET  /api/run/{domain}              # run a fresh incident pipeline (sync)
+    POST /api/approve/{request_id}/sign # produce a genuine Ed25519 ApprovalRecord
 
   WebSocket
     /ws                                  # streams typed PipelineEvents as the
@@ -95,12 +97,36 @@ async def audit(limit: int = 50):
     }
 
 
+@app.get("/api/runs")
+async def list_runs():
+    """Run index (bridge process memory). Each entry is the last snapshot from
+    a /api/run/incident call — real fleet output, no fabrication."""
+    return {
+        "run_ids": list(_runs.keys()),
+        "runs": {
+            rid: {
+                "run_id": r["run_id"],
+                "verification": r["verification"],
+                "authorization": r["authorization"],
+                "needs_approval": r["needs_approval"],
+                "blocked": r["blocked"],
+                "target": r["target"],
+                "action": r["action"],
+                "audit_count": len(r.get("audit_tail", [])),
+            }
+            for rid, r in _runs.items()
+        },
+    }
+
+
 @app.get("/api/runs/{run_id}/state")
 async def run_state(run_id: str):
-    snap = _runs.get(run_id)
-    if snap is None:
-        raise HTTPException(status_code=404, detail="unknown run_id")
-    return snap
+    """Full run snapshot (real fleet output stored from the last /api/run/incident
+    call). Used by the Next.js detail page and WS reconnect/backfill."""
+    result = _runs.get(run_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"unknown run {run_id}")
+    return result
 
 
 @app.get("/api/run/{domain}")

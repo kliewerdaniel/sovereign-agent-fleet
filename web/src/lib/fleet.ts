@@ -24,6 +24,29 @@ export function fetchAudit(limit = 50) {
   );
 }
 
+export interface RunSummary {
+  run_id: string;
+  verification: string;
+  authorization: string;
+  needs_approval: boolean;
+  blocked: boolean;
+  target: string;
+  action: string;
+  audit_count: number;
+}
+
+export async function fetchRuns(): Promise<{ runs: RunSummary[] }> {
+  const data = await getJson<{ run_ids: string[]; runs: Record<string, RunSummary> }>(
+    BRIDGE_BASE_URL,
+    "/api/runs",
+  );
+  return { runs: Object.values(data.runs).sort((a, b) => (a.run_id < b.run_id ? 1 : -1)) };
+}
+
+export async function fetchRun(runId: string): Promise<RunResult> {
+  return getJson<RunResult>(BRIDGE_BASE_URL, `/api/runs/${runId}/state`);
+}
+
 // Client-side (same-origin via next.config rewrite in dev/prod).
 export function publicBridgeUrl(): string {
   return BRIDGE_PUBLIC_URL;

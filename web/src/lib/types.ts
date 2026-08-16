@@ -128,5 +128,7 @@ export interface RunResult {
   action: string;
   environment_before: { workload_id: string; state: string };
   environment_after: { workload_id: string; state: string };
+  evidence: Record<string, unknown>;
+  evidence_id: string;
   audit_tail: AuditEntry[];
 }

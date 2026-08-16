@@ -231,6 +231,11 @@ class FleetAdapter:
         ana = Analyst(self.analyst, rt)
         op = Operator(self.operator, rt)
 
+        # The bridge shares one ledger across runs in a process. Snapshot the
+        # pre-run entry count so this run's snapshot contains ONLY the entries
+        # it actually produced (no bleed from earlier runs).
+        pre_count = len(self.audit_entries())
+
         emit(RunStarted(run_id=run_id, domain="incident"))  # type: ignore[call-arg]
 
         # 1. Researcher gathers verified evidence (synthetic but schema-valid).
@@ -328,9 +333,16 @@ class FleetAdapter:
         after = {"workload_id": workload_id, "state": simenv.state_of(workload_id).value}
         emit(ActionExecuted(run_id=run_id, before=before, after=after))  # type: ignore[call-arg]
 
-        # 5. Stream the new audit tail (real signed entries).
-        for e in self.audit_tail(limit=8):
-            emit(AuditEntryAppended(run_id=run_id, entry=e))  # type: ignore[call-arg]
+        # 5. Stream the new audit tail (real signed entries from THIS run only).
+        # Filter out the control-plane's identity-registry bootstrap entries
+        # ("registry.publish") — those are shared agent-cert registrations, not
+        # part of this incident's governance pipeline.
+        run_entries = [
+            e for e in self.audit_entries()[pre_count:]
+            if e.get("kind") != "registry.publish"
+        ]
+        for e in run_entries:
+            emit(AuditEntryAppended(run_id=run_id, entry=_proj_audit(e)))  # type: ignore[call-arg]
 
         return {
             "run_id": run_id,
@@ -347,7 +359,9 @@ class FleetAdapter:
             "action": action,
             "environment_before": before,
             "environment_after": after,
-            "audit_tail": [e.model_dump() for e in self.audit_tail(limit=8)],
+            "evidence": evidence_payload,
+            "evidence_id": evidence_payload["evidence_id"],
+            "audit_tail": [_proj_audit(e).model_dump() for e in run_entries],
         }
 
     def sign_approval(
