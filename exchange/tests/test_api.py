@@ -165,3 +165,34 @@ def test_quotes_tick_publishes_quote_event_on_bus():
     assert "quote" in seen
     # the published quote carries the resolved alias ticker + honest liveness
     assert ex.feed.quote(1, ticker="KXFEDDECISION-26JUN-C25").live is False
+
+
+def test_live_feed_exchange_attempts_stream_and_surfaces_cached_quote():
+    """When live_feed=True the Exchange builds/starts a WS ticker stream (gated
+    by creds), and publish_quotes prefers a cached live quote over the sim feed."""
+    from exchange.api import Exchange
+    from exchange.core.events import EventType
+    from exchange.feeds import Quote
+
+    # isolated instance; live_feed=True -> tries to start the real WS stream.
+    ex = Exchange(99, live_feed=True)
+    try:
+        # If creds are present the stream starts; if not, it degrades to None.
+        # Either way the instance is usable and stays honest about liveness.
+        assert ex.stream is None or ex.stream.is_live() is True
+        # Inject a real live quote into the cache (as the stream would) and
+        # confirm publish_quotes emits it with live=True (not the sim quote).
+        inst = ex.registry.get(99)
+        ex._cache_live_quote(Quote(exchange_id=99, venue="Kalshi", ticker=inst.venue_ticker,
+                                    bid_cents=48, ask_cents=53, live=True))
+        seen: list = []
+        ex.bus.subscribe(lambda e: seen.append(e) if e.type == EventType.QUOTE else None)
+        ex.publish_quotes()
+        emitted = [e for e in seen if e.exchange_id == 99]
+        assert emitted, "no quote emitted for the live instrument"
+        live_ev = emitted[0]
+        assert live_ev.payload["live"] is True
+        assert live_ev.payload["bid_cents"] == 48 and live_ev.payload["ask_cents"] == 53
+    finally:
+        ex.close()
+

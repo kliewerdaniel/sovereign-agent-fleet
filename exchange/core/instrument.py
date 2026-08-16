@@ -99,6 +99,14 @@ class InstrumentRegistry:
         except KeyError:
             raise KeyError(f"no mapping for ({venue}, {venue_ticker})") from None
 
+    def get_by_ticker(self, venue_ticker: str, venue: str = "kalshi") -> Optional[ExchangeId]:
+        """Best-effort reverse lookup: ticker -> canonical exchange_id.
+
+        Returns None when the ticker isn't in the registry (e.g. a live WS
+        ticker message for a market we haven't modeled). Never raises.
+        """
+        return self._by_venue_ticker.get((venue, venue_ticker))
+
     def __iter__(self):
         return iter(self._by_id.values())
 

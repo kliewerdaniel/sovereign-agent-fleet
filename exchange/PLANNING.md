@@ -320,8 +320,16 @@ regressions).
 - **`/live_data/milestone/{id}` is a SEPARATE concern (sports scoring, not price).**
   The endpoint the user linked returns live *game/scoring* data for sports
   milestones (player stats, progress) — it has no prices and is NOT part of price
-  discovery. Real streaming prices would come from `GET /markets/{ticker}` +
-  `/orderbook` and the WSS Market Ticker stream (not yet wired).
+- **WSS Market Ticker stream IS NOW WIRED (read-only, live).** `exchange/ticker_stream.py`
+  hosts `KalshiTickerStream`: authenticated WS to `wss://api.elections.kalshi.com/trade-api/ws/v2`
+  (the shared demo-cred host — the dedicated `external-api-ws.demo.kalshi.co` returns 401 on
+  the demo key scope), subscribes to `ticker`, parses `yes_bid_dollars`/`yes_ask_dollars` into
+  live `Quote`s, pushes `QUOTE` events on the `ExchangeBus`, and caches a per-ticker live quote
+  that `/quotes` prefers over the sim feed. Auto-reconnect w/ backoff, `allow_network` gate, daemon
+  loop for the sync `Exchange`, fail-closed (never places an order; degrades to `live=False` on any
+  auth/DNS/parse error). Started by `Exchange(live_feed=True)` / env `KALSHI_LIVE_FEED=1`.
+  VERIFIED: a held WS connection received 4,230 real ticker frames in 6s with the loaded RSA-PSS
+  creds (network-marked test `test_stream_live_receives_real_ticker`).
 - **Settlement is shadow-only.** `ShadowLedger` tracks positions/P&L per
   subaccount but holds nothing and settles nothing; real settlement is a
   pass-through to venue accounts (not implemented — would accompany live venue

@@ -242,6 +242,24 @@ class KalshiLive(VenueAdapter):
         except Exception:
             return 0, None
 
+    # -- websocket handshake auth -------------------------------------------
+    def ws_auth_headers(self, ws_path: str = "/trade-api/ws/v2") -> Dict[str, str]:
+        """Headers for an authenticated WebSocket handshake (Kalshi v2).
+
+        Signed payload is ``timestamp + "GET" + ws_path`` (per Kalshi docs), which
+        is exactly what ``_sign("GET", ws_path, b"")`` produces. Requires a loaded
+        key; raises if the adapter has no credentials.
+        """
+        if not self.is_live():
+            raise RuntimeError("KalshiLive has no private key loaded")
+        ts, sig = self._sign("GET", ws_path, b"")
+        assert self.api_key_id is not None  # guaranteed: is_live() implies a loaded key
+        return {
+            "KALSHI-ACCESS-KEY": self.api_key_id,
+            "KALSHI-ACCESS-TIMESTAMP": ts,
+            "KALSHI-ACCESS-SIGNATURE": sig,
+        }
+
     # -- write paths (fail-closed) ------------------------------------------
     def route(self, order: NormalizedOrder) -> RouteResult:
         if not self.allow_live_orders:

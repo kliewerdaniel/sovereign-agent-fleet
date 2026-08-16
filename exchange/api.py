@@ -91,17 +91,56 @@ class Exchange:
         self.pending: Dict[str, dict] = {}  # approval_token -> decision
         self.live_venues = live_venues
 
-    def publish_quotes(self) -> None:
-        """Pull each instrument's quote from the active feed and push to the bus.
+        # Live streaming ticker (v2 WS). Only constructed/started when the live
+        # feed is opted in AND creds are present. Otherwise it stays None and the
+        # sim/on-demand feed remains the sole (non-live) source.
+        self.stream = None
+        self._live_cache: Dict[str, Quote] = {}  # ticker -> latest live quote
+        if self.live_feed:
+            tickers = [
+                inst.venue_ticker for inst in self.registry if inst.venue == "kalshi" and inst.venue_ticker
+            ]
+            try:
+                from exchange.ticker_stream import KalshiTickerStream
 
-        Honestly carries the feed's liveness flag (sim=False, live=True when the
-        Kalshi v2 feed is actually connected).
+                self.stream = KalshiTickerStream(
+                    market_tickers=tickers,
+                    bus=self.bus,
+                    registry=self.registry,
+                    allow_network=True,
+                    on_quote=self._cache_live_quote,
+                )
+                if not self.stream.start():
+                    self.stream = None  # not live-capable (no creds) -> stay sim
+            except Exception as e:  # noqa: BLE001 — degrade, never crash init
+                self.stream = None
+                self._live_cache.clear()
+
+    def _cache_live_quote(self, q: Quote) -> None:
+        if q.ticker:
+            self._live_cache[q.ticker] = q
+
+    def close(self) -> None:
+        if self.stream is not None:
+            self.stream.stop()
+
+    def publish_quotes(self) -> None:
+        """Push quotes to the bus for every instrument.
+
+        Honesty rule: if a *live* streaming quote exists for an instrument's
+        ticker, publish THAT (live=True) rather than a sim or on-demand pull, so
+        the bus never shows a non-live quote where a real one is available.
+        Instruments with no live coverage fall back to the active feed.
         """
         for inst in self.registry:
             ticker = inst.venue_ticker if inst.venue == "kalshi" else None
-            q = self.feed.quote(inst.exchange_id, ticker=ticker)
+            live = self._live_cache.get(ticker) if ticker else None
+            if live is not None:
+                q = live
+            else:
+                q = self.feed.quote(inst.exchange_id, ticker=ticker)
             self.bus.publish(
-                quote_event(inst.exchange_id, self.feed.venue, q.bid_cents, q.ask_cents, q.ticker, live=q.live)
+                quote_event(inst.exchange_id, q.venue, q.bid_cents, q.ask_cents, q.ticker, live=q.live)
             )
 
 
@@ -189,16 +228,29 @@ def instruments():
 
 @app.get("/quotes")
 def quotes():
-    """Current price-discovery quotes (sim feed; honest `live` flag)."""
+    """Current price-discovery quotes.
+
+    Honest `live` flag: prefers a real streaming (WS) quote when one is cached
+    for the instrument's ticker; otherwise falls back to the active feed. The
+    `stream` field reports whether the live ticker WS is connected.
+    """
     ex = get_exchange()
     out = []
     for inst in ex.registry:
         ticker = inst.venue_ticker if inst.venue == "kalshi" else None
-        q = ex.feed.quote(inst.exchange_id, ticker=ticker)
+        live = ex._live_cache.get(ticker) if ticker else None
+        q = live if live is not None else ex.feed.quote(inst.exchange_id, ticker=ticker)
         d = q.to_dict()
         d["title"] = inst.title
         out.append(d)
-    return {"feed": ex.feed.venue, "live": ex.feed.is_live(), "quotes": out}
+    stream_up = bool(ex.stream and ex.stream.connected)
+    live_any = any(q["live"] for q in out)
+    return {
+        "feed": "kalshi-stream" if stream_up else ex.feed.venue,
+        "live": live_any,
+        "stream_connected": stream_up,
+        "quotes": out,
+    }
 
 
 @app.post("/quotes/tick")
