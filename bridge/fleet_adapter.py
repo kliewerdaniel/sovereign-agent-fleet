@@ -204,6 +204,53 @@ class FleetAdapter:
             "checked_at": int(self.now_fn() if self.now_fn else time.time()),
         }
 
+    # -- domain model (real SimEnv + incident policy) ----------------------
+
+    def domain_model(self) -> Dict[str, Any]:
+        """Honest projection of the fleet's SimEnv + incident-authorization
+        policy. Every value here is sourced from fleet/simenv/env.py and
+        fleet/layers/incident.py — no invented workloads or rules."""
+        from fleet.simenv.env import WORKLOADS, ACTIONS, _PROTECTED_ACTIONS
+
+        workloads = [
+            {
+                "workload_id": wid,
+                "asset_class": cls.value,
+                "protected": wid == "identity-svc",
+            }
+            for wid, cls in WORKLOADS.items()
+        ]
+        actions = [
+            {
+                "action": name,
+                "result_state": st.value,
+                "blast_radius": blast,
+                "prohibited_on_protected": name in _PROTECTED_ACTIONS,
+            }
+            for name, (st, blast) in ACTIONS.items()
+        ]
+        return {
+            "domains": ["incident", "financial", "sales"],
+            "wired": ["incident"],  # only incident has a real pipeline runner today
+            "workloads": workloads,
+            "actions": actions,
+            "policy_matrix": [
+                # (verification, severity, blast, asset_class) -> decision
+                {"when": "HALLUCINATION", "decision": "BLOCKED",
+                 "note": "unbacked claim never authorized"},
+                {"when": "VERIFIED + LOW + LOW + any", "decision": "AUTO",
+                 "note": "low-blast auto-remediation"},
+                {"when": "VERIFIED + (LOW|MED) + (MED|HIGH) + non-protected",
+                 "decision": "HUMAN", "note": "escalates to human"},
+                {"when": "VERIFIED + any + any + revenue-svc", "decision": "HUMAN",
+                 "note": "revenue-critical always human"},
+                {"when": "VERIFIED + any + containment + identity-svc",
+                 "decision": "BLOCKED", "note": "protected-asset prohibition"},
+                {"when": "ASSERTED + any + any + any", "decision": "HUMAN",
+                 "note": "asserted claim needs cryptographically-bound approval"},
+            ],
+        }
+
     # -- pipeline runner ---------------------------------------------------
 
     def run_incident(

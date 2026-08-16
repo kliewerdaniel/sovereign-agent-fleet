@@ -157,6 +157,14 @@ async def run_pipeline(domain: str, verification: str = "VERIFIED", severity: st
     return result
 
 
+@app.get("/api/domains")
+async def domains():
+    """Real fleet SimEnv + incident-authorization policy model. Honest source
+    for the domain panels — wired vs unwired domains marked explicitly so the
+    UI never fabricates sales/financial content."""
+    return adapter.domain_model()
+
+
 class SignRequest(BaseModel):
     agent_id: str
     action_id: str

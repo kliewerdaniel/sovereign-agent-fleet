@@ -25,6 +25,23 @@ export function fetchAudit(limit = 50) {
   }>(BRIDGE_BASE_URL, `/api/audit?limit=${limit}`);
 }
 
+export interface DomainModel {
+  domains: string[];
+  wired: string[];
+  workloads: { workload_id: string; asset_class: string; protected: boolean }[];
+  actions: {
+    action: string;
+    result_state: string;
+    blast_radius: string;
+    prohibited_on_protected: boolean;
+  }[];
+  policy_matrix: { when: string; decision: string; note: string }[];
+}
+
+export async function fetchDomains(): Promise<DomainModel> {
+  return getJson<DomainModel>(BRIDGE_BASE_URL, "/api/domains");
+}
+
 export interface RunSummary {
   run_id: string;
   verification: string;
