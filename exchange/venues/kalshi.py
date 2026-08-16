@@ -132,8 +132,8 @@ class KalshiLive(VenueAdapter):
     name = "kalshi"
     venue = "Kalshi"
 
-    # Kalshi demo/sandbox (risk-free) by default. Production: api.kalshi.com/v1
-    DEFAULT_BASE_URL = "https://demo-api.kalshi.com/v1"
+    # Kalshi v2 demo (risk-free) by default. Production: external-api.kalshi.com/trade-api/v2
+    DEFAULT_BASE_URL = "https://external-api.demo.kalshi.co/trade-api/v2"
 
     def __init__(
         self,
@@ -177,9 +177,9 @@ class KalshiLive(VenueAdapter):
         return ts, base64.b64encode(sig).decode("ascii")
 
     # -- transport ----------------------------------------------------------
-    def _request(self, method: str, path: str, body: Optional[dict] = None):
+    def _signed_request(self, method: str, path: str, body: Optional[dict] = None) -> urllib_request.Request:
         if not self.is_live():
-            return RouteResult(status=RoutingStatus.REJECTED, detail="no kalshi credentials loaded")
+            raise RuntimeError("KalshiLive has no private key loaded")
         url = self.base_url + path
         data = json.dumps(body).encode("utf-8") if body is not None else b""
         ts, sig = self._sign(method, path, data)
@@ -189,24 +189,58 @@ class KalshiLive(VenueAdapter):
             "Kalshi-Signature": sig,
             "Content-Type": "application/json",
         }
-        req = urllib_request.Request(url, data=data or None, headers=headers, method=method.upper())
-        with urllib_request.urlopen(req, timeout=15) as resp:
-            return resp.status, json.loads(resp.read().decode("utf-8"))
+        return urllib_request.Request(url, data=data or None, headers=headers, method=method.upper())
+
+    def _request(self, method: str, path: str, body: Optional[dict] = None):
+        if not self.is_live():
+            return RouteResult(status=RoutingStatus.REJECTED, detail="no kalshi credentials loaded")
+        try:
+            with urllib_request.urlopen(self._signed_request(method, path, body), timeout=15) as resp:
+                return resp.status, json.loads(resp.read().decode("utf-8"))
+        except urllib_request.HTTPError as e:
+            try:
+                b = json.loads(e.read().decode("utf-8")) if e.fp else None
+            except Exception:
+                b = None
+            return e.code, b
+        except Exception as e:
+            return RouteResult(status=RoutingStatus.REJECTED, detail=f"kalshi request error: {e}")
 
     # -- read-only proof (no order) -----------------------------------------
-    def get_exchange_status(self):
-        """Read-only: proves RSA-PSS auth + request headers are accepted by Kalshi."""
-        return self._request("GET", "/exchange/status")
+    def get_exchange_status(self) -> tuple[int, Optional[dict]]:
+        """Read-only: proves RSA-PSS auth + request headers are accepted by Kalshi.
 
-    def get_market(self, ticker: str) -> tuple[int, Optional[dict]]:
-        """Read-only: fetch a market's order book (yes_bid/yes_ask). No order.
-
-        Always returns (status, body); when not live (no key) returns (401, None)
-        so callers don't have to special-case a RouteResult.
+        Always returns ``(status, body)``; ``(401, None)`` when not live.
         """
         if not self.is_live():
             return 401, None
-        return self._request("GET", f"/markets/{ticker}")  # type: ignore[return-value]
+        return self._get_readonly("/exchange/status")
+
+    def get_market(self, ticker: str) -> tuple[int, Optional[dict]]:
+        """Read-only: fetch a market's price (yes_bid/yes_ask). No order.
+
+        Always returns ``(status, body)``; ``(401, None)`` when not live so
+        callers don't have to special-case a RouteResult.
+        """
+        if not self.is_live():
+            return 401, None
+        return self._get_readonly(f"/markets/{ticker}")
+
+    def _get_readonly(self, path: str) -> tuple[int, Optional[dict]]:
+        """Authenticated GET that ALWAYS returns (status, body). No order."""
+        if not self.is_live():
+            return 401, None
+        try:
+            with urllib_request.urlopen(self._signed_request("GET", path), timeout=15) as resp:
+                return resp.status, json.loads(resp.read().decode("utf-8"))
+        except urllib_request.HTTPError as e:
+            try:
+                body = json.loads(e.read().decode("utf-8")) if e.fp else None
+            except Exception:
+                body = None
+            return e.code, body
+        except Exception:
+            return 0, None
 
     # -- write paths (fail-closed) ------------------------------------------
     def route(self, order: NormalizedOrder) -> RouteResult:
@@ -233,7 +267,11 @@ class KalshiLive(VenueAdapter):
             status, body = self._request("POST", "/orders", payload)
         except Exception as e:  # noqa: BLE001 — surface, never swallow
             return RouteResult(status=RoutingStatus.REJECTED, detail=f"kalshi order error: {e}")
+        if not isinstance(body, dict):
+            return RouteResult(status=RoutingStatus.REJECTED, detail=f"kalshi order unexpected response: {status}")
         vid = body.get("order_id") or body.get("order", {}).get("order_id")
+        if not vid:
+            return RouteResult(status=RoutingStatus.REJECTED, detail=f"kalshi order no order_id (status {status})")
         self._orders[vid] = "open"
         return RouteResult(
             status=RoutingStatus.ROUTED,

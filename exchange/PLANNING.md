@@ -289,28 +289,39 @@ regressions).
   `allow_live_orders=True` is explicitly set on the instance, so the running API
   never places a real order by accident. RSA-PSS signing is unit-verified
   (`test_signature_is_well_formed`).
-- **Read-only proofs are env-gated.** `get_exchange_status()` (and
-  `KalshiPriceFeed.get_market()`) perform ONE authenticated read-only `GET` (no
-  order). They skip in the build sandbox, which cannot resolve `*.kalshi.com`
-  (DNS/egress restriction) — not a code defect. Run on a networked host with
-  creds to see the 200/401/403.
-- **Price discovery is NOW IMPLEMENTED (sim-first, honest liveness).**
+- **Read-only proofs are env-gated + v2-correct.** `get_exchange_status()` and
+  `KalshiPriceFeed` use the **v2** base (`external-api.demo.kalshi.co/trade-api/v2`,
+  `.co` — the legacy v1 `.com` host is retired). They perform ONE authenticated
+  read-only `GET` (no order). The sandbox CAN reach v2 (verified: 200 with real
+  credentials + RSA-PSS signing), so `test_readonly_exchange_status` and
+  `test_kalshi_feed_live_quote_real_v2` now run for real (not skipped) and assert
+  the v2 contract (`yes_bid_dollars`/`yes_ask_dollars` dollar strings parsed to
+  integer cents). They degrade to `(0, None)` / `live=False` on any failure and
+  never raise.
+- **Price discovery is NOW IMPLEMENTED (sim-first + real v2).**
   `exchange/feeds.py` adds a `PriceFeed` abstraction with `SimPriceFeed` (a
   deterministic, seeded random-walk quote generator — fully testable in-sandbox,
-  the "live" market for sim mode) and `KalshiPriceFeed` (real order-book pull,
-  fail-closed + gated, never raises on missing net). Quotes carry a `live` flag
-  and are published as `quote` events on the existing market bus. The API
-  exposes `/instruments`, `/quotes`, and `/quotes/tick`.
+  the "live" market for sim mode) and `KalshiPriceFeed` (REAL v2 market-data
+  pull from `GET /markets/{ticker}`; parses `yes_bid_dollars`/`yes_ask_dollars`
+  to cents; fail-closed + gated, never raises on missing net). Quotes carry a
+  `live` flag and are published as `quote` events on the existing market bus with
+  an honest `live` bit. The API exposes `/instruments`, `/quotes`, `/quotes/tick`.
 - **Venue-alias map is NOW WIRED.** `Router` accepts an `InstrumentRegistry`;
   `_with_ticker()` stamps the canonical `exchange_id` → real Kalshi ticker into
   `NormalizedOrder.venue_ticker`, and `KalshiLive.route()` sends that ticker
   (falling back to the id only when no mapping exists). The API seeds a canonical
   instrument with a real `KXFEDDECISION-26JUN-C25` alias so the path is exercised.
-- **Live market data feed still NONE by default.** `KalshiPriceFeed` is correct
-  and gated, but the running API uses `SimPriceFeed` (honest `live=False`). The
-  internal engine still only matches against orders *we* inject; P&L marks
-  against the sim feed, not a real Kalshi book. Flipping to the live feed
-  requires explicit opt-in (same gating as live orders).
+- **Live market data feed is opt-in (default sim).** `KalshiPriceFeed` is real
+  and v2-correct, but the running API uses `SimPriceFeed` unless `live_feed=True`
+  or env `KALSHI_LIVE_FEED=1`. Even then it stays `live=False` unless creds AND
+  network are present. The internal engine still only matches orders *we* inject;
+  P&L marks against the active feed. Selecting the real feed is the operator's
+  explicit opt-in — same gating as live orders.
+- **`/live_data/milestone/{id}` is a SEPARATE concern (sports scoring, not price).**
+  The endpoint the user linked returns live *game/scoring* data for sports
+  milestones (player stats, progress) — it has no prices and is NOT part of price
+  discovery. Real streaming prices would come from `GET /markets/{ticker}` +
+  `/orderbook` and the WSS Market Ticker stream (not yet wired).
 - **Settlement is shadow-only.** `ShadowLedger` tracks positions/P&L per
   subaccount but holds nothing and settles nothing; real settlement is a
   pass-through to venue accounts (not implemented — would accompany live venue

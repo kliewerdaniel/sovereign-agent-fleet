@@ -6,27 +6,33 @@ module is the price-discovery seam.
 
 Two implementations:
 
-* :class:`SimPriceFeed` — a deterministic, seedable random-walk quote generator.
+* :class:`SimPriceFeed` -- a deterministic, seedable random-walk quote generator.
   Fully testable in-sandbox (no egress). It IS the live market for the sim-first
   build: quotes are published as ``quote`` events on the existing market bus so
   routing/P&L can mark against real-looking external prices instead of only
   internal fills.
-* :class:`KalshiPriceFeed` — a REAL feed that pulls the Kalshi order book REST
-  endpoint. It is fail-closed and env-gated: ``is_live()`` is True only with
-  loaded creds, and a network pull skips cleanly when the build sandbox cannot
-  reach ``*.kalshi.com`` (DNS/egress restriction) — never raises on missing net.
+* :class:`KalshiPriceFeed` -- REAL Kalshi market data, v2 contract. Pulls
+  ``GET /markets/{ticker}`` (yes/no bid+ask in dollar strings) and parses them to
+  integer cents. Fail-closed + gated: ``is_live()`` is True only when credentials
+  are loaded AND ``allow_network=True`` AND the network probe succeeds. Any
+  pull that fails (auth, DNS, parse) returns ``live=False`` and never raises.
 
 HONESTY: every quote carries a ``live`` flag. The UI/ledger must never present a
-sim quote as if it came from a real venue.
+sim quote as if it came from a real venue. The v2 Kalshi `yes_bid_dollars` we
+receive is itself a real quote; we surface it with ``live=True`` and keep the
+raw venue string on the quote for audit.
+
+NOTE ON THE "/live_data/milestone" ENDPOINT: that Kalshi route returns live
+*sports scoring* data (game progress, player stats) -- it has no prices and is
+NOT part of price discovery. Real prices come from ``/markets/{ticker}``,
+``/markets/{ticker}/orderbook``, and the WSS Market Ticker stream.
 """
 from __future__ import annotations
 
 import abc
-import math
 import os
-import time
-from dataclasses import dataclass
-from typing import Dict, List, Optional
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
 
 from exchange.core.events import EventType, MarketEvent, quote_event
 from exchange.venues.kalshi import KalshiLive
@@ -40,6 +46,8 @@ class Quote:
     bid_cents: int
     ask_cents: int
     live: bool = False
+    # Raw venue response, kept for audit/debug (e.g. the dollar-string prices).
+    raw: Optional[Dict[str, Any]] = None
 
     @property
     def mid_cents(self) -> int:
@@ -130,45 +138,100 @@ class SimPriceFeed(PriceFeed):
             self._step[eid] += 1
 
 
-class KalshiPriceFeed(PriceFeed):
-    """Real Kalshi market-data feed (order book REST).
+def _dollars_to_cents(value: Any) -> Optional[int]:
+    """Kalshi v2 returns prices as dollar strings (e.g. \"0.53\").
 
-    Fail-closed + env-gated: requires credentials (loaded from the gitignored
-    ``exchange/.env``), and any network pull skips/returns a sim-equivalent on
-    connectivity failure rather than raising. Never places an order.
+    Subpenny (deci_cent) pricing means 0.53 == 53 cents. Parse to integer cents;
+    return None if missing/zero/non-numeric so the caller can stay honest.
+    """
+    if value is None:
+        return None
+    try:
+        cents = round(float(value) * 100)
+    except (ValueError, TypeError):
+        return None
+    return max(0, min(100, cents))
+
+
+class KalshiPriceFeed(PriceFeed):
+    """Real Kalshi market-data feed, v2 contract (``/markets/{ticker}``).
+
+    Fail-closed + env-gated. ``is_live()`` is True only when:
+      * credentials were loaded (private key present), AND
+      * ``allow_network=True`` (opt-in; never on by default in a real venue), AND
+      * a network probe (``GET /exchange/status``) actually reached Kalshi.
+
+    A live quote uses the real ``yes_bid_dollars`` / ``yes_ask_dollars`` parsed to
+    integer cents. Any failure (auth 401, DNS, parse, missing price) returns a
+    ``live=False`` neutral quote -- never raises, never fabricates liveness.
     """
 
     venue = "Kalshi"
-    DEFAULT_BASE_URL = "https://demo-api.kalshi.com/v1"
+    # v2 demo (risk-free). Production would be external-api.kalshi.com/trade-api/v2.
+    DEFAULT_BASE_URL = "https://external-api.demo.kalshi.co/trade-api/v2"
 
-    def __init__(self, base_url: Optional[str] = None, allow_network: bool = True):
+    def __init__(self, base_url: Optional[str] = None, allow_network: bool = False):
         _load_env()
         self.base_url = (base_url or os.environ.get("KALSHI_BASE_URL") or self.DEFAULT_BASE_URL).rstrip("/")
         self.api_key_id = os.environ.get("KALSHI_API_KEY_ID")
-        self.private_key_pem = os.environ.get("KALSHI_PRIVATE_KEY")
         self.allow_network = allow_network
-        self._key_loaded = bool(self.private_key_pem)
+        self._client = (
+            KalshiLive(base_url=self.base_url, allow_live_orders=False)
+            if (self.api_key_id and os.environ.get("KALSHI_PRIVATE_KEY"))
+            else None
+        )
+        # Probe liveness once (read-only). Cached so repeated quotes don't re-hit.
+        self._probed_live: Optional[bool] = None
+
+    # -- liveness -----------------------------------------------------------
+    def _probe(self) -> bool:
+        if self._probed_live is not None:
+            return self._probed_live
+        live = False
+        if self._client is not None and self.allow_network:
+            try:
+                st, _ = self._client.get_exchange_status()
+                live = st == 200
+            except Exception:
+                live = False
+        self._probed_live = live
+        return live
 
     def is_live(self) -> bool:
-        return self._key_loaded
+        return self._probe()
 
+    # -- quote --------------------------------------------------------------
     def quote(self, exchange_id: int, ticker: Optional[str] = None) -> Quote:
-        if not (self._key_loaded and self.allow_network):
-            # Honest fallback: no live data available.
-            return Quote(exchange_id, self.venue, ticker, bid_cents=50, ask_cents=50, live=False)
         sym = ticker or str(exchange_id)
+        if not self.is_live() or self._client is None:
+            # Honest fallback: no live data available.
+            return Quote(exchange_id, self.venue, sym, bid_cents=50, ask_cents=50, live=False)
+
         try:
-            status, body = KalshiLive(base_url=self.base_url).get_market(sym)
+            status, body = self._client.get_market(sym)
         except Exception:
-            # Connectivity/DNS failure (e.g. sandbox egress) — never raise.
-            return Quote(exchange_id, self.venue, ticker, bid_cents=50, ask_cents=50, live=False)
-        if status != 200 or not body:
-            return Quote(exchange_id, self.venue, ticker, bid_cents=50, ask_cents=50, live=False)
-        # Kalshi returns yes_bid/yes_ask in cents.
-        yes = body.get("market", {}).get("yes", {}) if isinstance(body, dict) else {}
-        bid = int(yes.get("bid", 50))
-        ask = int(yes.get("ask", 50))
-        return Quote(exchange_id, self.venue, sym, bid_cents=bid, ask_cents=ask, live=True)
+            # Connectivity/DNS failure -- never raise.
+            return Quote(exchange_id, self.venue, sym, bid_cents=50, ask_cents=50, live=False)
+        if status != 200 or not isinstance(body, dict):
+            return Quote(exchange_id, self.venue, sym, bid_cents=50, ask_cents=50, live=False)
+
+        mkt = body.get("market", body)
+        y_bid = _dollars_to_cents(mkt.get("yes_bid_dollars"))
+        y_ask = _dollars_to_cents(mkt.get("yes_ask_dollars"))
+        if y_bid is None or y_ask is None or y_ask <= y_bid:
+            # Missing or crossed/garbage -- do not claim a live quote we can't trust.
+            return Quote(
+                exchange_id, self.venue, sym, bid_cents=50, ask_cents=50,
+                live=False, raw={"market": {k: mkt.get(k) for k in (
+                    "yes_bid_dollars", "yes_ask_dollars", "no_bid_dollars", "no_ask_dollars",
+                    "last_price_dollars", "status")}},
+            )
+        return Quote(
+            exchange_id, self.venue, sym, bid_cents=y_bid, ask_cents=y_ask, live=True,
+            raw={"market": {k: mkt.get(k) for k in (
+                "yes_bid_dollars", "yes_ask_dollars", "no_bid_dollars", "no_ask_dollars",
+                "last_price_dollars", "status")}},
+        )
 
 
 def _load_env() -> None:

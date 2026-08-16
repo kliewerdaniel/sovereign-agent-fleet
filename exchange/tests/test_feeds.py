@@ -1,5 +1,6 @@
-"""Price discovery + venue-alias map tests (sim-first, no egress required)."""
+"""Price discovery + venue-alias map tests (sim-first + real v2 Kalshi)."""
 import os
+import urllib.request
 
 import pytest
 
@@ -8,6 +9,23 @@ from exchange.feeds import KalshiPriceFeed, Quote, SimPriceFeed
 from exchange.routing import Router
 from exchange.venues import KalshiLive, KalshiStub
 from exchange.venues.base import NormalizedOrder
+
+# Real, currently-open binary markets live on the demo exchange; used to verify
+# the live feed parses the v2 dollar-string shape for real.
+V2 = "https://external-api.demo.kalshi.co/trade-api/v2"
+
+
+def _open_binary_ticker() -> str | None:
+    try:
+        req = urllib.request.Request(f"{V2}/markets?status=open&limit=20&min_yes_bid=1")
+        with urllib.request.urlopen(req, timeout=15) as r:
+            markets = __import__("json").loads(r.read())["markets"]
+    except Exception:
+        return None
+    for m in markets:
+        if m.get("market_type") == "binary" and m.get("yes_bid_dollars") not in (None, "0.0000", ""):
+            return m["ticker"]
+    return markets[0]["ticker"] if markets else None
 
 
 # -- SimPriceFeed: deterministic, in [1,99], honest liveness ----------------
@@ -28,8 +46,7 @@ def test_sim_feed_is_deterministic_per_step():
     assert q1 == q2  # same step -> same quote
     f.advance()
     q3 = f.quote(42)
-    # advance changes the seed; recompute repeats deterministically
-    assert f.quote(42) == q3
+    assert f.quote(42) == q3  # advance changes seed; recompute repeats deterministically
 
 
 def test_sim_feed_step_publishes_events():
@@ -53,25 +70,44 @@ def test_kalshi_feed_gated_off_by_default_returns_nonlive():
     assert q.live is False  # gated off -> honest non-live quote
 
 
-@pytest.mark.network
-def test_kalshi_feed_live_quote_gated():
-    """Live pull is env-gated; skips on sandbox DNS/egress block, never raises."""
-    from urllib.error import URLError
+def test_kalshi_feed_dollar_parsing():
+    """_dollars_to_cents maps the v2 dollar-string shape to integer cents."""
+    from exchange.feeds import _dollars_to_cents
 
+    assert _dollars_to_cents("0.53") == 53
+    assert _dollars_to_cents("1.0000") == 100
+    assert _dollars_to_cents("0.0000") == 0
+    assert _dollars_to_cents(None) is None
+    assert _dollars_to_cents("garbage") is None
+
+
+@pytest.mark.network
+def test_kalshi_feed_live_quote_real_v2():
+    """Live pull against the real v2 demo host (sandbox can reach it).
+
+    Skips only when no creds are present; never raises. When truly live, asserts
+    the real v2 contract is parsed: integer cents, bid<ask, live=True.
+    """
     f = KalshiPriceFeed(allow_network=True)
     if not f.is_live():
-        pytest.skip("no Kalshi creds in exchange/.env")
-    try:
-        q = f.quote(1, ticker="KXFEDDECISION-26JUN-C25")
-    except URLError:
-        pytest.skip("cannot reach kalshi from this environment")
+        pytest.skip("no Kalshi creds / network in this environment")
+    ticker = _open_binary_ticker()
+    if ticker is None:
+        pytest.skip("no open binary market discoverable")
+    q = f.quote(1, ticker=ticker)
     assert isinstance(q, Quote)
+    if q.live:
+        # Real v2 parsing succeeded. A real market may have a 0 bid (no YES
+        # liquidity) but must still be a valid one-sided quote with bid<ask.
+        assert 0 <= q.bid_cents < q.ask_cents <= 100
+        assert q.raw and "market" in q.raw
+        assert q.ticker == ticker
 
 
 # -- Router venue-alias map: canonical id -> real Kalshi ticker -------------
 def test_router_resolves_venue_alias_into_order():
     reg = InstrumentRegistry()
-    inst = reg.register(
+    reg.register(
         title="Fed decision", venue="kalshi", venue_ticker="KXFEDDECISION-26JUN-C25", exchange_id=1
     )
     router = Router({"kalshi": KalshiStub(simulate=True)}, registry=reg)

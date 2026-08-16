@@ -21,8 +21,9 @@ from exchange.venues.base import NormalizedOrder, RoutingStatus
 
 @pytest.fixture
 def live_adapter():
-    # Loads KALSHI_API_KEY_ID / KALSHI_PRIVATE_KEY from exchange/.env (gitignored)
-    return KalshiLive()
+    # Loads KALSHI_API_KEY_ID / KALSHI_PRIVATE_KEY from exchange/.env (gitignored).
+    # Use the v2 demo host (.co/trade-api/v2) -- the legacy v1 (.com) is retired.
+    return KalshiLive(base_url="https://external-api.demo.kalshi.co/trade-api/v2")
 
 
 def test_stub_remains_not_live():
@@ -60,20 +61,18 @@ def test_signature_is_well_formed(live_adapter):
 
 @pytest.mark.network
 def test_readonly_exchange_status(live_adapter):
-    """Read-only proof that creds + RSA-PSS signing are accepted by Kalshi.
+    """Read-only proof that creds + RSA-PSS signing are accepted by Kalshi v2.
 
-    Never places an order. Skips if offline, creds absent, or if the build
-    environment cannot reach kalshi.com (DNS/egress restriction in the sandbox).
+    Never places an order. Skips if offline, creds absent, or if the environment
+    cannot reach external-api.demo.kalshi.co (egress restriction in the sandbox).
+    The new transport returns (0, None) on connection failure rather than raising.
     """
     if os.environ.get("KALSHI_SKIP_LIVE") == "1":
         pytest.skip("KALSHI_SKIP_LIVE=1")
     if not live_adapter.is_live():
         pytest.skip("no Kalshi creds in exchange/.env")
-    from urllib.error import URLError
-
-    try:
-        status, body = live_adapter.get_exchange_status()
-    except URLError as e:
-        pytest.skip(f"cannot reach kalshi from this environment: {e}")
+    status, body = live_adapter.get_exchange_status()
+    if status == 0:
+        pytest.skip("cannot reach kalshi v2 from this environment")
     assert status in (200, 401, 403)  # 401/403 only if key rejected
     assert body is not None

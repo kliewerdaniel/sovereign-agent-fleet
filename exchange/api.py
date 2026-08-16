@@ -15,6 +15,7 @@ Honesty contract (mirrors fleet/api):
 """
 from __future__ import annotations
 
+import os
 import time
 import uuid
 from typing import Dict, List, Optional
@@ -33,7 +34,7 @@ from exchange.core import (
     make_limit_order,
 )
 from exchange.core.events import EventType, quote_event
-from exchange.feeds import Quote, SimPriceFeed
+from exchange.feeds import KalshiPriceFeed, PriceFeed, Quote, SimPriceFeed
 from exchange.governance import (
     Authorization,
     approve_trade,
@@ -58,7 +59,7 @@ _state: Dict[int, "Exchange"] = {}
 class Exchange:
     """One sovereign trading venue instance (per exchange_id)."""
 
-    def __init__(self, exchange_id: int, live_venues: bool = False):
+    def __init__(self, exchange_id: int, live_venues: bool = False, live_feed: bool = False):
         self.exchange_id = exchange_id
         self.bus = ExchangeBus()
         self.book = OrderBook(exchange_id)
@@ -77,18 +78,30 @@ class Exchange:
             except ValueError:
                 pass
         self.router = Router({"kalshi": KalshiStub(simulate=True)}, registry=self.registry)
-        # Price discovery: deterministic sim feed (the "live" market for sim mode).
-        self.feed = SimPriceFeed(anchor_mid_cents=50, half_spread_cents=2)
+        # Price discovery: deterministic sim feed (the "live" market for sim mode)
+        # by default. A REAL Kalshi v2 market-data feed is opt-in via live_feed
+        # (or env KALSHI_LIVE_FEED=1); it is fail-closed and only goes live when
+        # creds + network are present, otherwise it self-degrades to non-live.
+        self.live_feed = live_feed or (os.environ.get("KALSHI_LIVE_FEED", "0") == "1")
+        self.feed: PriceFeed = (
+            KalshiPriceFeed(allow_network=self.live_feed)
+            if self.live_feed
+            else SimPriceFeed(anchor_mid_cents=50, half_spread_cents=2)
+        )
         self.pending: Dict[str, dict] = {}  # approval_token -> decision
         self.live_venues = live_venues
 
     def publish_quotes(self) -> None:
-        """Advance the sim price feed one tick and push quotes onto the bus."""
+        """Pull each instrument's quote from the active feed and push to the bus.
+
+        Honestly carries the feed's liveness flag (sim=False, live=True when the
+        Kalshi v2 feed is actually connected).
+        """
         for inst in self.registry:
             ticker = inst.venue_ticker if inst.venue == "kalshi" else None
             q = self.feed.quote(inst.exchange_id, ticker=ticker)
             self.bus.publish(
-                quote_event(inst.exchange_id, self.feed.venue, q.bid_cents, q.ask_cents, q.ticker, live=False)
+                quote_event(inst.exchange_id, self.feed.venue, q.bid_cents, q.ask_cents, q.ticker, live=q.live)
             )
 
 
