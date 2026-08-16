@@ -333,10 +333,20 @@ regressions).
 - **Live stream liveness is now VISIBLE.** `KalshiTickerStream.status()` exposes a thread-safe
   snapshot: `connected`, `live`, `live_ticks` (cumulative count of well-formed ticker frames),
   `last_tick_ts`/`last_tick_age_s`, `reconnect_count`, `uptime_s`, `last_error`, `ws_url`,
-  `market_tickers`. Surfaced two ways: a dedicated `GET /stream/status` endpoint, and a `stream`
-  block inside `GET /quotes`. In sim-only mode `/stream/status` reports `connected/live/live_ticks=0`
-  with an explanatory `note` (never fabricates liveness). The tick counter is honest — it only
-  increments on real frames received (a quiet single-instrument market shows 0; that is correct).
+  `market_tickers`, `subscription` (`"all"` when market_tickers is empty / `"filtered"` otherwise),
+  and `seen_markets` (distinct tickers observed). Surfaced two ways: a dedicated `GET /stream/status`
+  endpoint, and a `stream` block inside `GET /quotes`. In sim-only mode `/stream/status` reports
+  `connected/live/live_ticks=0` with an explanatory `note` (never fabricates liveness). The tick
+  counter is honest — it only increments on real frames received.
+- **Stream subscribes to ALL markets, filters client-side.** `Exchange(live_feed=True)` now
+  constructs `KalshiTickerStream(market_tickers=[])`, which tells Kalshi to push the full tape
+  (the v2 subscribe command omits `market_tickers` when empty). `on_quote` caches every received
+  ticker in `Exchange._live_cache` (ticker -> latest Quote); `publish_quotes()` and `GET /quotes`
+  only surface a live quote for an instrument whose ticker is present in that cache, falling back to
+  the sim/on-demand feed otherwise. This avoids the earlier "pinned to one quiet instrument"
+  liveness dead-zone. VERIFIED live: `subscription="all"`, **2,327 distinct markets** + **4,441
+  ticks** observed in ~8s via the running API; `/quotes` correctly shows `kalshi-stream`/`live=True`
+  for the mapped ticker while sim remains the fallback for unmapped instruments.
 - **Settlement is shadow-only.** `ShadowLedger` tracks positions/P&L per
   subaccount but holds nothing and settles nothing; real settlement is a
   pass-through to venue accounts (not implemented — would accompany live venue

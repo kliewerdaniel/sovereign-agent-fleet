@@ -120,6 +120,8 @@ def test_stream_status_counts_ticks_and_tracks_age():
     st = s.status()
     assert st["live_ticks"] == 0 and st["last_tick_ts"] == 0.0 and st["reconnect_count"] == 0
     assert st["last_tick_age_s"] is None
+    assert st["subscription"] == "all"  # empty tickers => all-markets subscription
+    assert st["seen_markets"] == 0
     # a ticker message increments the counter + sets last_tick_ts
     s._handle(json.dumps({"type": "ticker", "sid": 1, "msg": {
         "market_ticker": "KXQ", "market_id": "x", "price_dollars": "0.4",
@@ -127,6 +129,7 @@ def test_stream_status_counts_ticks_and_tracks_age():
     st = s.status()
     assert st["live_ticks"] == 1
     assert st["last_tick_age_s"] is not None and st["last_tick_age_s"] >= 0.0
+    assert st["seen_markets"] == 1
 
 
 @pytest.mark.network
@@ -163,3 +166,23 @@ def test_stream_live_receives_real_ticker():
     assert st["connected"] is True
     assert st["live_ticks"] == s.live_ticks
     assert st["uptime_s"] > 0
+
+
+@pytest.mark.network
+def test_stream_all_markets_subscription_sees_many_markets():
+    """With empty market_tape, the stream subscribes to ALL markets and should
+    observe many distinct tickers (not pin to one quiet instrument)."""
+    if not KalshiLive(base_url="https://external-api.demo.kalshi.co/trade-api/v2").is_live():
+        pytest.skip("no Kalshi creds in exchange/.env")
+    bus = ExchangeBus()
+    s = KalshiTickerStream(market_tickers=[], bus=bus, allow_network=True)
+    if not s.start():
+        pytest.skip("stream could not start (creds/host)")
+    try:
+        time.sleep(6)
+    finally:
+        s.stop()
+        time.sleep(0.5)
+    st = s.status()
+    assert st["subscription"] == "all"
+    assert st["seen_markets"] > 1, f"expected all-markets tape, only saw {st['seen_markets']}"

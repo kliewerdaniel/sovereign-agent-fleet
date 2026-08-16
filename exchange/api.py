@@ -97,14 +97,16 @@ class Exchange:
         self.stream = None
         self._live_cache: Dict[str, Quote] = {}  # ticker -> latest live quote
         if self.live_feed:
-            tickers = [
-                inst.venue_ticker for inst in self.registry if inst.venue == "kalshi" and inst.venue_ticker
-            ]
+            # Subscribe to ALL markets on the WS and filter/cache client-side:
+            # the stream publishes every ticker it sees, _cache_live_quote keeps
+            # the latest per ticker, and /quotes / publish_quotes only surface a
+            # live quote for an instrument whose ticker is in the cache. Passing
+            # an empty ticker list tells Kalshi to push the full tape.
             try:
                 from exchange.ticker_stream import KalshiTickerStream
 
                 self.stream = KalshiTickerStream(
-                    market_tickers=tickers,
+                    market_tickers=[],
                     bus=self.bus,
                     registry=self.registry,
                     allow_network=True,
@@ -277,6 +279,8 @@ def stream_status():
             "last_error": None,
             "ws_url": None,
             "market_tickers": [],
+            "subscription": "none",
+            "seen_markets": 0,
             "note": "live feed not opted in (live_feed=False / KALSHI_LIVE_FEED unset) "
                     "or no creds; running sim-only.",
         }

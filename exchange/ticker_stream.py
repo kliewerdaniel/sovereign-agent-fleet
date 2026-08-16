@@ -85,6 +85,8 @@ class KalshiTickerStream:
         self.last_tick_ts = 0.0
         self.reconnect_count = 0
         self.started_ts = 0.0
+        # distinct markets observed since start (for the all-markets subscription)
+        self.seen_tickers: set[str] = set()
 
     # -- control ------------------------------------------------------------
     def is_live(self) -> bool:
@@ -185,6 +187,8 @@ class KalshiTickerStream:
         with self._stats_lock:
             self.live_ticks += 1
             self.last_tick_ts = time.time()
+            if ticker:
+                self.seen_tickers.add(ticker)
         if self.on_quote is not None:
             try:
                 self.on_quote(q)
@@ -198,20 +202,25 @@ class KalshiTickerStream:
         """Read-only snapshot of the stream's liveness (safe across threads)."""
         with self._stats_lock:
             ticks = self.live_ticks
-            last_tick = self.last_tick_ts
+            last_t = self.last_tick_ts
             reconnects = self.reconnect_count
             started = self.started_ts
+            seen = set(self.seen_tickers)
         return {
             "connected": self.connected,
             "live": self.is_live(),
             "live_ticks": ticks,
-            "last_tick_ts": last_tick,
-            "last_tick_age_s": (time.time() - last_tick) if last_tick else None,
+            "last_tick_ts": last_t,
+            "last_tick_age_s": (time.time() - last_t) if last_t else None,
             "reconnect_count": reconnects,
             "uptime_s": (time.time() - started) if started else 0.0,
             "last_error": self.last_error,
             "ws_url": self.base_url,
+            # empty market_tickers => subscribe to ALL markets; seen_tickers is
+            # the distinct set actually observed (client-side filter universe).
             "market_tickers": self.market_tickers,
+            "subscription": "all" if not self.market_tickers else "filtered",
+            "seen_markets": len(seen),
         }
 
 
