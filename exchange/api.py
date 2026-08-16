@@ -26,12 +26,14 @@ from pydantic import BaseModel, Field
 
 from exchange.core import (
     ExchangeBus,
+    InstrumentRegistry,
     MatchingEngine,
     OrderBook,
     bus_stream_gen,
     make_limit_order,
 )
-from exchange.core.events import EventType
+from exchange.core.events import EventType, quote_event
+from exchange.feeds import Quote, SimPriceFeed
 from exchange.governance import (
     Authorization,
     approve_trade,
@@ -61,9 +63,33 @@ class Exchange:
         self.bus = ExchangeBus()
         self.book = OrderBook(exchange_id)
         self.engine = MatchingEngine(self.book, bus=self.bus)
-        self.router = Router({"kalshi": KalshiStub(simulate=True)})
+        self.registry = InstrumentRegistry()
+        # Seed a canonical instrument with a real Kalshi alias so the venue-alias
+        # map is exercised (the router stamps venue_ticker for kalshi orders).
+        if exchange_id not in self.registry._by_id:
+            try:
+                self.registry.register(
+                    title="Fed decision (sim-backed, Kalshi alias)",
+                    venue="kalshi",
+                    venue_ticker="KXFEDDECISION-26JUN-C25",
+                    exchange_id=exchange_id,
+                )
+            except ValueError:
+                pass
+        self.router = Router({"kalshi": KalshiStub(simulate=True)}, registry=self.registry)
+        # Price discovery: deterministic sim feed (the "live" market for sim mode).
+        self.feed = SimPriceFeed(anchor_mid_cents=50, half_spread_cents=2)
         self.pending: Dict[str, dict] = {}  # approval_token -> decision
         self.live_venues = live_venues
+
+    def publish_quotes(self) -> None:
+        """Advance the sim price feed one tick and push quotes onto the bus."""
+        for inst in self.registry:
+            ticker = inst.venue_ticker if inst.venue == "kalshi" else None
+            q = self.feed.quote(inst.exchange_id, ticker=ticker)
+            self.bus.publish(
+                quote_event(inst.exchange_id, self.feed.venue, q.bid_cents, q.ask_cents, q.ticker, live=False)
+            )
 
 
 def get_exchange(exchange_id: int = 1) -> Exchange:
@@ -127,6 +153,47 @@ def book(exchange_id: int = 1):
     ex = get_exchange(exchange_id)
     snap = ex.book.snapshot().to_dict()
     return {"exchange_id": exchange_id, "book": snap, "depth": ex.book.depth()}
+
+
+@app.get("/instruments")
+def instruments():
+    """The canonical instrument registry + venue-alias map (honest liveness)."""
+    ex = get_exchange()
+    return {
+        "count": len(ex.registry),
+        "instruments": [
+            {
+                "exchange_id": inst.exchange_id,
+                "title": inst.title,
+                "venue": inst.venue,
+                "venue_ticker": inst.venue_ticker,
+                "venue_alias_resolved": bool(inst.venue_ticker),
+            }
+            for inst in ex.registry
+        ],
+    }
+
+
+@app.get("/quotes")
+def quotes():
+    """Current price-discovery quotes (sim feed; honest `live` flag)."""
+    ex = get_exchange()
+    out = []
+    for inst in ex.registry:
+        ticker = inst.venue_ticker if inst.venue == "kalshi" else None
+        q = ex.feed.quote(inst.exchange_id, ticker=ticker)
+        d = q.to_dict()
+        d["title"] = inst.title
+        out.append(d)
+    return {"feed": ex.feed.venue, "live": ex.feed.is_live(), "quotes": out}
+
+
+@app.post("/quotes/tick")
+def quotes_tick():
+    """Advance the sim price feed one tick and broadcast quote events."""
+    ex = get_exchange()
+    ex.publish_quotes()
+    return {"ok": True}
 
 
 @app.post("/order", response_model=OrderResponse)

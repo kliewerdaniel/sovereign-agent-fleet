@@ -198,6 +198,16 @@ class KalshiLive(VenueAdapter):
         """Read-only: proves RSA-PSS auth + request headers are accepted by Kalshi."""
         return self._request("GET", "/exchange/status")
 
+    def get_market(self, ticker: str) -> tuple[int, Optional[dict]]:
+        """Read-only: fetch a market's order book (yes_bid/yes_ask). No order.
+
+        Always returns (status, body); when not live (no key) returns (401, None)
+        so callers don't have to special-case a RouteResult.
+        """
+        if not self.is_live():
+            return 401, None
+        return self._request("GET", f"/markets/{ticker}")  # type: ignore[return-value]
+
     # -- write paths (fail-closed) ------------------------------------------
     def route(self, order: NormalizedOrder) -> RouteResult:
         if not self.allow_live_orders:
@@ -208,7 +218,10 @@ class KalshiLive(VenueAdapter):
         if not self.is_live():
             return RouteResult(status=RoutingStatus.REJECTED, detail="no kalshi credentials loaded")
         payload = {
-            "ticker": str(order.exchange_id),  # venue alias mapping is out of scope; see PLANNING
+            # Real Kalshi ticker resolved from the canonical exchange_id via the
+            # InstrumentRegistry (router stamps venue_ticker). Falls back to the
+            # id only when no alias mapping exists (still fail-closed otherwise).
+            "ticker": order.venue_ticker or str(order.exchange_id),
             "action": order.side.lower(),
             "type": "limit",
             "side": order.side.lower(),

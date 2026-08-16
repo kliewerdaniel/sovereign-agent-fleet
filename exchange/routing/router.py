@@ -21,6 +21,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
+from exchange.core import InstrumentRegistry  # type: ignore
 from exchange.venues.base import (
     NormalizedOrder,
     RouteResult,
@@ -80,9 +81,42 @@ class RoutePlan:
 class Router:
     """Picks venues / splits baskets for best execution. Holds nothing."""
 
-    def __init__(self, adapters: Dict[str, VenueAdapter]):
+    def __init__(
+        self,
+        adapters: Dict[str, VenueAdapter],
+        registry: Optional[InstrumentRegistry] = None,
+    ):
         # adapters keyed by venue name
         self.adapters = adapters
+        self.registry = registry
+
+    def _with_ticker(self, venue: str, order: NormalizedOrder) -> NormalizedOrder:
+        """Resolve the canonical exchange_id -> venue-native ticker (alias map).
+
+        If a registry is wired and the (venue, exchange_id) maps to a known
+        instrument, stamp ``venue_ticker`` so the adapter sends a real symbol
+        instead of the raw canonical id. Best-effort: never raises; falls back
+        to the id when no mapping exists.
+        """
+        if order.venue_ticker is not None:
+            return order
+        if self.registry is None:
+            return order
+        try:
+            inst = self.registry.get(order.exchange_id)
+        except KeyError:
+            return order
+        if inst.venue == venue and inst.venue_ticker:
+            return NormalizedOrder(
+                exchange_id=order.exchange_id,
+                side=order.side,
+                qty=order.qty,
+                limit_cents=order.limit_cents,
+                client_order_id=order.client_order_id,
+                venue_hint=order.venue_hint,
+                venue_ticker=inst.venue_ticker,
+            )
+        return order
 
     def quote(self, venue: str, order: NormalizedOrder) -> VenueQuote:
         """Best-effort quote for an order at a venue (sim = simulated fill)."""
@@ -131,12 +165,15 @@ class Router:
             for q, v in zip(parts, venues):
                 if q <= 0:
                     continue
-                child = NormalizedOrder(
-                    exchange_id=order.exchange_id,
-                    side=order.side,
-                    qty=q,
-                    limit_cents=order.limit_cents,
-                    venue_hint=v.venue,
+                child = self._with_ticker(
+                    v.venue,
+                    NormalizedOrder(
+                        exchange_id=order.exchange_id,
+                        side=order.side,
+                        qty=q,
+                        limit_cents=order.limit_cents,
+                        venue_hint=v.venue,
+                    ),
                 )
                 res = self.adapters[v.venue].route(child)
                 plan.legs.append(RouteLeg(venue=v.venue, order=child, result=res))
@@ -146,8 +183,9 @@ class Router:
             plan.note = "basket split across venues"
         else:
             best = venues[0]
-            res = self.adapters[best.venue].route(order)
-            plan.legs.append(RouteLeg(venue=best.venue, order=order, result=res))
+            routed_order = self._with_ticker(best.venue, order)
+            res = self.adapters[best.venue].route(routed_order)
+            plan.legs.append(RouteLeg(venue=best.venue, order=routed_order, result=res))
             plan.total_routed = order.qty
             if res.status != RoutingStatus.NOT_LIVE:
                 plan.used_live = True

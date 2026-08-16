@@ -280,7 +280,7 @@ regressions).
 4. (Test-only) async SSE generator must be primed (`__anext__`) before
    publishing, else the event is lost before subscription.
 
-### Honest gap report (updated 2026-08-16 — live wiring)
+### Honest gap report (updated 2026-08-16 — price discovery + alias map)
 - **Kalshi adapter is now REAL (fail-closed).** `KalshiLive` implements Kalshi's
   RSA-PSS request signing (SHA-256 / MGF1-SHA-256 / salt=32) and talks to the
   REST API. Credentials load from a **gitignored** `exchange/.env` (never
@@ -289,19 +289,28 @@ regressions).
   `allow_live_orders=True` is explicitly set on the instance, so the running API
   never places a real order by accident. RSA-PSS signing is unit-verified
   (`test_signature_is_well_formed`).
-- **Read-only proof is env-gated.** `get_exchange_status()` performs ONE
-  authenticated `GET /exchange/status` (no order). It is skipped in the build
-  sandbox, which cannot resolve `*.kalshi.com` (DNS/egress restriction) — not a
-  code defect. Run on a networked host with creds to see the 200/401/403.
-- **Live market data / price discovery still NONE.** Even with `KalshiLive`, the
-  internal matching engine still matches only against orders *we* inject; there
-  is no live book feed pulled from Kalshi. P&L is still attributed against
-  internal fills.
-- **Venue-alias mapping is a stub.** `KalshiLive.route()` maps
-  `NormalizedOrder.exchange_id` directly to the Kalshi `ticker`. Real
-  integration needs `InstrumentRegistry.resolve_venue` to surface the canonical
-  `exchange_id` → Kalshi ticker before any order is safe to send (currently
-  guarded by `allow_live_orders=False`).
+- **Read-only proofs are env-gated.** `get_exchange_status()` (and
+  `KalshiPriceFeed.get_market()`) perform ONE authenticated read-only `GET` (no
+  order). They skip in the build sandbox, which cannot resolve `*.kalshi.com`
+  (DNS/egress restriction) — not a code defect. Run on a networked host with
+  creds to see the 200/401/403.
+- **Price discovery is NOW IMPLEMENTED (sim-first, honest liveness).**
+  `exchange/feeds.py` adds a `PriceFeed` abstraction with `SimPriceFeed` (a
+  deterministic, seeded random-walk quote generator — fully testable in-sandbox,
+  the "live" market for sim mode) and `KalshiPriceFeed` (real order-book pull,
+  fail-closed + gated, never raises on missing net). Quotes carry a `live` flag
+  and are published as `quote` events on the existing market bus. The API
+  exposes `/instruments`, `/quotes`, and `/quotes/tick`.
+- **Venue-alias map is NOW WIRED.** `Router` accepts an `InstrumentRegistry`;
+  `_with_ticker()` stamps the canonical `exchange_id` → real Kalshi ticker into
+  `NormalizedOrder.venue_ticker`, and `KalshiLive.route()` sends that ticker
+  (falling back to the id only when no mapping exists). The API seeds a canonical
+  instrument with a real `KXFEDDECISION-26JUN-C25` alias so the path is exercised.
+- **Live market data feed still NONE by default.** `KalshiPriceFeed` is correct
+  and gated, but the running API uses `SimPriceFeed` (honest `live=False`). The
+  internal engine still only matches against orders *we* inject; P&L marks
+  against the sim feed, not a real Kalshi book. Flipping to the live feed
+  requires explicit opt-in (same gating as live orders).
 - **Settlement is shadow-only.** `ShadowLedger` tracks positions/P&L per
   subaccount but holds nothing and settles nothing; real settlement is a
   pass-through to venue accounts (not implemented — would accompany live venue
@@ -310,7 +319,7 @@ regressions).
   `ui/` Next.js app pattern; a dedicated exchange UI was scoped optional and is
   not built. The REST+SSE API is the integration contract for whenever it is.
 - **No `exchange/` Playwright e2e** (the fleet `ui/` e2e exists separately).
-  Venue coverage is via `TestClient`/unit integration tests only.
+  Venue + feed coverage is via `TestClient`/unit integration tests only.
 
 ### Compliance / honesty notes (unchanged from plan)
 - Keys never committed; `.gitignore` covers `.env`; fail-closed if absent.

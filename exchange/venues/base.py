@@ -68,6 +68,10 @@ class NormalizedOrder:
     limit_cents: Optional[int]
     client_order_id: str = field(default_factory=lambda: f"c_{uuid.uuid4().hex[:12]}")
     venue_hint: Optional[str] = None
+    # Resolved venue-native symbol (alias) for THIS venue, set by the router from
+    # the InstrumentRegistry. Lets adapters like KalshiLive send a real ticker
+    # instead of the canonical exchange_id. None => adapter falls back to id.
+    venue_ticker: Optional[str] = None
 
     def to_dict(self) -> dict:
         return {
@@ -77,6 +81,7 @@ class NormalizedOrder:
             "limit_cents": self.limit_cents,
             "client_order_id": self.client_order_id,
             "venue_hint": self.venue_hint,
+            "venue_ticker": self.venue_ticker,
         }
 
 

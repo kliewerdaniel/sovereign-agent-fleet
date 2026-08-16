@@ -27,6 +27,7 @@ class EventType(str, Enum):
     ORDER_REJECTED = "order.rejected"
     TRADE = "trade"
     BOOK = "book"  # full book snapshot after a match
+    QUOTE = "quote"  # price-discovery quote (sim or live)
     HEARTBEAT = "heartbeat"
 
 
@@ -121,6 +122,29 @@ def make_heartbeat(exchange_id: int) -> MarketEvent:
     return MarketEvent(type=EventType.HEARTBEAT, exchange_id=exchange_id, payload={})
 
 
+def quote_event(
+    exchange_id: int,
+    venue: str,
+    bid_cents: int,
+    ask_cents: int,
+    ticker: Optional[str] = None,
+    live: bool = False,
+) -> MarketEvent:
+    """A price-discovery quote (sim or live). Honest about liveness."""
+    return MarketEvent(
+        type=EventType.QUOTE,
+        exchange_id=exchange_id,
+        payload={
+            "venue": venue,
+            "bid_cents": bid_cents,
+            "ask_cents": ask_cents,
+            "mid_cents": (bid_cents + ask_cents) // 2,
+            "ticker": ticker,
+            "live": live,
+        },
+    )
+
+
 __all__ = [
     "EventType",
     "MarketEvent",
@@ -128,4 +152,5 @@ __all__ = [
     "Subscriber",
     "trade_event",
     "make_heartbeat",
+    "quote_event",
 ]

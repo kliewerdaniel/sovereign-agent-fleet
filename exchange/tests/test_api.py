@@ -125,3 +125,43 @@ def test_human_order_rejected_with_bad_signature():
         "artifact_hash": "wrong", "decision": "approve", "ts": 1,
     })
     assert r2.json()["accepted"] is False
+
+
+def test_instruments_endpoint_exposes_venue_alias():
+    c = _client()
+    r = c.get("/instruments")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["count"] >= 1
+    inst = body["instruments"][0]
+    # the seeded instrument carries a real Kalshi alias
+    assert inst["venue"] == "kalshi"
+    assert inst["venue_ticker"] == "KXFEDDECISION-26JUN-C25"
+    assert inst["venue_alias_resolved"] is True
+
+
+def test_quotes_endpoint_honest_liveness():
+    c = _client()
+    r = c.get("/quotes")
+    assert r.status_code == 200
+    body = r.json()
+    # sim feed is not live; quotes carry an honest live flag + resolved ticker
+    assert body["live"] is False
+    assert body["feed"] == "sim"
+    q = body["quotes"][0]
+    assert q["venue"] == "sim"
+    assert q["live"] is False
+    assert 1 <= q["bid_cents"] <= q["ask_cents"] <= 99
+
+
+def test_quotes_tick_publishes_quote_event_on_bus():
+    from exchange.api import Exchange, get_exchange
+    from exchange.core.events import EventType
+
+    ex = Exchange(1)  # fresh instance, isolated bus
+    seen: list[str] = []
+    ex.bus.subscribe(lambda e: seen.append(e.type.value) if e.type == EventType.QUOTE else None)
+    ex.publish_quotes()
+    assert "quote" in seen
+    # the published quote carries the resolved alias ticker + honest liveness
+    assert ex.feed.quote(1, ticker="KXFEDDECISION-26JUN-C25").live is False
