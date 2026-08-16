@@ -68,6 +68,13 @@ async def health():
     return {"status": "ok", "audit_entries": len(adapter.audit_entries())}
 
 
+@app.get("/api/chain/integrity")
+async def chain_integrity():
+    """Server-computed trust state (fail-closed). The banner renders this
+    verbatim — the client never verifies crypto itself."""
+    return adapter.chain_integrity()
+
+
 # Sync wrapper so the (sync) fleet adapter can enqueue live WS broadcasts
 # on the running event loop without awaiting.
 def _emit(event: PipelineEvent) -> None:

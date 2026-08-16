@@ -187,6 +187,23 @@ class FleetAdapter:
         all_ = [e for e in self.audit_entries() if e.get("id") != "checkpoint"]
         return [_proj_audit(e) for e in all_[-limit:]]
 
+    def chain_integrity(self) -> Dict[str, Any]:
+        """Server-computed trust state (fail-closed): verifies the real ledger
+        chain + checkpoint, and reports the gateway's human-signed audit key.
+        The frontend renders this verbatim — it never computes crypto itself."""
+        entries = self.audit_entries()
+        cp = self.cp.audit._ledger.checkpoint()
+        valid = bool(self.cp.audit.verify())
+        head = cp.get("head") if cp else (entries[-1]["sig"] if entries else None)
+        return {
+            "valid": valid,
+            "entry_count": len(entries),
+            "head": head,
+            "checkpoint": cp,
+            "audit_pubkey_pem": self.cp.audit.public_key_pem().decode(),
+            "checked_at": int(self.now_fn() if self.now_fn else time.time()),
+        }
+
     # -- pipeline runner ---------------------------------------------------
 
     def run_incident(
