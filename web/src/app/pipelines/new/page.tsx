@@ -41,6 +41,7 @@ export default function NewRunPage() {
     if (!run || !run.needs_approval) return;
     try {
       await signApproval({
+        request_id: run.action_id,
         agent_id: run.agent_id,
         action_id: run.action_id,
         capability: run.capability,

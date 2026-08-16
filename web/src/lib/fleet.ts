@@ -2,7 +2,7 @@
 // the real fleet via the bridge — no transformation, no invented fields.
 
 import { BRIDGE_BASE_URL, BRIDGE_PUBLIC_URL } from "./config";
-import type { ChainIntegrity, RunResult } from "./types";
+import type { ApprovalRecord, ChainIntegrity, RunResult } from "./types";
 
 async function getJson<T>(base: string, path: string): Promise<T> {
   const res = await fetch(base + path, { cache: "no-store" });
@@ -69,19 +69,35 @@ export async function runIncident(params: {
   return (await res.json()) as RunResult;
 }
 
+export async function fetchRunByAction(actionId: string): Promise<{
+  run: RunResult;
+  operator: { agent_id: string };
+  human: { agent_id: string };
+}> {
+  return getJson(BRIDGE_BASE_URL, `/api/runs/by-action/${actionId}`);
+}
+
 export async function signApproval(body: {
+  request_id: string;
   agent_id: string;
   action_id: string;
   capability: string;
   artifact_hash: string;
   decision?: string;
   reason?: string;
-}): Promise<unknown> {
-  const res = await fetch(`/api/approve/${body.action_id}/sign`, {
+}): Promise<ApprovalRecord> {
+  const res = await fetch(`/api/approve/${body.request_id}/sign`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      agent_id: body.agent_id,
+      action_id: body.action_id,
+      capability: body.capability,
+      artifact_hash: body.artifact_hash,
+      decision: body.decision ?? "approve",
+      reason: body.reason ?? "human approved via bridge",
+    }),
   });
   if (!res.ok) throw new Error(`sign -> ${res.status}`);
-  return res.json();
+  return (await res.json()) as ApprovalRecord;
 }

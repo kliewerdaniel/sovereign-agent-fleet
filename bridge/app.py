@@ -129,6 +129,21 @@ async def run_state(run_id: str):
     return result
 
 
+@app.get("/api/runs/by-action/{action_id}")
+async def run_by_action(action_id: str):
+    """Resolve a run by its operator action idempotency key (the same value the
+    detail page uses as the approval request id). Returns the run snapshot plus
+    the operator/human cert identities needed to render the D17 sign page."""
+    for r in _runs.values():
+        if r.get("action_id") == action_id:
+            return {
+                "run": r,
+                "operator": {"agent_id": adapter.operator.agent_id},
+                "human": {"agent_id": adapter.human.agent_id},
+            }
+    raise HTTPException(status_code=404, detail=f"no run for action_id {action_id}")
+
+
 @app.get("/api/run/{domain}")
 async def run_pipeline(domain: str, verification: str = "VERIFIED", severity: str = "LOW",
                        workload_id: str = "web-edge", action: str = "block_egress"):
