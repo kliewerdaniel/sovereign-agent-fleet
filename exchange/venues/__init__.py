@@ -6,7 +6,7 @@ from .base import (
     VenueAdapter,
     VenueFill,
 )
-from .kalshi import KalshiStub
+from .kalshi import KalshiLive, KalshiStub
 
 __all__ = [
     "VenueAdapter",
@@ -15,4 +15,5 @@ __all__ = [
     "NormalizedOrder",
     "RoutingStatus",
     "KalshiStub",
+    "KalshiLive",
 ]

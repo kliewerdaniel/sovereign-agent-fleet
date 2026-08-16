@@ -280,14 +280,28 @@ regressions).
 4. (Test-only) async SSE generator must be primed (`__anext__`) before
    publishing, else the event is lost before subscription.
 
-### Honest gap report (OPEN — stated before "done")
-- **Kalshi is a STUB.** `KalshiStub.is_live()==False`. Every routed order is
-  labeled `not_live`; no real Kalshi REST call is made. Wiring to a live,
-  credentialed Kalshi account is **deferred** — requires real creds + explicit
-  opt-in (see plan §4 compliance).
-- **No real liquidity / no price discovery.** The internal matching engine is
-  real and deterministic, but it only matches against orders *we* inject; there
-  is no external market data feed. P&L is attributed against internal fills only.
+### Honest gap report (updated 2026-08-16 — live wiring)
+- **Kalshi adapter is now REAL (fail-closed).** `KalshiLive` implements Kalshi's
+  RSA-PSS request signing (SHA-256 / MGF1-SHA-256 / salt=32) and talks to the
+  REST API. Credentials load from a **gitignored** `exchange/.env` (never
+  committed; the PEM spans multiple lines and the loader handles that). The
+  default route path is **fail-closed**: `route()` rejects unless
+  `allow_live_orders=True` is explicitly set on the instance, so the running API
+  never places a real order by accident. RSA-PSS signing is unit-verified
+  (`test_signature_is_well_formed`).
+- **Read-only proof is env-gated.** `get_exchange_status()` performs ONE
+  authenticated `GET /exchange/status` (no order). It is skipped in the build
+  sandbox, which cannot resolve `*.kalshi.com` (DNS/egress restriction) — not a
+  code defect. Run on a networked host with creds to see the 200/401/403.
+- **Live market data / price discovery still NONE.** Even with `KalshiLive`, the
+  internal matching engine still matches only against orders *we* inject; there
+  is no live book feed pulled from Kalshi. P&L is still attributed against
+  internal fills.
+- **Venue-alias mapping is a stub.** `KalshiLive.route()` maps
+  `NormalizedOrder.exchange_id` directly to the Kalshi `ticker`. Real
+  integration needs `InstrumentRegistry.resolve_venue` to surface the canonical
+  `exchange_id` → Kalshi ticker before any order is safe to send (currently
+  guarded by `allow_live_orders=False`).
 - **Settlement is shadow-only.** `ShadowLedger` tracks positions/P&L per
   subaccount but holds nothing and settles nothing; real settlement is a
   pass-through to venue accounts (not implemented — would accompany live venue
@@ -296,7 +310,7 @@ regressions).
   `ui/` Next.js app pattern; a dedicated exchange UI was scoped optional and is
   not built. The REST+SSE API is the integration contract for whenever it is.
 - **No `exchange/` Playwright e2e** (the fleet `ui/` e2e exists separately).
-  API coverage is via `TestClient` unit/integration tests only.
+  Venue coverage is via `TestClient`/unit integration tests only.
 
 ### Compliance / honesty notes (unchanged from plan)
 - Keys never committed; `.gitignore` covers `.env`; fail-closed if absent.
