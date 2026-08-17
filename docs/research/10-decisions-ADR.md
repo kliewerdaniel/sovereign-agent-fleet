@@ -113,7 +113,7 @@ Format: Decision / Alternatives / Reason / Consequences / Status
 ### D19 — Graph stays local; Firestore mirror = manifest-only
 - **Alt:** mirror full graph to Firestore.
 - **Reason:** owner decision — preserve local-first authority (D3/D6); graph is working memory, not authoritative audit.
-- **Consequences:** Memory Bank holds hashes + evidence refs only; working graph rebuilt locally per task; cross-session continuity via manifest.
+- **Consequences:** Audit Ledger (the "Memory Bank" component) holds hashes + evidence refs only; working graph rebuilt locally per task; cross-session continuity via manifest.
 - **Status:** Accepted
 
 ### D20 — Google agent framework = GenAI SDK (Gemini API direct); Sovereign = orchestration/enforcement

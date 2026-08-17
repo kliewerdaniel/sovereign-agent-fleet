@@ -18,4 +18,4 @@ Knowledge representation belongs to the **Analyst** (judge), not the Researcher 
 - No model-free "knowledge" is trusted as fact; qualification confidence is explicit and bounded to cited evidence (failure model #1).
 
 ## Resolved (D19)
-Graph stays **local** (owner decision). Firestore Memory Bank mirror carries only the *compiled artifact manifest* — hashes + evidence refs, not the graph — preserving local-first authority (D3/D6). Cross-session continuity uses the manifest; the working graph is rebuilt locally per task.
+Graph stays **local** (owner decision). Firestore Audit Ledger mirror (the "Memory Bank" component) carries only the *compiled artifact manifest* — hashes + evidence refs, not the graph — preserving local-first authority (D3/D6). Cross-session continuity uses the manifest; the working graph is rebuilt locally per task.

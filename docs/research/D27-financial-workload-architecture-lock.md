@@ -100,7 +100,7 @@ can only escalate).
 
 ## 4. Consolidated security-invariant catalog (Rounds 1–5)
 
-Legend: **ENF** = enforced today in `fleet/` (in the 205-test suite);
+Legend: **ENF** = enforced today in `fleet/` (current suite = 480; the historical D26 baseline was a 205-test suite);
 **SPEC** = locked design, implemented in `fleet/fin/`;
 **VER** = independently verifiable by `fleet/fin/verify.py`.
 

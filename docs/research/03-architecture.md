@@ -12,7 +12,7 @@ The Fortified Enterprise Fleet track defines 7 component classes. We adopt these
 |---|---------------------|------|----------------------------------------|
 | 1 | **Agent Registry** | publish/version/discover enterprise agents | Sovereign Worker agent catalog (D10 setup beat) |
 | 2 | **Agent Runtime** | long-running async background execution | Sovereign Worker runtime + lifecycle state machine |
-| 3 | **Memory Bank** | persistent secure cross-session context | Encrypted local state (ChrisCrypt) + Firestore mirror |
+| 3 | **Memory Bank** *(= Audit Ledger)* | persistent secure cross-session context | Encrypted + signed hash-chain ledger (ChrisCrypt); GCP mirror is manifest-only, opt-in |
 | 4 | **Agent Identity** | zero-trust access control | ChrisCrypt Ed25519 identity + root-of-trust cert (D13) |
 | 5 | **Agent Gateway** | unified routing + policy enforcement | Sovereign Worker policy/control plane (capability-based) |
 | 6 | **Model Armor** | inline guardrails (injection/tool-poisoning/PII) | Structural + deterministic controls (D12) |
@@ -23,7 +23,7 @@ The Fortified Enterprise Fleet track defines 7 component classes. We adopt these
 - **Registry:** publishes/versions/discovers agents.
 - **Policy/Gateway:** capability-based authorization; the only component that issues/denies authority.
 - **Runtime:** executes worker lifecycle; checkpointing; idempotency.
-- **Memory Bank:** persistent encrypted state.
+- **Memory Bank = Audit Ledger:** persistent encrypted + signed hash-chain state (GCP mirror manifest-only, opt-in).
 - **Model Armor:** structural guardrails at boundaries.
 - **Observability:** audit ledger + reasoning traces, OTel export.
 
@@ -64,9 +64,9 @@ Researcher → Analyst → Operator is enforced **at the protocol boundary by sc
         ▼
 [ GCP — verifiable artifacts, no authority ]
   Cloud Run      → runtime + gateway endpoints (deployed proof)
-  Firestore      → tamper-evident audit ledger + Memory Bank mirror
+  Firestore      → tamper-evident audit ledger + Audit Ledger manifest mirror (opt-in)
   Pub/Sub        → async task bus (R→A→O handoffs, redelivery)
-  Vertex AI      → Gemini 3.5 Flash endpoint (shown in console for video)
+  Gemini         → cloud brain at demo time (GCP replication opt-in; default runtime is local)
 ```
 Anyone holding the agent **public** keys can verify signatures; walking the hash-chain detects alteration. GCP holds *data*, sovereignty holds *authority*.
 

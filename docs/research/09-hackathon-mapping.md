@@ -3,7 +3,7 @@
 ## Mandatory (every project)
 | Requirement | How satisfied | Evidence for judges |
 |-------------|---------------|---------------------|
-| Gemini 3.5 Flash via Gemini API or Vertex AI | Probabilistic brain inside R/A/O (D15) | Vertex AI console in video; calls in code |
+| Gemini 3.5 Flash via Gemini API | Probabilistic brain inside R/A/O (D15) | Gemini calls in code (Vertex AI not used in current code; GCP replication opt-in, default local) |
 | ≥1 Google agent framework (ADK/GenAI/GenKit/Antigravity) | **GenAI SDK** (Gemini API called directly); Sovereign = orchestration/enforcement (D20, resolves 3.8) | GenAI SDK calls in repo |
 | ≥1 GCP service (Cloud Run/SQL/Firestore/GKE/Pub/Sub) | **Cloud Run + Firestore + Pub/Sub** (D5) | console in video |
 | Fortified Enterprise Fleet track | Thesis maps exactly; 7 components implemented | this doc + demo |
@@ -17,7 +17,7 @@
 |-----------|----------------|-----|
 | Agent Registry | Sovereign catalog (setup beat) | 03.2 #1 |
 | Agent Runtime | Sovereign runtime | 03.2 #2 |
-| Memory Bank | ChrisCrypt encrypted state + Firestore mirror | 03.2 #3 |
+| Memory Bank *(= Audit Ledger)* | encrypted + signed hash-chain ledger (GCP mirror manifest-only, opt-in) | 03.2 #3 |
 | Agent Identity | ChrisCrypt Ed25519 + root cert | 03.2 #4 |
 | Agent Gateway | Sovereign policy/control plane | 03.2 #5 |
 | Model Armor | structural/deterministic guardrails | 04.3 |
@@ -44,6 +44,6 @@
 - [ ] Repo + shares
 - [ ] README spin-up (local + deploy)
 - [ ] Architecture diagram
-- [ ] 4-min video (GCP console proof)
+- [ ] 4-min video (optional: GCP replication proof; default runtime is local-first)
 - [ ] This planning package as design doc
 - [ ] Gemma bonus wired

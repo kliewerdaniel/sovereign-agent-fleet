@@ -72,7 +72,7 @@ See `06-failure-model.md` — 13 modes → owning layer (Verification/Runtime/Pu
 See `07-adversarial-test-plan.md` — 8 runnable beats: injection blocked, capability denied, approval gated, execution signed, tamper detected, forged identity rejected, revoke→rotate→resume.
 
 ## 23. Demonstration Script
-See `08-demo-script.md` — ICP scenario R→A→O + Registry beat; ≤4-min video shot plan; GCP console proof; local Gemma4 bonus.
+See `08-demo-script.md` — ICP scenario R→A→O + Registry beat; ≤4-min video shot plan; optional GCP replication proof (default local); local Gemma bonus.
 
 ## 24. Testing Strategy
 See `14-testing-strategy.md` — every beat + failure mode provably tested (unit crypto, protocol, Model Armor, verification gate, adversarial E2E, tamper, forged/rotation, GCP verifier).

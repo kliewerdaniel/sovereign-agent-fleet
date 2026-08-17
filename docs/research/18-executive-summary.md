@@ -17,10 +17,10 @@ LOCAL (sovereign, keys never leave)          GCP (verifiable artifacts, no autho
 ChrisCrypt: root key, agent Ed25519,           Cloud Run   → runtime+gateway+approval console
   per-record XChaCha20                        Firestore   → tamper-evident ledger + manifest mirror
 Sovereign Control Plane (Identity/Policy/      Pub/Sub     → async handoffs + idempotency
-  Gateway/Runtime/Memory/Model Armor)          Vertex AI   → Gemini 3.5 Flash (demo brain)
+  Gateway/Runtime/Memory/Model Armor)          Gemini      → cloud brain, demo-time only (GCP opt-in, default local)
 Researcher→Analyst→Operator (Gemini/Gemma)         ▲ signed evidence + hash-chain replicate OUT
 ```
-Public vocabulary maps 1:1 to the hackathon's 7 Fleet components (Registry, Runtime, Memory Bank, Identity, Gateway, Model Armor, Observability).
+Public vocabulary maps 1:1 to the hackathon's 7 Fleet components (Registry, Runtime, Memory Bank, Identity, Gateway, Model Armor, Observability) — "Memory Bank" is the Audit Ledger in current code.
 
 ## Security properties (kept distinct)
 Authentication (Ed25519 + root cert) · Authorization (capability policy) · Encryption (XChaCha20 per-record) · Integrity (SHA-256 hash-chain) · Provenance (signed evidence citing capability+policy) · Non-repudiation (Ed25519 verifiable by public key) · Auditability (OTel ledger + traces). Model Armor is **structural + deterministic** — no probabilistic classifier.

@@ -24,7 +24,7 @@ Deadline Aug 31 2026 5pm PDT. Phases are sequential; testing is continuous (14).
 ## Phase 3 — GCP + Observability (days 9–11)
 - GCP already provisioned by owner (project `project-3ba93cec-8ca6-43c0-ba4`, service-account admin). Deploy conservatively (min instances 0).
 - Cloud Run: runtime + gateway + approval console (D17).
-- Firestore: ledger + Memory Bank mirror (manifest-only SKC, 11 open Q).
+- Firestore: ledger + Audit Ledger ("Memory Bank") mirror (manifest-only, opt-in).
 - Pub/Sub: async handoffs + idempotency (failure #3/#12).
 - OTel export of audit + reasoning traces (03.2 #7).
 - Tests: 14.8 (verifier against Firestore copy).
@@ -37,7 +37,7 @@ Deadline Aug 31 2026 5pm PDT. Phases are sequential; testing is continuous (14).
 
 ## Phase 5 — Adversarial + Video (days 14–16)
 - Script all 8 beats as pytest fixtures (14.5/14.6/14.7).
-- Record 4-min video per 08.2 (GCP console proof mandatory).
+- Record 4-min video per 08.2 (optional GCP replication proof; default runtime is local-first).
 - Architecture diagram render.
 
 ## Phase 6 — Submission (day 17)

@@ -1,7 +1,7 @@
 # D26 — Incident Triage → Authorized Remediation (Locked Use Case)
 
 > Living plan for the Sovereign Agent Fleet hackathon use case.
-> Status: IMPLEMENTED & TESTED — **205-test** suite (D26 adds 42: 14 SimEnv + 20 policy + 8 e2e on top of the baseline).
+> Status: IMPLEMENTED & TESTED — **205-test** suite (D26 adds 42: 14 SimEnv + 20 policy + 8 e2e on top of the baseline). *(Historical D26 baseline; full current suite = 480 — see README.)*
 > Companion to D1–D20. Does NOT replace the crypto foundation or control plane.
 
 ## 1. Thesis (the whole point)
@@ -276,5 +276,5 @@ suite.
 the trust boundary. Drives the real stack; decides nothing. UI dependency kept
 out of base + GCP audit surfaces (R3).
 
-**Suite:** 205 tests pass (param-expanded; D26 adds 42: 14 SimEnv + 20 policy + 8 e2e on top of the baseline). `incident_remediate` added to the
+**Suite:** 205 tests pass (param-expanded; D26 adds 42: 14 SimEnv + 20 policy + 8 e2e on top of the baseline). *(Historical D26 baseline; full current suite = 480 — see README.)* `incident_remediate` added to the
 operator role's granted capabilities in `fleet/layers/policy.py` (additive).
