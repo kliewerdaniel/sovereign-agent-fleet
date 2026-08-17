@@ -1,4 +1,4 @@
-"""Sovereign Agent Fleet — frontend bridge.
+"""Sovereign Agent Fleet — frontend bridge.  [LEGACY / HANDS-OFF — see web/README.md]
 
 FastAPI surface over the REAL fleet package:
 

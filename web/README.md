@@ -1,3 +1,8 @@
+> ⚠️ **LEGACY / HANDS-OFF SURFACE.** `web/` + `bridge/` is the Phases 0–6 control surface.
+> It is kept intact for historical completeness but is **not** the maintained competition UI.
+> The canonical control surface is **`fleet/api/` + `ui/`** (Next.js, port `:3002`). Do not build
+> new features here; treat it as read-only reference.
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started

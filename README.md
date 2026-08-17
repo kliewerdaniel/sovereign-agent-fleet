@@ -1,253 +1,190 @@
 # Sovereign Agent Fleet
 
-A **Fortified Enterprise Fleet** for the #AllThingsAgenticHackathon.
+> **A sovereign cognitive control plane for governing probabilistic agents and
+> consequential actions.**
+>
+> Cognition is probabilistic. Authority is deterministic.
+> The model proposes. The protocol decides. Cryptography verifies. The ledger remembers.
 
-> Thesis: *Do not trust the model. Trust the execution protocol.* Authority
-> (signing, approval, secrets, the knowledge graph) stays **local-first**; only
-> signed, cryptographically verifiable artifacts replicate to GCP for public
-> auditability.
+Sovereign Agent Fleet is **not another multi-agent framework.** Frameworks orchestrate
+agents. This governs them — and the governance is independent of *which* brain produced a
+proposal (local LLM, cloud model, or a pure deterministic strategy).
 
-The fleet demonstrates a governable 3-agent system — **Researcher → Analyst →
-Operator** — that qualifies B2B sales prospects (ICP fit) against a *simulated*
-CRM, with a hard verification gate and human-in-the-loop approval, while every
-action is recorded in a tamper-evident, signed audit ledger.
+Finance is the **flagship exemplar** of this architecture, not its reason for existing. Few
+domains expose the full arc so cleanly: probabilistic reasoning, mathematical inference, risk,
+consequential actions, deterministic authorization, and independent verification — all under
+one roof. The architecture underneath is **domain-general**.
 
-## Demo
+---
 
-- **~3.5-minute narrated demo video:** [`demo/sovereign_agent_fleet_demo.mp4`](demo/sovereign_agent_fleet_demo.mp4)
-  — the live adversarial 9-beat governability demo (8 adversarial scenarios + registry),
-  narrated with a local `brit` TTS voice, assembled entirely from real artifacts.
-- **Demo pipeline (reproducible):** `demo/scenes/` holds the artifact-capture scripts
-  (`gcp_proof.py`, `brain_proof.py`), the narration (`scripts.txt`), the frame renderer
-  (`render_frames.py`), and the assembler (`assemble.py`). Per-scene narration WAVs live in
-  `demo/audio/`, source frames in `demo/frames/`.
+## 1. The problem
 
-The demo is assembled entirely from **real artifacts**: the pytest beat output,
-a public-key verification proof (`GcpBridge` + `FirestoreVerifier`), and the
-pluggable-brain schema boundary.
+Modern agentic systems combine powerful probabilistic reasoning with increasingly
+consequential actions.
 
-> **Honesty note — GCP replication.** The fleet's *target* deployment is a live
-> GCP project (`project-3ba93cec-8ca6-43c0-ba4`, Cloud Run D17 console, Firestore
-> mirror, Pub/Sub handoff bus). The **default runtime uses `GcpBridge(mode="local")`**
-> — a local Firestore-shaped mirror — so the stack runs end-to-end with no cloud
-> credentials. The Cloud Run console never holds the root key or signs artifacts;
-> it only verifies human-signed approvals against public keys (fail-closed). Flip
-> to live GCP by constructing `GcpBridge(mode="live")` with credentials present.
+The model can reason. **But reasoning is not authority.**
 
-## What's here (Phases 0–5 + D26/D27/D28 — all complete)
+A confident model is not an authorized one. A correct model is not a permitted one. An
+identity can be compromised and still be prevented from escalating authority. Evidence can
+establish truth without granting permission.
 
-| Path | Purpose |
-|------|---------|
-| `fleet/crypto/chriscrypt/` | Vendored **ChrisCryptSN** (MIT): Argon2id, XChaCha20-Poly1305 envelopes w/ per-record HKDF, Ed25519-signed hash-chain ledger. |
-| `fleet/crypto/foundation.py` | Root-of-trust identity hierarchy, agent certs, per-record secret vault, tamper-evident `AuditTrail`. |
-| `fleet/layers/registry.py` | Agent Registry: publish / version / discover / revoke / rotate (on IdentityRoot + AuditTrail). |
-| `fleet/layers/policy.py` | Deterministic policy engine `(role, capability) → GRANT / REQUIRE_APPROVAL / DENY`. Never calls the model. |
-| `fleet/layers/gateway.py` | Capability Gateway: `request_authority`, root-signed cert auth, signed deny events, idempotency. |
-| `fleet/layers/handoff.py` | Signed cross-agent handoff envelopes; D8 separation (R→raw evidence, A→qualified intel). |
-| `fleet/layers/runtime.py` | Runtime lifecycle (03.7) + checkpointing + idempotency; `Researcher`/`Analyst`/`Operator` workers; `Approval` (D17). |
-| `fleet/layers/armor.py` | Model Armor (D12): injection strip, signed tool envelopes, PII scan/redact. |
-| `fleet/layers/verification.py` | D16 verification gate: `VERIFIED` / `ASSERTED` / `HALLUCINATION`. |
-| `fleet/layers/incident.py` | D26 incident authorization: `required_authorization` (pure policy: verification × severity × blast × asset_class → AUTO/HUMAN/BLOCKED) + `bind_artifact` (transition hash fed into D17 approval). |
-| `fleet/simenv/` | D26 SimEnv digital range: `WorkloadState`/`AssetClass`/`WORKLOADS`/`ACTIONS` + `SimEnv.apply` deterministic transition (one-directional, PROTECTED second-line defense). |
-| `fleet/layers/brain.py` | Pluggable Brain interface: `GemmaBrain` (local, D18) / `GeminiBrain` (demo-only, D18/D20) / `SchemaEnforcedBrain` (D15 boundary). |
-| `fleet/layers/approval.py` | D21 A1/A2: `verify_approval` — Ed25519-verifies + binds the human `ApprovalRecord` to exact action/capability/artifact (fail-closed). |
-| `fleet/layers/compliance.py` | D21 E1 (D22): selective-disclosure compliance attestation — Ed25519-signed proof that an action complied + was human-approved + under live epoch, without revealing CRM/source data (not a zero-knowledge proof). |
-| `fleet/layers/consensus.py` | D21 E2 (D23): multi-brain consensus gate — two distinct Brain backends must agree to VERIFY; disagreement → ASSERTED + signed event. |
-| `fleet/gcp/` | `GcpBridge` (Firestore/Pub-Sub mirror — **default `local`**, optional live on `project-3ba93cec-8ca6-43c0-ba4`), `FirestoreVerifier` (public-key), `OtelExporter`, D17 Cloud Run approval console (`deploy.py`), `cloudbuild.yaml` + `deployment/Dockerfile`. Console never holds authority; verifies human-signed approvals (fail-closed). |
-| `fleet/tests/` | **205 tests** (parametrized): Phases 0–5 + D21 hardening + Round-2 extensions (R1–R4) + D26 incident-triage use case (SimEnv/policy/e2e) + D27 financial reference workload + D28 cognitive architecture (cognition scaffolding + import-boundary enforcement). |
-| `docs/planning/` | Living design docs: D1–destructure decision ADRs, D21 security audit + hardening, D22 selective-disclosure attestation, D23 consensus gate, D25 Operator-sandbox re-eval. (D24 = real-ZK variant scoped but intentionally unimplemented — see D22.) |
+## 2. The thesis
 
-## Control surfaces (web UIs over the fleet)
+Sovereign Agent Fleet separates:
 
-Two independent Next.js control surfaces sit **outside the trust boundary** — they
-read fleet projections and call write endpoints that delegate to the real control
-plane (`fleet/layers`); they never sign, approve, or hold keys themselves.
+- **cognition** — probabilistic, may be wrong, may be compromised, proposes only;
+- **governance** — deterministic, model-agnostic, decides authorization;
+- **execution** — stateful, untrusting, validates before it acts;
+- **verification** — independent, public-key-only, proves what happened.
 
-| Surface | Backend | UI | Ports | Origin | Status |
-|---|---|---|---|---|---|
-| **`bridge/` + `web/`** | `bridge/app.py` — FastAPI REST + WebSocket (`/api/runs`, `/api/run/{domain}`, `/api/approve/{id}/sign`, WS `/ws`) | `web/` — Next.js 16 + Tailwind v4, 13 routes: pipeline view, D17 sign, Cytoscape audit explorer, domain panels, narrated demo | bridge `:8787`, web `:3001` | Phases 0–6 (`v1.0-control-surface`) | tagged, hands-off |
-| **`fleet/api/` + `ui/`** | `fleet/api/app.py` — FastAPI over the live `ControlPlane` (agents/ledger/chain/approvals/incident/beats) | `ui/` — Next.js 16 + Tailwind v4, 8 routes: overview, SSE ledger, adversarial demo, D17 console, registry, policy log, domains | api `:8788`, ui `:3002` | literal-rebuild (this session) | committed |
+> **Meta-invariant M0:** *No security invariant depends on model behavior.* The model may lie,
+> hallucinate, or deliberately propose the worst possible action — the authority boundary holds
+> regardless. This is enforced by import walls and proven by a verifier that recomputes the
+> disposition with all cognition stripped (Run A = Run B).
 
-### Run the `fleet/api` + `ui` control surface
+## 3. Architecture
 
-```bash
-# 1. API (Python 3.11+, use the deploy venv)
-python -m venv .deploy-venv && .deploy-venv/bin/pip install -r requirements.txt -r requirements-gcp.txt
-.deploy-venv/bin/python -m uvicorn fleet.api.app:app --host 127.0.0.1 --port 8788
+```text
+                 SOVEREIGN COGNITIVE CONTROL PLANE
 
-# 2. UI (Node 22+, from the ui/ dir)
-cd ui && npm install && npm run dev      # http://127.0.0.1:3002
-#    or production build + serve (recommended for e2e):
-npm run build && npm run start
-
-# 3. Frontend e2e (Playwright) — drives the real UI against the live :8788 API
-cd ui && npx playwright test             # 6 specs, all passing
+                         ┌───────────────┐
+                         │   Cognition   │  observe, reason, propose
+                         │               │  D28 personas/retrieval/reasoning
+                         │               │  exchange/quant: probability,
+                         │               │   Bayesian, Kelly, regime, edge
+                         │               │   → EVIDENCE only, never authority
+                         └───────┬───────┘
+                                 │  PROPOSAL / EVIDENCE
+                         ┌───────▼───────┐
+                         │   Governance  │  identity, policy, capability,
+                         │               │  approval, consensus — pure functions
+                         └───────┬───────┘
+                                 │  AUTHORITY (signed authorization)
+                         ┌───────▼───────┐
+                         │    Domain     │  exchange/ venue + quant pipeline,
+                         │               │  fleet/fin paper venue, incident SimEnv
+                         └───────┬───────┘
+                                 │  ACTION (state-locked execution)
+                         ┌───────▼───────┐
+                         │ Verification  │  crypto, ledger, attestation,
+                         │               │  independent recomputation
+                         └───────────────┘
 ```
 
-The `bridge/`+`web/` surface uses the same shape with ports `:8787` / `:3001`
-(see `web/AGENTS.md` and `GAP_REPORT.md`).
+**The quant layer is an evidence layer, not an authority.** Kelly sizing, Bayesian updating,
+regime detection, and edge estimation tell the system *what it believes* and *how strongly* — they
+never decide *what it is permitted to do*. Risk/authorization is a deterministic function in the
+governance layer; quant output is attached as advisory enrichment only (see
+[`docs/cognition/`](docs/cognition/) and [`docs/architecture/exchange-vs-fin.md`](docs/architecture/exchange-vs-fin.md)).
 
-## Quick start
+## 4. The demonstration
+
+The combined "aha": an agent proposes a consequential financial action → the quantitative/cognitive
+layer produces the reasoning and evidence → deterministic governance evaluates authority and risk →
+the action is **accepted or rejected** → an independent verifier proves what happened. Then the
+adversarial case: a highly capable, confident model **still cannot bypass governance**.
+
+That is the conceptual heart — `MODEL OUTPUT ≠ AUTHORITY`.
+
+Watch:
+- **Adversarial 8-beat governability demo** (core): [`demo/sovereign_agent_fleet_demo.mp4`](demo/sovereign_agent_fleet_demo.mp4) — a model proposes; governance decides; a forged identity is rejected; a HALLUCINATION is blocked; tampering is detected; revoke+rotate keeps the chain intact.
+- **Exchange quant pipeline** (flagship): [`demo/exchange_demo/exchange_demo_1080p.mp4`](demo/exchange_demo/exchange_demo_1080p.mp4) — propose → evidence → authorize → state-locked execute → verify. Live script: `python demo/quant_demo.py`.
+- **ZK attestation** (advanced): `exchange/quant/zk.py` (D24) proves a learned prior lies in a public range *without revealing it*.
+
+See [`docs/demos/`](docs/demos/) for the full matrix.
+
+## 5. Security / governance model
+
+- **Root of trust:** Argon2id-strengthened master → root Ed25519 key; every agent identity is a
+  root-signed certificate. A forged/unsigned cert is rejected.
+- **Tamper-evidence:** the audit ledger is an Ed25519-signed hash chain with a signed checkpoint;
+  any modification, reordering, or truncation is detected at verify time (fail-closed).
+- **Deterministic authority:** policy + capability + signing live in the control plane, never in the
+  model. The model proposes; the protocol decides.
+- **Human-in-the-loop (D17):** consequential actions require a human-signed `ApprovalRecord` bound
+  to the *exact* action + capability + artifact hash. Forged/rebound/reused approvals are rejected.
+- **Default-deny:** an exhaustive property test asserts every unknown `(role, capability)` pair is
+  DENIED — no silent allow.
+- **Consensus can only escalate:** two distinct brains must agree to VERIFY; disagreement cannot
+  turn a policy violation into an authorized action.
+- **Live key rotation:** an agent's key can be revoked and re-issued while the chain stays continuous.
+- **Independent verification:** a verifier reconstructs inputs and recomputes the disposition with
+  only public keys — proving what happened without holding authority.
+
+Full adversarial coverage is in [`docs/security/`](docs/security/). Every property above is a
+passing test.
+
+## 6. Repository layout
+
+| Path | Role |
+|------|------|
+| `fleet/` | **General-purpose governance substrate** — crypto, identity, policy, gateway, approval, consensus, incident, cognition, audit ledger, GCP mirror, REST+UI control plane. |
+| `exchange/` | **Flagship financial workload** — sovereign prediction-market venue (matching engine, books, settlement, feeds, routing, venues) + `quant/` quantitative cognition layer. Reuses `fleet` as a library. |
+| `fleet/fin/` | **Reference financial workload** (D27) — the earlier paper-trading exemplar that established the governed-execution pattern. Kept intentionally; see [`docs/architecture/exchange-vs-fin.md`](docs/architecture/exchange-vs-fin.md). |
+| `ui/` | **Canonical control-surface UI** (Next.js) over `fleet/api`. Always current. |
+| `web/` + `bridge/` | **Legacy / hands-off** control surface (Phases 0–6). Intact but not maintained. |
+| `demo_app.py` | Streamlit incident-triage viewer (D26 demo only). |
+| `demo/` | Assembled demo videos + capture scripts. |
+| `docs/` | Layered documentation (start at [`docs/overview/`](docs/overview/) or [`docs/README.md`](docs/README.md)). The full decision log lives in [`docs/research/`](docs/research/). |
+
+## 7. Quick start
 
 ```bash
-# 1. create an environment (Python 3.11+)
-python -m venv .venv && source .venv/bin/activate
+# 1. environment (Python 3.11+)
+python -m venv .deploy-venv && source .deploy-venv/bin/activate
 pip install -r requirements.txt
 
-# 2. run the full suite (all phases)
-python -m pytest fleet/tests -q
+# 2. full test suite — 384 passing
+python -m pytest -q
+
+# 3. canonical control surface (fleet/api + ui/)
+python -m uvicorn fleet.api.app:app --host 127.0.0.1 --port 8788
+cd ui && npm install && npm run dev      # http://127.0.0.1:3002
+
+# 4. flagship financial demo (real exchange.api, proves M0)
+python demo/quant_demo.py
 ```
 
-All **205 tests** should pass. The vendored ChrisCryptSN suite also runs green
-against this same environment.
+Live Kalshi market data / order routing is **opt-in and fail-closed** — the default runtime is
+fully simulated and runs end-to-end with no cloud credentials. GCP replication defaults to a
+local Firestore-shaped mirror; flip to live only with credentials present.
 
-## Security properties (tested across Phases 0–5)
+## 8. What's implemented (all merged, 384 tests)
 
-- **Root of trust:** an Argon2id-strengthened master derives a root Ed25519 key;
-  every agent identity is a root-signed certificate. A forged/unsigned cert is
-  rejected by the gateway (beat 7).
-- **Confidentiality:** local secrets are sealed with XChaCha20-Poly1305 under
-  per-record HKDF subkeys (key-bound, name-bound — no plaintext fallback).
-- **Tamper-evidence:** the audit ledger is an Ed25519-signed hash chain with a
-  signed checkpoint, so any modification, reordering, or truncation is detected
-  at verify time (fail-closed) — beat 6.
-- **Deterministic authority:** policy + capability + signing live in the
-  Control Plane, never in the model. The model proposes; the protocol decides.
-- **Probabilistic-content separation (D15):** brain prompts carry evidence only,
-  never policy/approval vocabulary; model output is schema-enforced at the
-  boundary before it becomes any record.
-- **Human-in-the-loop (D17):** consequential actions (`crm_write`) require a
-  human-signed `ApprovalRecord` even for verified intel — beat 3 blocks without
-  one, beat 4 grants with one.
-- **Live rotation (D14):** an agent's key can be revoked and re-issued while the
-  chain stays continuous — beat 8.
-- **Public verifiability:** GCP holds only signed, verifiable artifacts; a
-  public-key holder can verify any record without ever holding authority.
+- **Governance substrate** (`fleet/`): crypto, signed ledger, registry, policy, gateway, evidence
+  gate, D17 approval, consensus, Model Armor, incident matrix, runtime, GCP mirror.
+- **Cognition scaffolding** (D28): `fleet/cognition/` — the conceptual bridge; import-walled.
+- **Reference financial workload** (D27): `fleet/fin/` — RiskLayer, `TradeAuthorization`,
+  `ExchangeSim`, standalone `verify.py`.
+- **Flagship financial workload** (D29/D30): `exchange/` — sovereign venue + `exchange/quant/`
+  (probability, edge, Kelly, Bayesian, regime, streaming, learning loop).
+- **Real ZK attestation** (D24): `exchange/quant/zk.py` — genuine Σ-protocol range proof + Ed25519 binding.
+- **Control surfaces**: canonical `ui/` (Next.js) over `fleet/api`; legacy `web/`+`bridge/`; `demo_app.py`.
 
-### D21 security audit hardening (added after audit)
+## 9. Research / technical deep dives
 
-- **Cryptographically bound human approval (A1/A2):** `Operator.act` now
-  fails-closed — a consequential action runs only if the human `ApprovalRecord`
-  is a genuine Ed25519 signature binding to the *exact* action id +
-  capability + artifact hash. Forged, rebound, or reused approvals are rejected.
-- **Root key backup + rotation + verifier continuity (K1):** the root seed is
-  exportable only as an encrypted blob (never plaintext), restorable solely
-  with the correct KEK + master (fail-closed); rotation re-signs live certs and
-  keeps historical certs verifiable under their epoch's public key.
-- **Revoke/rotate invalidates live grants (A3):** the Gateway idempotency cache
-  re-validates cert liveness on replay and drops a grant the moment its cert is
-  revoked or the root rotates — a revoked agent cannot replay an old token.
-- **Deep Model Armor (M1/M2):** injection stripping and PII redaction recurse
-  through nested structures and run at the evidence boundary (Researcher), so
-  PII never reaches the analyst/operator/ledger.
-- **Default-deny by property (P1):** an exhaustive property test asserts every
-  unknown `(role, capability)` pair is DENIED — no silent allow.
-- **Console fails closed (G2):** the Cloud Run approval console rejects any
-  approval it cannot cryptographically verify; with no verifier wired it rejects
-  *all* approvals rather than trusting.
-- **Pinned, audited supply chain (S1):** locked dependency versions on **both**
-  dependency surfaces (base + GCP), a CycloneDX SBOM uploaded as a build
-  artifact, and a `pip-audit` CI gate (fail-closed) run as a matrix over both
-  lockfiles.
-- **Replay defense documented + tested (C3):** the signed hash-chain detects a
-  re-inserted historical entry (broken position + chain link), fail-closed.
+- [`docs/architecture/`](docs/architecture/) — the control plane, trust model, integrations.
+- [`docs/cognition/`](docs/cognition/) — D28, the bridge from governance to quantitative decision-making.
+- [`docs/governance/`](docs/governance/) — identity, policy, capability, approval, consensus.
+- [`docs/security/`](docs/security/) — adversarial plan, ZK (D24), consensus, crypto design.
+- [`docs/roadmap/`](docs/roadmap/) — implemented vs. next-stage research, and the open question set.
+- [`docs/research/`](docs/research/) — full D1–D30 decision log and original planning package.
 
-### D21 extensions (verifiable without trusting the model further)
+## 10. Roadmap & competition positioning
 
-- **Selective-disclosure compliance attestation (E1 / D22):** an Operator proves
-  "this action complied with policy X, had a valid human approval, and was rooted in
-  the live identity epoch" *without revealing the CRM/source data or the raw
-  approval signature*. The verifier checks the math, not the data; a
-  tampered/rebound/forged attestation is rejected. (Honestly named: this is a
-  signed selective-disclosure attestation, **not** a zero-knowledge proof — the
-  action's `policy_id`/`artifact_hash` are revealed by design.)
-- **Multi-brain consensus gate (E2 / D23):** a VERIFIED-tier claim requires two
-  *distinct* Brain backends to agree; disagreement downgrades to ASSERTED and
-  emits a signed `consensus.disagreement` audit event (D16 escalation). A task
-  with no verdict-field mapping emits a distinct, louder
-  `consensus.unmapped_task` event instead of silently masquerading as a
-  permanent disagreement (R2). The model stays proposal-only; the deterministic
-  gate decides.
+The trajectory **D27 → D28 → D29/D30** reads as an evolution, not a feature list:
+**governed action → governed cognition → governed quantitative decision-making.** The next major
+version asks how belief, evidence, and uncertainty should be represented so the control plane can
+govern *quantitative* proposals as rigorously as it governs *action* — while the model never
+becomes the authority. The open questions are catalogued in
+[`docs/roadmap/`](docs/roadmap/).
 
-## Incident Triage → Authorized Remediation (D26 use case)
+This project targets the **All Things Agentic Hackathon** (track: *Fortified Enterprise Fleet*;
+secondary: *Best Architectural Design*). The framing optimizes for architectural clarity and a
+judge understanding the thesis in the first few minutes. If the target changes, the presentation
+adapts to the rubric.
 
-The locked hackathon use case proves the thesis: **the model proposes; it cannot
-grant itself authority to execute.** Evidence that a workload is compromised does
-**not** authorize isolating it — evidence, capability, policy, and authority are
-four independent gates, and passing one never implies another.
+## 11. License
 
-The bounded "digital range" is a deterministic SimEnv (`fleet/simenv/`): 4 seeded
-workloads (`web-edge`/`app-db`/`revenue-svc`/`identity-svc`), 3 graded
-remediations (`block_egress`/`isolate`/`quarantine`), one-directional states.
-`identity-svc` is **PROTECTED**: evidence can VERIFY that it is compromised, yet
-policy still BLOCKS containment (no self-inflicted auth DoS).
-
-Pipeline (each gate is enforced by real fleet code, every step is a passing test):
-
-```
-Evidence (D16) → Capability (Gateway) → Policy (incident) → Approval (D17)
-               → SimEnv transition (inside idempotent _commit) → signed audit
-```
-
-- **Path A (LOW+VERIFIED+low-blast):** `web-edge → block_egress` → **AUTO**, no
-  human. (autonomy is safe where it can be)
-- **Path B (HIGH+VERIFIED or revenue-svc):** `revenue-svc → isolate` → **HUMAN**;
-  a cryptographically-bound `ApprovalRecord` (sha256 of the exact
-  workload+action+target_state) is required and verified fail-closed.
-- **Act 3 (evidence ≠ authority):** `identity-svc` VERIFIED-compromised →
-  `isolate` → evidence pass → capability pass → **policy BLOCKS**.
-- **Attacks (all blocked):** mis-bound human approval rejected (D17); capability
-  absence → Gateway DENY; HALLUCINATION intel blocked at the evidence gate;
-  direct SimEnv containment on PROTECTED refused by the second-line defense.
-
-Drive the real protocol through the 8-panel viewer (outside the trust boundary):
-
-```bash
-pip install -r requirements-ui.txt
-streamlit run demo_app.py
-```
-
-### Tests
-
-- `fleet/tests/test_simenv.py` (14) — pure transitions, idempotency,
-  identity-svc prohibition, blast-radius metadata.
-- `fleet/tests/test_incident_policy.py` (20) — full D26 policy matrix +
-  property checks (hallucination-always-blocked, evidence≠authority,
-  severity/confidence are separate axes).
-- `fleet/tests/test_incident_e2e.py` (8) — Path A, Path B, Act 3, Attacks 1–4,
-  idempotent replay, all against the live ControlPlane/Runtime/SimEnv.
-
-## Adversarial 8-beat governability demo (Phase 5)
-
-Each beat is a passing automated test (`fleet/tests/test_adversarial_beats_phase5.py`):
-
-1. Prompt injection stripped at the structured boundary (Model Armor)
-2. Capability denial → Gateway DENY + signed deny event
-3. Consequential action without approval blocked pre-FINAL
-4. Human-signed `ApprovalRecord` grants authority
-5. Execution succeeds; artifact signed, chained, replicated
-6. Post-hoc audit edit detected by the hash-chain verifier
-7. Forged identity (not signed by root) rejected
-8. Revoke + rotate: fresh key, chain intact
-
-## Mandatory hackathon constraints (original submission targets)
-
-These were the hackathon track's hard requirements; they describe the **target**
-deployment shape. The repo's default runtime uses `GcpBridge(mode="local")`
-(local mirror, no cloud credentials) so the stack runs end-to-end locally — see the
-GCP honesty note above.
-
-- **Model:** Gemini 3.5 Flash (used only at the submission demo; dev/test run on
-  a local Gemma4 brain behind a pluggable model interface).
-- **Framework:** Google GenAI SDK (Gemini API called directly).
-- **Cloud (target):** LIVE GCP deployment — Cloud Run (D17 approval console,
-  `fleet-approval-console-85569899488.us-central1.run.app`, `min-instances=0`),
-  Firestore (ledger mirror + Memory Bank, `project-3ba93cec-8ca6-43c0-ba4`),
-  Pub/Sub (async handoff bus). The Cloud Run instance never holds authority; it
-  only verifies human-signed approvals (fail-closed).
-- **Track:** Fortified Enterprise Fleet.
-
-## License
-
-MIT — Copyright (c) 2026 Daniel Kliewer. `fleet/crypto/chriscrypt/` is vendored
-from ChrisCryptSN (MIT); its original LICENSE is preserved in that directory.
+MIT — Copyright (c) 2026 Daniel Kliewer. `fleet/crypto/chriscrypt/` is vendored from
+ChrisCryptSN (MIT); its original LICENSE is preserved in that directory.
