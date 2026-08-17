@@ -6,7 +6,7 @@
 > product. The epistemic substrate must remain domain-independent.
 >
 > Method: **PROMOTE → GENERALIZE → CONNECT** (not REPLACE → DUPLICATE → REWRITE). Every claim below
-> is grounded in a repository inspection (paths cited). Existing 384-test baseline must stay green.
+> is grounded in a repository inspection (paths cited). Existing 480-test baseline must stay green.
 
 ---
 
@@ -222,7 +222,7 @@ quant math moves into `fleet/epistemic/`. The substrate defines *shapes*; `excha
 - New: `fleet/epistemic/tests/test_boundary_epistemic.py` (import wall), `test_artifact_ladder.py`
   (Belief≠Assessment≠Recommendation≠Proposal; cast-guard), `test_contract_r1.py` (capability≠
   authorization), `test_lineage_r4.py`, `test_epoch_r3.py`, `test_determinism.py`.
-- Regression: full suite must stay **384→ green** (pre-D31 baseline). Run with the isolated
+- Regression: full suite must stay **480→ green** (pre-D31 baseline). Run with the isolated
   `.deploy-venv` (no PYTHONPATH leak): `env -i PATH="$PWD/.deploy-venv/bin:/usr/bin:/bin" HOME="$HOME"
   "$PWD/.deploy-venv/bin/python" -m pytest -q`.
 - Locked-layer gate: `git status --porcelain | grep -E "fleet/fin/|exchange/governance.py"` → empty.
@@ -277,7 +277,7 @@ All additive, none change the authority boundary.
 
 ## 12. Acceptance criteria
 1. `fleet/epistemic/` imports **only** `fleet.crypto.foundation` (+ stdlib). AST test green.
-2. Full repo suite green (no regression from 384 baseline); locked layers byte-untouched.
+2. Full repo suite green (no regression from 480 baseline); locked layers byte-untouched.
 3. L0 ladder types exist; `Recommendation` cannot become `Proposal` without explicit `proposal_scope`.
 4. R1–R7 each have ≥1 failing-if-violated test.
 5. Vertical slice executes end-to-end reusing existing governance/execution; probabilistic output
@@ -342,13 +342,13 @@ None at L0/L1/L2 core. Adapters in Phase 4 are *additive* (new adapter modules o
 9. **Can it later support incident/security/research without redesign?** YES — `Authorization` enum,
    `Proposition.domain`, and the ladder are already domain-generic.
 10. **Can all this be introduced without breaking current governance?** YES — additive L0/L1/L2,
-    locked layers untouched, 384 baseline preserved.
+    locked layers untouched, 480 baseline preserved.
 
 **All YES → IMPLEMENTATION READY.**
 
 **Smallest first implementation increment:** Phase 0 + Phase 1 (neutral `fleet/epistemic/` primitives
 reusing `fleet.crypto.foundation`), then Phase 2 contract, then Phase 3 boundary tests gating on the
-full 384-test regression + locked-layer check. No domain objects moved; no governance signature
+full 480-test regression + locked-layer check. No domain objects moved; no governance signature
 changed.
 
 *No code written. Not committed. Not pushed. This is the implementation plan immediately preceding

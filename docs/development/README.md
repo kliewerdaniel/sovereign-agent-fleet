@@ -10,7 +10,7 @@ pip install -r requirements-gcp.txt       # only if exercising the GCP mirror
 
 # 2. run the full suite
 python -m pytest -q
-# → 384 passed (fleet + exchange)
+# → 480 passed (fleet + exchange)
 
 # 3. run a focused area
 python -m pytest fleet/tests/test_adversarial_beats_phase5.py -q   # core aha

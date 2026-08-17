@@ -1,6 +1,6 @@
 # Roadmap — implemented vs. next-stage research
 
-## Implemented (all merged to `main`, 384 tests)
+## Implemented (all merged to `main`, 480 tests)
 
 - **Governance substrate** (`fleet/`): crypto root-of-trust, signed hash-chain ledger, registry,
   policy engine, capability gateway, evidence gate, D17 human approval, consensus, Model Armor,

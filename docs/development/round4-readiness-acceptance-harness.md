@@ -380,7 +380,7 @@ Revised order (each phase leaves the repo green):
 | **0 — package + wall** | `fleet/epistemic/__init__.py`, `hashing.py` | `exchange/tests/test_boundary_quant.py`, `fleet/tests/test_boundary.py` (add `→ fleet.epistemic` allow) | all locked layers | none | `test_boundary_epistemic.py` (import wall: only `fleet.crypto`+stdlib) | F2 import wall | empty pkg imports cleanly; full suite green | revert allowlist edit |
 | **1 — L0 primitives** | `artifact,proposition,uncertainty,evidence,belief,assessment,recommendation,proposal,authorization(Verdict+Decision),lineage` | none | locked | Phase 0 | unit tests per type (hash stable, no prob fields on AuthRequest) | R2 (cast guard), R5 (schema excludes prob) | full suite green | none (additive) |
 | **2 — L1 contract** | `scopes.py`, `agent_contract.py`, `authorization.py`(AuthorityGrant) | none | locked | Phase 1 | scope-orthogonality test, grant-sign/verify, epoch test | R1, R3, R7 | full suite green | additive |
-| **3 — boundary tests** | `tests/test_artifact_ladder.py`, `test_contract_r1.py`, `test_lineage_r4.py`, `test_epoch_r3.py`, `test_determinism.py` | none | locked | Phase 2 | the §6 ten-case suite as executable tests | I1–I17 | **full 384→ regression green + locked-layer grep empty** | additive |
+| **3 — boundary tests** | `tests/test_artifact_ladder.py`, `test_contract_r1.py`, `test_lineage_r4.py`, `test_epoch_r3.py`, `test_determinism.py` | none | locked | Phase 2 | the §6 ten-case suite as executable tests | I1–I17 | **full 480→ regression green + locked-layer grep empty** | additive |
 | **4 — financial adapters** | `exchange/quant` + `exchange/api` adapter modules (`as_epistemic_*`, verdict adapter) | **additive only** (new methods/adapter modules) | `decide_trade`, `Mandate`, `RiskLayer`, `ExecutionReceipt` bodies | Phase 3 | adapter round-trip tests (ProbabilityEstimate↔Belief, TradeProposal↔Proposal, verdict map) | I11 (no leak into substrate) | full suite green | remove adapter modules |
 | **5 — firm acceptance** | `tests/test_firm_acceptance.py` | none | locked | Phase 4 | Workflows A–E + §6 ten adversarial cases as conceptual harness tests | I13/I14/I16/I19 | all firm paths representable; zero role-specific primitive | additive |
 | **6 — integration verify** | none | none | locked | Phase 5 | full suite + locked-layer gate + import-wall + determinism | all I1–I20 | **IMPLEMENTATION READY gate** | — |
@@ -459,7 +459,7 @@ grep -E "fleet/fin/|exchange/governance.py"`.
 `test_boundary_epistemic.py` (import wall), `test_artifact_ladder.py` (Belief≠Assessment≠Recommendation≠
 Proposal; cast guard), `test_contract_r1.py` (capability≠authorization), `test_lineage_r4.py`
 (tampered hash fails), `test_epoch_r3.py` (stale epoch BLOCKED), `test_determinism.py` (same inputs →
-same decision) — **gating on the full 384-test regression remaining green and the locked-layer grep
+same decision) — **gating on the full 480-test regression remaining green and the locked-layer grep
 being empty**. The §6 ten adversarial cases are encoded as executable tests in that suite.
 
 *No code written. Not committed. Not pushed. This document is the implementation-ready construction

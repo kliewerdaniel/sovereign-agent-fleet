@@ -62,7 +62,7 @@ Audit/verification`.
 See [`architecture/`](../architecture/) and [`demos/`](../demos/). In brief: a complete
 governance substrate (`fleet/`, ~225 tests), two financial reference workloads
 (`exchange/` venue+quant and `fleet/fin/` paper-trading), the D28 cognitive-architecture
-scaffolding, adversarial demos, and a canonical Next.js control surface (`ui/`). **384
+scaffolding, adversarial demos, and a canonical Next.js control surface (`ui/`). **480
 tests pass.**
 
 ## How is it secured?

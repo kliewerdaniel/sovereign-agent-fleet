@@ -9,3 +9,12 @@ argon2-cffi>=23.1
 
 # testing
 pytest>=8.0
+
+# API control surface (fleet/api + exchange/api — canonical control planes tested
+# by fleet/tests/test_fleet_api.py, exchange/tests/test_api.py,
+# exchange/tests/test_quant_api.py). `websockets` is also the live Kalshi WSS
+# client (exchange/ticker_stream.py). httpx backs Starlette's TestClient used by
+# those test modules.
+fastapi>=0.115.0
+websockets>=14.0
+httpx>=0.27.0

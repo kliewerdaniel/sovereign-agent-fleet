@@ -134,7 +134,7 @@ passing test.
 python -m venv .deploy-venv && source .deploy-venv/bin/activate
 pip install -r requirements.txt
 
-# 2. full test suite — 384 passing
+# 2. full test suite — 480 passing
 python -m pytest -q
 
 # 3. canonical control surface (fleet/api + ui/)
@@ -149,7 +149,7 @@ Live Kalshi market data / order routing is **opt-in and fail-closed** — the de
 fully simulated and runs end-to-end with no cloud credentials. GCP replication defaults to a
 local Firestore-shaped mirror; flip to live only with credentials present.
 
-## 8. What's implemented (all merged, 384 tests)
+## 8. What's implemented (all merged, 480 tests)
 
 - **Governance substrate** (`fleet/`): crypto, signed ledger, registry, policy, gateway, evidence
   gate, D17 approval, consensus, Model Armor, incident matrix, runtime, GCP mirror.
