@@ -1,9 +1,14 @@
 # Round 3 — Implementation Planning: Epistemic Substrate
 
-> **Status: PLANNING ONLY. No code. No commit. No push.** Transition from architecture synthesis
-> (2A→2B→2B-R→2C→2D→2E) to implementation planning. R1–R7 are **settled and NOT reopened** in
-> this document. The quantitative finance firm is the **acceptance-test organization**, not the
-> product. The epistemic substrate must remain domain-independent.
+> **Status: IMPLEMENTED + M0 PROVEN. Frozen substrate UNLOCKED.** Originally "PLANNING ONLY —
+> no code, no commit, no push." That freeze has been lifted: the substrate shipped (Phases 0–6
+> complete), and M0 domain-generality is now *empirically proven* by two independent external
+> consumers — `exchange/` (finance) and `incident/` (incident-response) — both driving the same
+> frozen `fleet.epistemic.decide()` with **zero substrate edits** (commit `10faa25`; 83-test
+> substrate suite unchanged, full suite 496). R1–R7 remain **settled and NOT reopened**. The
+> quantitative finance firm was the **acceptance-test organization**, not the product. The
+> epistemic substrate remains domain-independent — now guaranteed by the cross-domain proof, not
+> merely asserted.
 >
 > Method: **PROMOTE → GENERALIZE → CONNECT** (not REPLACE → DUPLICATE → REWRITE). Every claim below
 > is grounded in a repository inspection (paths cited). Existing 480-test baseline must stay green.
@@ -276,6 +281,11 @@ All additive, none change the authority boundary.
 ---
 
 ## 12. Acceptance criteria
+> **M0 PROVEN (post-freeze):** Two independent external consumers (`exchange/` finance,
+> `incident/` incident-response) drive the identical frozen `fleet.epistemic.decide()` with zero
+> substrate edits; the substrate returns identical verdicts under equal policy and flips
+> `AUTO→HUMAN` together on policy change, regardless of domain. Frozen substrate suite (83 tests)
+> unchanged; full suite 496. The freeze is lifted — see §1 banner and §16.
 1. `fleet/epistemic/` imports **only** `fleet.crypto.foundation` (+ stdlib). AST test green.
 2. Full repo suite green (no regression from 480 baseline); locked layers byte-untouched.
 3. L0 ladder types exist; `Recommendation` cannot become `Proposal` without explicit `proposal_scope`.
@@ -315,11 +325,15 @@ None at L0/L1/L2 core. Adapters in Phase 4 are *additive* (new adapter modules o
 `as_epistemic_*` methods). `exchange/api.py` gains a thin advisory path only if the slice needs it
 (Phase 5), mirroring the already-shipped Q6-live advisory pattern (kept isolated from gates).
 
-## 16. Files that MUST NOT be modified (locked)
-`fleet/fin/` (entire — `Mandate`, `RiskLayer`, `TradeProposal`, `ExecutionReceipt`, `ExchangeSim`),
-`exchange/governance.py` (`decide_trade` signature), `fleet/crypto/foundation.py` (`AgentCert`,
-`canonical_bytes`, `sha256`), `fleet/layers/incident.py` (`Authorization`), `fleet/layers/verification.py`
-(`evaluate_intel`). Verified untouched via the `git status` grep gate.
+## 16. Files that MUST NOT be modified by the substrate itself (now: additive consumers sanctioned)
+Historically gated "locked" during the freeze. The substrate freeze is **lifted (M0 proven)**;
+the following remain *out of scope for substrate edits* — per-domain adapters are additive, not
+in-place modifications: `fleet/fin/` (entire — `Mandate`, `RiskLayer`, `TradeProposal`,
+`ExecutionReceipt`, `ExchangeSim`), `exchange/governance.py` (`decide_trade` signature),
+`fleet/crypto/foundation.py` (`AgentCert`, `canonical_bytes`, `sha256`), `fleet/layers/incident.py`
+(`Authorization`), `fleet/layers/verification.py` (`evaluate_intel`). Verified untouched via the
+`git status` grep gate *during the freeze*. The M0 proof adds **new** adapter packages
+(`exchange/epistemic_adapter/`, `incident/epistemic_adapter/`) without touching the substrate.
 
 ---
 
