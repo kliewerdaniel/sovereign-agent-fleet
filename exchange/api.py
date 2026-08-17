@@ -43,6 +43,11 @@ from exchange.governance import (
 )
 from exchange.routing import Router
 from exchange.venues import KalshiStub
+from exchange.quant.orchestrator import evaluate_quant
+from exchange.quant.evidence import verify_quant_evidence
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from fleet.crypto.foundation import AgentCert  # type: ignore
 
 app = FastAPI(title="Sovereign Exchange API", version="0.1.0")
 app.add_middleware(
@@ -90,6 +95,12 @@ class Exchange:
         )
         self.pending: Dict[str, dict] = {}  # approval_token -> decision
         self.live_venues = live_venues
+
+        # Advisory quant producer identity (Ed25519). Used ONLY to sign the
+        # QuantEvidence enrichment envelope — never for authorization. Lazily
+        # minted once per Exchange instance and cached.
+        self._quant_cert: Optional[AgentCert] = None
+        self._quant_key = None  # type: ignore[assignment]
 
         # Live streaming ticker (v2 WS). Only constructed/started when the live
         # feed is opted in AND creds are present. Otherwise it stays None and the
@@ -162,6 +173,15 @@ class OrderRequest(BaseModel):
     subaccount_id: str
     venue_hint: Optional[str] = None
     intel: str = "VERIFIED"  # HALLUCINATION -> blocked by policy
+    model_p_yes: Optional[float] = Field(
+        None, gt=0.0, lt=1.0,
+        description="Advisory quant input (the Brain's P_model). Advisory ONLY — "
+                    "never an input to the authorization gate.",
+    )
+    available_usd: float = Field(
+        1000.0, gt=0.0,
+        description="Advisory capital for the Kelly sizing proposal. Advisory ONLY.",
+    )
 
 
 class OrderResponse(BaseModel):
@@ -173,6 +193,7 @@ class OrderResponse(BaseModel):
     route: Optional[dict] = None
     approval_token: Optional[str] = None
     reason: str = ""
+    quant: Optional[dict] = None  # advisory-only quant enrichment (never affects the verdict)
 
 
 class ApprovalRequest(BaseModel):
@@ -300,6 +321,7 @@ def place_order(req: OrderRequest):
     ex = get_exchange()
     venue_live = ex.live_venues
     client_order_id = f"o_{uuid.uuid4().hex[:12]}"
+    # --- AUTHORITY (verdict) — pure risk math, never sees quant output ----------
     decision = decide_trade(
         client_order_id=client_order_id,
         exchange_id=ex.exchange_id,
@@ -310,6 +332,18 @@ def place_order(req: OrderRequest):
         venue_live=venue_live,
         intel=req.intel,
     )
+
+    # --- ADVISORY QUANT ENRICHMENT (evidence, NOT authority) ------------------
+    # Runs AFTER the verdict has been made. The signed QuantEvidence envelope is
+    # advisory only: it is recorded on the response so a human/auditor can see
+    # the math, but it cannot change authorization, qty, or risk. M0 preserved:
+    # decide_trade already returned its result above, independent of this block.
+    quant_blob: Optional[dict] = None
+    if req.model_p_yes is not None:
+        try:
+            quant_blob = _advisory_quant(ex, req, client_order_id)
+        except Exception:  # noqa: BLE001 — enrichment must never break the order path
+            quant_blob = None
 
     if decision.authorization == Authorization.BLOCKED:
         raise HTTPException(status_code=403, detail=decision.reason)
@@ -336,6 +370,7 @@ def place_order(req: OrderRequest):
             risk=decision.risk.value,
             approval_token=token,
             reason=decision.reason,
+            quant=quant_blob,
         )
 
     # AUTO: execute internally + route to venue
@@ -373,6 +408,7 @@ def place_order(req: OrderRequest):
         fills=[_fill_to_dict(f) for f in res.fills],
         route=route,
         reason=decision.reason,
+        quant=quant_blob,
     )
 
 
@@ -480,6 +516,104 @@ def _verify_bound(ex, meta, body, cert) -> bool:
         limit_cents=meta["limit_cents"],
         venue=list(ex.router.adapters)[0],
     )
+
+
+def _quant_producer(ex: "Exchange"):
+    """Lazily mint (and cache) the advisory quant producer identity for ex.
+
+    The key signs ONLY the QuantEvidence enrichment envelope. It is never used
+    for authorization, approval, or any trust-boundary operation.
+    """
+    if ex._quant_cert is None:
+        key = Ed25519PrivateKey.generate()
+        pub_pem = key.public_key().public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        ).decode()
+        cert = AgentCert(
+            agent_id=f"quant-advisor-{ex.exchange_id}",
+            pubkey_pem=pub_pem,
+            role="tool",
+            capabilities=["quant_compute"],
+            issued_at=0,
+            expires_at=2_000_000_000,
+            cert_seq=1,
+            root_sig="self",
+        )
+        ex._quant_cert, ex._quant_key = cert, key
+    return ex._quant_cert, ex._quant_key
+
+
+def _advisory_top_event(graph) -> Optional[str]:
+    """None-safe id of the event that removed the most uncertainty (Q4)."""
+    if graph is None:
+        return None
+    top = graph.most_informative_event()
+    return top.event_id if top is not None else None
+
+
+def _advisory_quant(ex: "Exchange", req: "OrderRequest", client_order_id: str) -> dict:
+    """Run the quant pipeline as PURE advisory enrichment for one order.
+
+    Builds a deterministic QuantContext from the current market quote + the
+    request's advisory inputs, runs evaluate_quant, and returns a serialisable
+    dict of the signed evidence. Raises on any failure — the caller swallows it
+    so the order path is never blocked by quant. M0: this is evidence attached
+    AFTER the authorization verdict; it cannot change that verdict.
+    """
+    from exchange.quant.orchestrator import QuantContext
+
+    # Honesty: prefer a cached LIVE quote; otherwise the active (sim) feed.
+    ticker = None
+    for inst in ex.registry:
+        if inst.venue == "kalshi":
+            ticker = inst.venue_ticker
+            break
+    live = ex._live_cache.get(ticker) if ticker else None
+    q: Quote = live if live is not None else ex.feed.quote(ex.exchange_id, ticker=ticker)
+
+    ctx = QuantContext(
+        exchange_id=ex.exchange_id,
+        model_p_yes=req.model_p_yes,  # type: ignore[arg-type]
+        bid_cents=q.bid_cents,
+        ask_cents=q.ask_cents,
+        side="BUY_YES" if req.side == "BUY" else "SELL_YES",
+        available_usd=req.available_usd,
+        market_live=q.live,
+        ticker=ticker,
+        model_id="research-fleet",
+        method="quant-orchestrator",
+    )
+    cert, key = _quant_producer(ex)
+    d = evaluate_quant(ctx, cert, key, proposal_hash=client_order_id)
+    ok = verify_quant_evidence(d.evidence, cert)
+    return {
+        "advisory": True,
+        "model_p_yes": d.probability.p_yes,
+        "market_mid": d.market.mid_prob,
+        "edge": d.edge.edge,
+        "ev_cents": d.ev.ev_cents,
+        "net_ev_cents": d.ev.net_ev_cents,
+        "kelly_recommendation": d.kelly.recommendation,
+        "suggested_qty": d.suggested_qty,  # advisory only; execution uses req.qty
+        # Q3 advisory evidence
+        "bayesian_posterior": d.belief.posterior_p_yes,
+        "bayesian_ci": list(d.belief.credible_interval()),
+        "bayesian_evidence_strength": d.belief.evidence_strength,
+        "regime": d.regime.regime,
+        "regime_confidence": d.regime.confidence,
+        "regime_drift": d.regime.drift,
+        # Q4 advisory evidence: temporal event graph + information gain
+        "event_graph_total_ig_bits": d.graph.total_information_gain(),
+        "event_graph_final_entropy_bits": d.graph.cumulative_entropy(),
+        "event_graph_top_event": _advisory_top_event(d.graph),
+        "envelope": {
+            "producer": d.evidence.producer_cert_id,
+            "proposal_hash": d.evidence.proposal_hash,
+            "signature": d.evidence.signature,
+            "verified": ok,
+        },
+    }
 
 
 def create_app() -> FastAPI:
