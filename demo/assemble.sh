@@ -3,7 +3,7 @@
 # Screenshots live in ../web/shots; callouts/vo in this dir.
 set -uo pipefail
 cd "$(dirname "$0")"
-SHOTS=../web/shots; CALL=callouts; VO=vo; SEG=segs; FPS=30
+SHOTS=./shots; CALL=callouts; VO=vo; SEG=segs; FPS=30
 rm -rf "$SEG"; mkdir -p "$SEG"
 dur () { PYTHONPATH= /usr/bin/python3 -c "import json;print(json.load(open('$VO/durations.json'))['$1'])"; }
 

@@ -51,9 +51,9 @@ substrate, a different domain. Run: `pip install -r requirements-ui.txt && strea
 | Demo | What it proves | Implementation | Tests | UI | Judge value |
 |------|---------------|----------------|-------|----|-------------|
 | Adversarial 8-beat | model ≠ authority; denial is enforced | `fleet/tests/test_adversarial_beats_phase5.py` | 9 passing | `ui/` + video | **core** |
-| Exchange quant pipeline | propose→evidence→authorize→state-locked execute→verify | `exchange/api.py` + `exchange/quant` | 59 exchange tests (incl. 10 D24) | REST+SSE (no UI) + `quant_demo.py` + video | **flagship** |
+| Exchange quant pipeline | propose→evidence→authorize→state-locked execute→verify | `exchange/api.py` + `exchange/quant` | 170 exchange tests (incl. 10 D24 ZK) | REST+SSE (no UI) + `quant_demo.py` + video | **flagship** |
 | ZK attestation | prove prior ∈ range without revealing it | `exchange/quant/zk.py` | 10 passing | n/a (unit) | advanced |
-| Incident triage | evidence ≠ authority (cross-domain) | `fleet/tests/test_incident_*.py` | 42 passing | `demo_app.py` | reference |
+| Incident triage | evidence ≠ authority (cross-domain) | `fleet/tests/test_incident_*.py` | 14 passing (8 e2e + 6 policy) | `demo_app.py` | reference |
 | Financial e2e (paper) | governed-execution pattern, minimal noise | `fleet/tests/test_financial_e2e.py` | 17 + 14 adversarial | n/a | reference |
 
 ## Where to go next

@@ -14,7 +14,7 @@ SCENES = {
     "s4": "Here are the pipeline runs. Each one is a real researcher-to-analyst-to-operator flow. There are exactly three governance outcomes: a verified claim runs autonomously, an asserted claim escalates to a human, and a hallucinated claim is blocked at the boundary. The model is never the authority.",
     "s5": "This run was asserted evidence, so it escalated to a human. The policy engine granted a capability, but execution waits for a real signature. That signature is a genuine Ed25519 approval from a human certificate, bound to this specific action. Authority is delegated by a person, and it is verifiable.",
     "s6": "The incident domain is the only one fully wired, against a real digital range: web-edge, app-db, revenue-svc, and identity-svc. Note the honest edge: identity-svc refuses containment entirely, because isolating your own identity provider is a self-inflicted denial of service. Sales and financial exist in the schema but are not yet wired, and the surface says so plainly rather than inventing data.",
-    "s7": "And this is the fleet talking, live. The console subscribes to the bridge over a WebSocket and shows real audit entries and approval events the moment the fleet produces them. No polling, no replay. You are watching the signed, hash-chained protocol execute in real time.",
+    "s7": "And this is the fleet talking, live — in this local run. The console subscribes to the bridge over a WebSocket and shows the signed audit entries and approval events the moment the fleet produces them. No polling, no replay. You are watching the signed, hash-chained protocol execute in real time, on your own machine, with no cloud dependency.",
 }
 
 for sid, text in SCENES.items():
