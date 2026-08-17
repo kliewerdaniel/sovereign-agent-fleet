@@ -184,6 +184,16 @@ class QuantLearner:
     def compute_hash(self) -> str:
         return sha256(canonical_bytes(self.state()))
 
+    def zk_attest(self, quant_key, quant_cert_pubkey_pem: str):
+        """Build a real ZK attestation (D24) committing to the *current* posterior without
+        disclosing it. The learner state hash binds the commitment to this exact belief via
+        the canonical quant-advisor Ed25519 key (advisory only; M0 preserved)."""
+        from exchange.quant.zk import build_zk_attestation  # local import: keep wall tidy
+
+        return build_zk_attestation(
+            self.posterior_p_yes, self.compute_hash(), quant_key, quant_cert_pubkey_pem
+        )
+
 
 def new_learner(
     exchange_id: int,
