@@ -174,6 +174,21 @@ def main() -> int:
     assert g.total_information_gain() > 0.0
     assert g.most_informative_event().event_id == "KX-2"  # 0.55 -> 0.72 is the big move  # type: ignore[union-attr]
 
+    # 9) D30: learning loop — fold realized settlements into a running learned prior.
+    _banner("9. D30 — quant learning loop (evidence -> belief)")
+    from exchange.quant.learning import new_learner
+    lr = new_learner(101)
+    print(f"   prior before any settlement = {lr.posterior_p_yes:.3f} (uniform Beta(1,1))")
+    # Feed 5 realized YES settlements the model called at 0.70.
+    for i in range(5):
+        lr = lr.observe_settlement("KX", 0.70, 1, ts=i)
+    rep = lr.calibration_report()
+    print(f"   after 5x (p=0.70 -> YES): learned base rate = {rep['learned_p_yes']:.3f}")
+    print(f"   n_settlements={rep['n_settlements']}  brier={rep['brier_score']:.3f}  strength={rep['evidence_strength']:.1f}")
+    print(f"   learner_hash(replayable) = {lr.learner_hash[:16]}...")
+    assert lr.posterior_p_yes > 0.5  # moved toward the realized YES outcomes
+    assert rep["n_settlements"] == 5
+
     _banner("RESULT")
     print("   Model PROPOSED | math ESTIMATED | protocol AUTHORIZED | ledger PROVES.")
     print("   Quant layer = auditable evidence, NOT authority. D27/D28 lock honored.")

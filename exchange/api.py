@@ -45,6 +45,7 @@ from exchange.routing import Router
 from exchange.venues import KalshiStub
 from exchange.quant.orchestrator import evaluate_quant
 from exchange.quant.evidence import verify_quant_evidence
+from exchange.quant.learning import new_learner, QuantLearner  # D30 learning loop
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fleet.crypto.foundation import AgentCert  # type: ignore
@@ -101,6 +102,8 @@ class Exchange:
         # minted once per Exchange instance and cached.
         self._quant_cert: Optional[AgentCert] = None
         self._quant_key = None  # type: ignore[assignment]
+        # D30: opt-in learning loop. Lazily created on first /quant/observe.
+        self._quant_learner: Optional["QuantLearner"] = None
 
         # Live streaming ticker (v2 WS). Only constructed/started when the live
         # feed is opted in AND creds are present. Otherwise it stays None and the
@@ -182,6 +185,32 @@ class OrderRequest(BaseModel):
         1000.0, gt=0.0,
         description="Advisory capital for the Kelly sizing proposal. Advisory ONLY.",
     )
+
+
+class SettlementRequest(BaseModel):
+    """D30: one realized Kalshi settlement to fold into the quant learning loop.
+
+    ``model_p_yes`` is the Brain's forecast at forecast time (so calibration can
+    measure how far it was from the realized outcome). ``outcome`` is the realized
+    YES resolution (1) or NO (0). Advisory — never changes any verdict.
+    """
+
+    ticker: str
+    model_p_yes: float = Field(gt=0.0, lt=1.0)
+    outcome: int = Field(ge=0, le=1)
+    ts: int = 0
+
+
+class CalibrationResponse(BaseModel):
+    exchange_id: int
+    n_settlements: int
+    brier_score: float
+    calibration_error: float
+    last_rolling_brier: float
+    reliability_bins: list
+    learned_p_yes: float
+    evidence_strength: float
+    learner_hash: str = ""
 
 
 class OrderResponse(BaseModel):
@@ -585,7 +614,8 @@ def _advisory_quant(ex: "Exchange", req: "OrderRequest", client_order_id: str) -
         method="quant-orchestrator",
     )
     cert, key = _quant_producer(ex)
-    d = evaluate_quant(ctx, cert, key, proposal_hash=client_order_id)
+    learned = ex._quant_learner.prior() if ex._quant_learner is not None else None
+    d = evaluate_quant(ctx, cert, key, proposal_hash=client_order_id, prior_belief=learned)
     ok = verify_quant_evidence(d.evidence, cert)
     return {
         "advisory": True,
@@ -613,7 +643,40 @@ def _advisory_quant(ex: "Exchange", req: "OrderRequest", client_order_id: str) -
             "signature": d.evidence.signature,
             "verified": ok,
         },
+        # D30: surface the learned prior actually used (advisory)
+        "learned_prior_p_yes": (learned.posterior_p_yes if learned is not None else None),
     }
+
+
+@app.post("/quant/observe", response_model=CalibrationResponse)
+def quant_observe(req: SettlementRequest):
+    """D30: feed one realized Kalshi settlement into the learning loop.
+
+    Builds/updates the per-exchange ``QuantLearner`` (opt-in; lazy). Folds the
+    outcome as a hard Bernoulli draw into the running conjugate prior and appends a
+    ``CalibrationRecord``. ADVISORY ONLY — this route is isolated from ``/order``
+    and can never affect a verdict or executed qty.
+    """
+    ex = get_exchange()
+    if ex._quant_learner is None:
+        ex._quant_learner = new_learner(ex.exchange_id)
+    ex._quant_learner = ex._quant_learner.observe_settlement(
+        req.ticker, req.model_p_yes, req.outcome, ts=req.ts,
+    )
+    report = ex._quant_learner.calibration_report()
+    report["learner_hash"] = ex._quant_learner.learner_hash
+    return CalibrationResponse(**report)
+
+
+@app.get("/quant/calibration", response_model=CalibrationResponse)
+def quant_calibration(exchange_id: int = 1):
+    """D30: read the current calibration report for the learning loop."""
+    ex = get_exchange(exchange_id)
+    if ex._quant_learner is None:
+        ex._quant_learner = new_learner(exchange_id)
+    report = ex._quant_learner.calibration_report()
+    report["learner_hash"] = ex._quant_learner.learner_hash
+    return CalibrationResponse(**report)
 
 
 def create_app() -> FastAPI:

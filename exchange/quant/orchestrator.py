@@ -42,7 +42,7 @@ from exchange.quant.probability import (
     estimate_edge,
 )
 from exchange.quant.streaming import StreamAnalyzer
-from exchange.quant.bayesian import BayesianBelief, prior_belief, update_belief
+from exchange.quant.bayesian import BayesianBelief, prior_belief as _uniform_prior_belief, update_belief
 from exchange.quant.regime import RegimeDetector, RegimeState, detect_regime
 from exchange.quant.eventgraph import EventGraph, info_gain_from_series
 
@@ -179,6 +179,7 @@ def evaluate_quant(
     *,
     analyzer: Optional[StreamAnalyzer] = None,
     proposal_hash: str = "",
+    prior_belief: Optional["BayesianBelief"] = None,
 ) -> QuantDecision:
     """Run the full probability/edge/EV/Kelly pipeline for one context.
 
@@ -191,6 +192,9 @@ def evaluate_quant(
         proposal_hash: the sha256(canonical(TradeProposal)) this evidence
             informs. Empty is allowed (evaluate-then-bind), but production must
             bind it before the envelope is meaningful.
+        prior_belief: optional learned ``BayesianBelief`` (D30) used as the base
+            belief instead of a flat uniform prior. Advisory only — never changes
+            the verdict (M0).
 
     Returns a :class:`QuantDecision` carrying the signed evidence + suggested qty.
     """
@@ -232,10 +236,13 @@ def evaluate_quant(
         max_position_fraction=ctx.max_position_fraction,
     )
     # Q3: Bayesian belief update (soft model estimate + optional realized outcomes)
-    prior = prior_belief(
-        ctx.exchange_id, prior_alpha=ctx.bayes_prior_alpha,
-        prior_beta=ctx.bayes_prior_beta, model_id=ctx.model_id, ts=ctx.ts,
-    )
+    if prior_belief is not None:
+        prior = prior_belief  # D30: learned base belief (advisory)
+    else:
+        prior = _uniform_prior_belief(
+            ctx.exchange_id, prior_alpha=ctx.bayes_prior_alpha,
+            prior_beta=ctx.bayes_prior_beta, model_id=ctx.model_id, ts=ctx.ts,
+        )
     belief = update_belief(
         prior, ctx.model_p_yes, weight=ctx.bayes_weight,
         outcomes=list(ctx.bayes_outcomes), ts=ctx.ts,
