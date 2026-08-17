@@ -281,11 +281,15 @@ All additive, none change the authority boundary.
 ---
 
 ## 12. Acceptance criteria
-> **M0 PROVEN (post-freeze):** Two independent external consumers (`exchange/` finance,
-> `incident/` incident-response) drive the identical frozen `fleet.epistemic.decide()` with zero
-> substrate edits; the substrate returns identical verdicts under equal policy and flips
-> `AUTO→HUMAN` together on policy change, regardless of domain. Frozen substrate suite (83 tests)
-> unchanged; full suite 496. The freeze is lifted — see §1 banner and §16.
+> **M0 PROVEN (post-freeze):** FOUR independent external consumers (`exchange/` finance,
+> `incident/` incident-response, `supply/` operations/logistics, `hypothesis/` scientific
+> research) drive the identical frozen `fleet.epistemic.decide()` with zero substrate edits;
+> the substrate returns identical verdicts under equal policy and flips `AUTO→HUMAN` together
+> on policy change, regardless of domain. The 4th (`hypothesis/`) is the exact domain the
+> substrate's own `Proposition` docstring names as the canonical non-finance example. Frozen
+> substrate suite (83 tests) unchanged; full suite 528. The freeze is lifted — see §1 banner
+> and §16. Adding the next domain is a recipe, not a substrate change — see
+> `docs/development/adding-an-epistemic-domain.md`.
 1. `fleet/epistemic/` imports **only** `fleet.crypto.foundation` (+ stdlib). AST test green.
 2. Full repo suite green (no regression from 480 baseline); locked layers byte-untouched.
 3. L0 ladder types exist; `Recommendation` cannot become `Proposal` without explicit `proposal_scope`.

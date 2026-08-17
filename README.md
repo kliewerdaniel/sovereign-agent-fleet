@@ -122,6 +122,8 @@ passing test.
 | `exchange/` | **Flagship financial workload** — sovereign prediction-market venue (matching engine, books, settlement, feeds, routing, venues) + `quant/` quantitative cognition layer. Reuses `fleet` as a library. |
 | `fleet/fin/` | **Reference financial workload** (D27) — the earlier paper-trading exemplar that established the governed-execution pattern. Kept intentionally; see [`docs/architecture/exchange-vs-fin.md`](docs/architecture/exchange-vs-fin.md). |
 | `incident/` | **Second external consumer — M0 domain-generality proof** — a non-finance (incident-response) workload whose `epistemic_adapter/` consumes the *same* frozen `fleet.epistemic.decide()` as `exchange/`, with **zero substrate edits**. Proves the substrate cannot distinguish which domain feeds it. |
+| `supply/` | **Third external consumer (M0)** — operations/logistics (supply-chain replenishment) workload. Same frozen `decide()`, same contract, a completely different domain *shape* than finance or security. |
+| `hypothesis/` | **Fourth external consumer (M0)** — scientific research / hypothesis reasoning. The exact domain the substrate's own `Proposition` docstring names as the canonical non-finance example; exercises the linchpin `Proposition` type hardest. |
 | `ui/` | **Canonical control-surface UI** (Next.js) over `fleet/api`. Always current. |
 | `web/` + `bridge/` | **Legacy / hands-off** control surface (Phases 0–6). Intact but not maintained. |
 | `demo_app.py` | Streamlit incident-triage viewer (D26 demo only). |
@@ -135,7 +137,7 @@ passing test.
 python -m venv .deploy-venv && source .deploy-venv/bin/activate
 pip install -r requirements.txt
 
-# 2. full test suite — 496 passing
+# 2. full test suite — 528 passing
 python -m pytest -q
 
 # 3. canonical control surface (fleet/api + ui/)
@@ -150,7 +152,7 @@ Live Kalshi market data / order routing is **opt-in and fail-closed** — the de
 fully simulated and runs end-to-end with no cloud credentials. GCP replication defaults to a
 local Firestore-shaped mirror; flip to live only with credentials present.
 
-## 8. What's implemented (all merged, 496 tests)
+## 8. What's implemented (all merged, 528 tests)
 
 - **Governance substrate** (`fleet/`): crypto, signed ledger, registry, policy, gateway, evidence
   gate, D17 approval, consensus, Model Armor, incident matrix, runtime, GCP mirror.
@@ -160,7 +162,7 @@ local Firestore-shaped mirror; flip to live only with credentials present.
 - **Flagship financial workload** (D29/D30): `exchange/` — sovereign venue + `exchange/quant/`
   (probability, edge, Kelly, Bayesian, regime, streaming, learning loop).
 - **Real ZK attestation** (D24): `exchange/quant/zk.py` — genuine Σ-protocol range proof + Ed25519 binding.
-- **Second external consumer (M0 proof)**: `incident/` — a non-finance incident-response workload whose `epistemic_adapter/` drives the *same* neutral `fleet.epistemic.decide()` the exchange adapter uses, with zero substrate edits. The substrate returns identical verdicts under equal policy regardless of domain (and flips `AUTO→HUMAN` together when policy flips), proving **domain-generality** — that the substrate does not derive identity from its first consumer. Held by `incident/tests/test_epistemic_adapter_phase4.py` (16 tests); the 83-test substrate suite is unchanged.
+- **Fourth external consumers (M0 proof, domain-generality hardened)**: `incident/` (incident-response), `supply/` (operations/logistics), and `hypothesis/` (scientific research) — each a non-finance workload whose `epistemic_adapter/` drives the *same* neutral `fleet.epistemic.decide()` the exchange adapter uses, with zero substrate edits. Across all four, the substrate returns identical verdicts under equal policy and flips `AUTO→HUMAN` together when policy flips, proving **domain-generality** — that the substrate does not derive identity from its first consumer. `hypothesis/` is the exact domain the substrate's own `Proposition` docstring names as the canonical non-finance example. Each holds a 16-test suite (consumer proof + 8 reverse-boundary adversarial + cross-domain generality); the 83-test substrate suite is unchanged. Recipe for adding the next domain: [`docs/development/adding-an-epistemic-domain.md`](docs/development/adding-an-epistemic-domain.md).
 - **Control surfaces**: canonical `ui/` (Next.js) over `fleet/api`; legacy `web/`+`bridge/`; `demo_app.py`.
 
 ## 9. Research / technical deep dives
