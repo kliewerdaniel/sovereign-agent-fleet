@@ -286,9 +286,11 @@ All additive, none change the authority boundary.
 > research) drive the identical frozen `fleet.epistemic.decide()` with zero substrate edits;
 > the substrate returns identical verdicts under equal policy and flips `AUTO→HUMAN` together
 > on policy change, regardless of domain. The 4th (`hypothesis/`) is the exact domain the
-> substrate's own `Proposition` docstring names as the canonical non-finance example. Frozen
-> substrate suite (83 tests) unchanged; full suite 528. The freeze is lifted — see §1 banner
-> and §16. Adding the next domain is a recipe, not a substrate change — see
+> substrate's own `Proposition` docstring names as the canonical non-finance example. The
+> cross-domain generality claim is consolidated into ONE parameterized suite owned by the
+> `domain_registry/` harness node (5th bilingual node) — adding a domain is a one-line table
+> edit. Frozen substrate suite (83 tests) unchanged; full suite 533. The freeze is lifted —
+> see §1 banner and §16. Adding the next domain is a recipe, not a substrate change — see
 > `docs/development/adding-an-epistemic-domain.md`.
 1. `fleet/epistemic/` imports **only** `fleet.crypto.foundation` (+ stdlib). AST test green.
 2. Full repo suite green (no regression from 480 baseline); locked layers byte-untouched.
