@@ -2,23 +2,35 @@
 
 This repo has three main demonstrations. Watch them in this order for the competition story.
 
-## 1. Adversarial governability demo (core "aha") — *watch first*
+## 0. Combined flagship film — *watch first*
 
-**Video:** [`demo/sovereign_agent_fleet_demo.mp4`](../demo/sovereign_agent_fleet_demo.mp4)
-(~3.5 min, narrated with a local TTS voice, assembled from real pytest output).
+**Video:** [`demo/sovereign_agent_fleet_combined_1080p.mp4`](../demo/sovereign_agent_fleet_combined_1080p.mp4)
+(~4:30, 1080p). Title slate → Part 1 (adversarial governability) → Part 2 (exchange quant
+pipeline) → outro slate. Built locally from the two segments below with `demo/build_combined.py`
+— no re-render, no cloud, identical narration to the source films.
 
-Proves the thesis in 8 beats: a model proposes; governance decides; a forged identity is
-rejected; a missing capability is DENIED; a HALLUCINATION is blocked; post-hoc tampering is
-detected; revoke+rotate keeps the chain intact. Every beat is a passing test
-(`fleet/tests/test_adversarial_beats_phase5.py`).
+> **Local-first, always.** Both halves run with `FLEET_MODE=local`. The exchange film's "live"
+> beats show a *real* Kalshi market-data capture (genuine ticks, no fabricated output) in an
+> opt-in sim/live toggle; the governance half never needs a cloud. Nothing in either film
+> depends on a remote service to execute.
+
+## 1. Adversarial governability demo (core "aha")
+
+**Video:** [`demo/demo_1080p.mp4`](../demo/demo_1080p.mp4)
+(2:43, narrated with a local TTS voice, rebuilt from the honest 8-beat render).
+
+Source segment for the combined film. Proves the thesis in 8 beats: a model proposes;
+governance decides; a forged identity is rejected; a missing capability is DENIED; a
+HALLUCINATION is blocked; post-hoc tampering is detected; revoke+rotate keeps the chain intact.
+Every beat is a passing test (`fleet/tests/test_adversarial_beats_phase5.py`).
 
 > **Model output ≠ authority.** A model may be correct and still be unauthorized. A model may
 > be confident and still be denied.
 
-## 2. Exchange quant pipeline (flagship financial demonstration) — *the full arc*
+## 2. Exchange quant pipeline (flagship financial demonstration)
 
 **Video:** [`demo/exchange_demo/exchange_demo_1080p.mp4`](../demo/exchange_demo/exchange_demo_1080p.mp4)
-(~1080p, assembled from real `exchange/` runs).
+(~1:28, assembled from real `exchange/` runs). Source segment for the combined film.
 
 The end-to-end arc:
 ```
