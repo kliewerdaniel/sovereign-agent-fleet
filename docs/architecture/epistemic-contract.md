@@ -305,6 +305,13 @@ Note the **determinism column**: only cognition steps (1,2,3 partial,10) are pro
 authority path (4,5,6,7,8,9,11) is **entirely deterministic** and never consumes a probability.
 This is M0, made explicit per-transition.
 
+> **M0 is now proven empirically (Phase 4 / commit `10faa25`):** a second, non-finance
+> consumer (`incident/`) consumes the *same* frozen `fleet.epistemic.decide()` as the
+> flagship `exchange/` adapter — zero substrate edits — and the substrate returns
+> identical verdicts under equal policy regardless of domain, flipping `AUTO→HUMAN`
+> together when policy flips. `incident/tests/test_epistemic_adapter_phase4.py` (16 tests)
+> holds this; the 83-test substrate suite is unchanged.
+
 ---
 
 ## 12. Missing architectural primitives (consolidated)

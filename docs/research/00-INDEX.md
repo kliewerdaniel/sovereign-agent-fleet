@@ -5,7 +5,7 @@
 > and `exchange/`. It is the deep archive; for the curated judge-facing story, start at
 > [`docs/overview/`](../overview/) and the top-level [`README.md`](../../README.md).
 >
-> **Current reality:** the full suite is **480 passing tests** (fresh isolated run). `exchange/`
+> **Current reality:** the full suite is **496 passing tests** (fresh isolated run), of which the frozen `fleet.epistemic/` substrate accounts for 83 (unchanged). `exchange/`
 > (D29/D30 sovereign prediction-market venue + quantitative cognition layer) is a top-level
 > package, and D24 (real ZK attestation) is **implemented and merged**. GCP replication is
 > **supported** (Cloud Run / Firestore / Pub/Sub) but the default runtime uses a local
