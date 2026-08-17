@@ -1,6 +1,6 @@
 # Sovereign Enterprise Agent Fleet — Master Submission Document
 
-> Single combined reference for judges + implementers. Generated from the living planning docs (`00-INDEX.md` onward). **Implementation complete: 205 tests passing on `main` (commit 764aff5); D26/D27/D28 shipped and tested.**
+> Single combined reference for judges + implementers. Generated from the living planning docs (`00-INDEX.md` onward). **Implementation complete: 480 tests passing on `main` (fresh isolated run); D26/D27/D28/D29/D30 shipped and tested.**
 
 ## 1. Executive Summary
 See `18-executive-summary.md`. Thesis: intelligence probabilistic, authority/execution/evidence/audit deterministic + verifiable. Principle: do not trust the model — trust the execution protocol.
@@ -18,7 +18,7 @@ See `02-goals-nongoals.md`. Goals: multi-agent autonomy, governability, verifiab
 See `09-hackathon-mapping.md`. All mandatory met: Gemini 3.5 Flash, GenAI SDK, Cloud Run+Firestore+Pub/Sub, Fortified Enterprise Fleet (7 components), repo+README+diagram+video. Bonus: local Gemma4 + blog + social.
 
 ## 6. System Architecture
-See `03-architecture.md`. Control Plane (deterministic infra: Identity Root, Registry, Policy/Gateway, Runtime, Memory Bank, Model Armor, Observability) above 3 fleet workers (Researcher/Analyst/Operator). Hard handoff schema enforces R→A→O boundary. Topology: local authority/keys, GCP verifiable artifacts.
+See `03-architecture.md`. Control Plane (deterministic infra: Identity Root, Registry, Policy/Gateway, Runtime, Model Armor, Observability) above 3 fleet workers (Researcher/Analyst/Operator). Hard handoff schema enforces R→A→O boundary. Topology: local authority/keys, GCP verifiable artifacts (replication available; default local).
 
 ## 7. Agent Architecture
 - Researcher: emits `SourcedEvidence` (citation+extract+source_hash+provenance); forbidden from judging.
@@ -30,7 +30,7 @@ See `03-architecture.md`. Control Plane (deterministic infra: Identity Root, Reg
 Reuse Sovereign runtime, lifecycle (REQUEST→…→AUDIT), policy enforcement, persistent encrypted state. ChrisCryptSN provides all crypto. No rewrite (D4).
 
 ## 9. Control Plane Specification
-Identity Root (root-of-trust, certs, revocation, rotation) · Registry (publish/version/discover) · Gateway (capability-based authority) · Runtime (checkpointed lifecycle) · Memory Bank (encrypted + Firestore manifest mirror) · Model Armor (structural guardrails) · Observability (OTel ledger+traces).
+Identity Root (root-of-trust, certs, revocation, rotation) · Registry (publish/version/discover) · Gateway (capability-based authority) · Runtime (checkpointed lifecycle) · Audit Ledger (encrypted + signed hash-chain; GCP mirror is manifest-only) · Model Armor (structural guardrails) · Observability (OTel ledger+traces).
 
 ## 10. Identity Model
 Per-agent Ed25519 keypair; root signs `AgentCert { pubkey, role, capabilities, expiry, cert_seq, root_sig }` (12.1). Human approver has own root-certified identity (D17). Forged = unsigned-by-root → reject.
@@ -57,7 +57,7 @@ See `11-knowledge-architecture.md`. SKC/GraphRAG/vectors serve the Analyst (judg
 Gemini 3.5 Flash = brain only (D15); GenAI SDK direct (D20); GCP Cloud Run/Firestore/Pub/Sub (D5). Local-first authority (D3/D6). Dev on local abliterated Gemma4 (D18).
 
 ## 18. Cloud Architecture
-Local Sovereign runtime → replicate signed artifacts to Firestore (ledger + manifest), Pub/Sub (handoffs), serve runtime/gateway/approval console from Cloud Run. Vertex AI hosts Gemini. GCP = verifiable storage, not authority.
+Local Sovereign runtime → replicate signed artifacts to Firestore (ledger + manifest), Pub/Sub (handoffs), serve runtime/gateway/approval console from Cloud Run. Gemini is a cloud *brain* used at demo time; GCP replication is opt-in (`FLEET_MODE=gcp`) and defaults to a local Firestore-shaped mirror. GCP = verifiable storage, not authority.
 
 ## 19. Data Model
 See `12-data-model.md` — field-level `AgentCert`, `SourcedEvidence`, `QualifiedIntel`, `ApprovalRecord`, `AuditEntry`, `ToolEnvelope`.
