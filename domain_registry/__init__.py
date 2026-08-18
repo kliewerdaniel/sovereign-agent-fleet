@@ -1,10 +1,10 @@
-"""Domain registry — harness over the FOUR external consumers (M0 consolidation).
+"""Domain registry — harness over the SIX external consumers (M0 consolidation).
 
-This is NOT a domain and NOT part of the substrate. It is a fifth bilingual node
-whose only job is to make the M0 domain-generality claim *operative and
-parameterized*: instead of each domain suite re-asserting the same 4-domain
-cross-generality block, the registry owns a single uniform capability table and a
-single generic decide path that all four consumers share.
+This is NOT a domain and NOT part of the substrate. It is a bilingual harness
+node whose only job is to make the M0 domain-generality claim *operative and
+parameterized*: instead of each domain suite re-asserting the same cross-generality
+block, the registry owns a single uniform capability table and a single generic
+decide path that all six consumers share.
 
 It lives OUTSIDE both restricted trees (``fleet/epistemic/`` and every
 ``<domain>/sim.py``). It imports the neutral builders from the *reference*
@@ -38,6 +38,7 @@ from incident.epistemic_adapter import CAP_INCIDENT_REMEDIATE
 from supply.epistemic_adapter import CAP_SUPPLY_REORDER
 from hypothesis.epistemic_adapter import CAP_HYPOTHESIS_RUN
 from mirror.epistemic_adapter import CAP_MIRROR_SELF_TUNE
+from grid.epistemic_adapter import CAP_GRID_BALANCE
 
 from fleet.epistemic.identity import AgentIdentity
 from fleet.epistemic.decision import AuthorizationRequest, decide
@@ -52,6 +53,7 @@ REGISTERED_CAPABILITIES: tuple[tuple[str, str], ...] = (
     ("supply/logistics", CAP_SUPPLY_REORDER),
     ("hypothesis/research", CAP_HYPOTHESIS_RUN),
     ("mirror/self-observability", CAP_MIRROR_SELF_TUNE),
+    ("grid/energy", CAP_GRID_BALANCE),
 )
 
 
