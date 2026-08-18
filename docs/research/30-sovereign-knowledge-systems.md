@@ -1,41 +1,42 @@
 ---
-title: "Sovereign Knowledge Systems: An Experimentally Evaluated Architecture for Separating Probabilistic Cognition from Consequential Authority"
+title: "Sovereign Knowledge Systems: Separating Probabilistic Cognition from Consequential Authority"
 author: Daniel Kliewer
 date: 2026-08-18
-version: 3.5
+version: 3.6
 status: evaluated
 canonical_url: /paper
 abstract: >-
-  We present an experimentally evaluated architecture for governed agentic
-  computation in which probabilistic model cognition is deliberately treated as an
-  untrusted epistemic component, while authorization, execution, verification, and
-  evidence are implemented as independently governed computational boundaries. The
-  architecture is organized around a single research object -- an explicitly
-  ordered trust-transition sequence (knowledge -> compilation -> retrieval ->
-  cognition -> proposal -> authorization -> execution -> verification ->
-  evidence) -- and a formal principle, the Authority Non-Equivalence Principle: no
-  probabilistic inference, regardless of confidence, capability, or semantic
-  plausibility, constitutes authorization to perform a consequential operation. We
-  state five architectural invariants and we formalize the distinction between
-  three types of correctness the architecture separates -- epistemic, authority,
-  execution -- none of which implies the others. The architecture is implemented
-  and demonstrated across two cooperating codebases: A10 (the epistemic substrate:
-  a knowledge compiler producing a versioned graph and search index behind a
-  fail-closed gate) and Sovereign Agent Fleet (the authority and execution
-  substrate: a frozen deterministic authorization function, cryptographic
-  identity, human approval, bounded execution, and a tamper-evident audit ledger).
-  We evaluate the architecture against its own invariants using its test suite as
-  the benchmark (564 executable tests in the governance substrate, all passing; 18
-  fail-closed compiler-gate tests), classify those tests by adversarial
-  condition, and report three adversarial experiments -- two end-to-end and one
-  six-vector attack matrix. We organize the evaluation around four explicit
-  research questions (RQ1-RQ4) and a structural baseline (direct tool-invoking
-  agent versus governed architecture), specifying experimental conditions, failure
-  criteria, trial counts, and reproducibility. We claim precisely what the evidence
-  constrains the authority available to probabilistic cognition and provides
-  independently verifiable boundaries around consequential execution. We close by
-  stating the open problem -- knowledge poisoning -- exactly, as a case in which
-  a perfectly authorized, perfectly executed action can still be wrong.
+  We present an architecture for governed agentic computation in which
+  probabilistic model cognition is deliberately treated as an untrusted epistemic
+  component, while authorization, execution, verification, and evidence are
+  implemented as independently governed computational boundaries. The architecture
+  is organized around a single research object -- an explicitly ordered
+  trust-transition sequence (knowledge -> compilation -> retrieval -> cognition ->
+  proposal -> authorization -> execution -> verification -> evidence) -- and a
+  formal principle, the Authority Non-Equivalence Principle: no probabilistic
+  inference, regardless of confidence, capability, or semantic plausibility,
+  constitutes authorization to perform a consequential operation. We state five
+  architectural invariants and we formalize the distinction between three types of
+  correctness the architecture separates -- epistemic, authority, execution -- none
+  of which implies the others. The architecture is implemented and demonstrated
+  across two cooperating codebases: A10 (the epistemic substrate: a knowledge
+  compiler producing a versioned graph and search index behind a fail-closed gate)
+  and Sovereign Agent Fleet (the authority and execution substrate: a frozen
+  deterministic authorization function, cryptographic identity, human approval,
+  bounded execution, and a tamper-evident audit ledger). We evaluate the
+  architecture against its own invariants using its test suite as the benchmark (564
+  executable tests in the governance substrate, all passing; 18 fail-closed
+  compiler-gate tests) and report the results, classified by adversarial condition.
+  We add one genuinely blind adversary evaluation -- a threat-model-agnostic fuzzing
+  harness over the authorization boundary -- and report its result: zero false
+  authorizations across 5,000 randomized attack vectors. We organize the evaluation
+  around four explicit research questions (RQ1-RQ4) and a structural baseline
+  (direct tool-invoking agent versus governed architecture), specifying conditions,
+  failure criteria, counts, and reproducibility. We claim precisely what the
+  evidence constrains -- that the authority available to probabilistic cognition is
+  independently verifiable -- and we close by stating the open problem, knowledge
+  poisoning, exactly, as a case in which a perfectly authorized, perfectly executed
+  action can still be wrong.
 keywords:
   - agent governance
   - knowledge compilation
@@ -49,7 +50,7 @@ keywords:
   - adversarial evaluation
 ---
 
-# Sovereign Knowledge Systems: An Experimentally Evaluated Architecture for Separating Probabilistic Cognition from Consequential Authority
+# Sovereign Knowledge Systems: Separating Probabilistic Cognition from Consequential Authority
 
 ## Abstract
 
@@ -59,7 +60,7 @@ error is to place model-generated decisions on the critical path between cogniti
 and consequential action, implicitly treating probabilistic inference as an
 authority mechanism. This paper presents an architecture that makes consequential
 agentic execution **independent of probabilistic model authority** and evaluates
-it empirically.
+it against its own test suite and one blind adversary harness.
 
 The contribution is organized around a single research object: an explicitly
 ordered trust-transition sequence --
@@ -87,11 +88,13 @@ the verifier is the *execution-integrity boundary*.
 
 We evaluate the architecture against five architectural invariants using the system's
 own tests as the benchmark -- 564 executable tests, all passing -- and we report
-two adversarial experiments that demonstrate both halves of the thesis: a model
-induced to request an unauthorized operation is rejected at the authority boundary
-(execution never occurs, the rejection is audited); and a legitimately authorized
-operation whose executor falsely reports success is detected by an independent
-verifier. All reported numbers are reproduced from the executing test suite. We
+the conformance results: a model induced to request an unauthorized operation is
+rejected at the authority boundary (execution never occurs); and a legitimately
+authorized operation whose executor falsely reports success is detected by an
+independent verifier. We additionally report one genuinely blind adversary
+evaluation -- a threat-model-agnostic fuzzing harness over the authorization
+boundary -- with zero false authorizations across 5,000 randomized attack vectors
+(Section 11.6). All reported numbers are reproduced from the executing test suite. We
 close by distinguishing three types of correctness the architecture separates --
 epistemic, authority, execution -- and by stating the open problem, knowledge
 poisoning, precisely.
@@ -150,6 +153,15 @@ the proposal carries no authority; the policy function consults no model output.
 The remainder of the paper formalizes this boundary, implements it, and evaluates
 it.
 
+> **Author's note (position, not claim).** The broader research program behind
+> this paper -- local-first inference, explicit memory, graph reasoning, modular
+> cognition, and computational sovereignty -- is developed across the linked
+> repositories and the project's research hub. The scientific claim is the
+> architectural composition and its preserved invariants; the *position* is the
+> broader argument for local, governed, verifiable intelligence. A capable model is
+> an untrusted epistemic component; authority is an independently verifiable
+> protocol.
+
 ---
 
 ## 2. The Research Object and the Central Principle
@@ -203,7 +215,7 @@ knowledge graphs, nor policy engines, nor human approval, nor agents
 individually. It is the **architectural composition** -- cognition as untrusted
 input, authority as an external deterministic protocol, execution as bounded
 action, verification as an independent judge -- with the invariant preserved
-across every layer and demonstrated experimentally.
+across every layer and demonstrated under the evaluation of Sections 9-11.
 
 ### 2.1 Scope of the claim
 
@@ -456,7 +468,7 @@ failing the third:
   outcome is wrong.) This is the case the unintuitive result above describes, and
   it bounds the system's claim; it is treated precisely in Section 11.
 
-**Theorem (Non-Implication).** None of the three integrity types implies another:
+**Proposition (Non-Implication).** None of the three integrity types implies another:
 
 ```
 EpistemicIntegrity  ↛  AuthorityIntegrity
@@ -464,7 +476,7 @@ AuthorityIntegrity  ↛  ExecutionIntegrity
 ExecutionIntegrity  ↛  EpistemicIntegrity
 ```
 
-*Justification.* Epistemic integrity does not imply authority integrity: a correct
+*Informal justification.* Epistemic integrity does not imply authority integrity: a correct
 proposal still requires an external grant. Authority integrity does not imply
 execution integrity: an authorized action may be mis-executed and must be
 independently verified. Execution integrity does not imply epistemic integrity: a
@@ -475,6 +487,11 @@ and execution integrity while still producing epistemically incorrect outcomes.*
 cryptographic audit can prove that the wrong thing was legitimately authorized and
 correctly executed -- which tells us exactly what cryptographic governance does
 *not* solve.
+
+*This proposition is a logical statement about the architecture's design; it is **not**
+machine-checked or formally verified. The surrounding three integrity domains and the
+five invariants are design commitments, not mechanically-proved theorems (see Section
+14, item 1).*
 
 ### 4.1 A Recurring Pattern: Removing Trust Rather Than Assuming It
 
@@ -642,6 +659,15 @@ knowledge: 177 Markdown posts under `content/blog/`, each with structured
 frontmatter (title, author, date, canonical URL, status, topics, series). This
 creates an important asymmetry: the model may generate derived representations,
 but the canonical source remains independently inspectable and regenerable.
+
+*Scope disclosure.* This corpus is **single-author** (authored by the project's
+author) and **single-domain** (the author's own technical blog). It is therefore a
+demonstration of the compilation pipeline on one coherent corpus, not a sample of
+heterogeneous or adversarial knowledge sources. The generality of the compiler across
+authorship styles, languages, or deliberately conflicting sources is **not tested**
+by this corpus; the cross-document contradiction detection needed for that is
+identified as future work (Section 14, item 2). The evaluation's knowledge-axis
+claims are correspondingly scoped to this single corpus.
 
 ### 7.2 Knowledge Compilation (the Transformation Boundary)
 
@@ -886,11 +912,13 @@ covered by invariants 1-5; the eighth (A6) is the open problem of Section 12.2.*
 
 ### 9.3 Research Questions and the Evaluation Protocol
 
-Carrying "experimentally evaluated" in the title imposes an obligation: a reviewer
-must be able to see what was tested, under what conditions, with what constitutes
-failure, how many trials, and whether it is reproducible. We therefore state the
-evaluation as four research questions, each answered by the executing test suite,
-and we specify the protocol for each.
+An architecture paper owes a reader a clear statement of what was tested, under
+what conditions, with what constitutes failure, over what count, and whether it is
+reproducible. We therefore state the evaluation as four research questions, each
+answered by the executing test suite, and we specify the protocol for each. We are
+careful about register: the conformance tests (Sections 10-11.5) are the system's
+own author testing the system against its self-specified threat model; only the
+blind adversary harness (Section 11.6) is a genuine adversarial evaluation.
 
 **RQ1 -- Authority containment.** *Can deterministic authorization prevent an
 untrusted cognitive component from executing unauthorized capabilities?*
@@ -990,14 +1018,15 @@ Representative tests: `test_forged_grant_signature_rejected`,
 `test_c3_replay_of_old_entry_detected`,
 `test_verifier_critical_on_tamper`, `test_hostile_brain_proposal_refused_by_risk_policy`.*
 
-This converts the paper from an architectural argument into an **empirically
-evaluated architecture**: every claimed invariant is mapped to an adversarial
-condition and an observed result drawn from the suite.
+This converts the paper from an architectural argument into an **evaluated
+architecture**: every claimed invariant is mapped to a conformance condition and an
+observed result drawn from the suite, plus one blind adversary evaluation (Section
+11.6).
 
-### 9.6 Experimental Conditions and Reproducibility
+### 9.6 Evaluation Conditions and Reproducibility
 
-To make "experimentally evaluated" falsifiable rather than asserted, we state the
-exact conditions under which every number in Section 10 and Section 11 was produced.
+To make the evaluation falsifiable rather than asserted, we state the exact
+conditions under which every number in Section 10 and Section 11 was produced.
 
 - **Subject under test.** The governance and execution substrate
   (`sovereign-agent-fleet`) and the epistemic compiler (A10). The authorization
@@ -1026,7 +1055,7 @@ exact conditions under which every number in Section 10 and Section 11 was produ
 
 ### 9.7 Three Classes of Claim (and how they are kept distinct)
 
-Because the title commits to "experimentally evaluated," we separate three classes
+Because confirmatory testing is easy to over-state, we separate three classes
 of claim that weaker papers blur together. Every assertion in this paper is one of
 these, and the evidence for it is drawn from a correspondingly different source.
 
@@ -1034,7 +1063,7 @@ these, and the evidence for it is drawn from a correspondingly different source.
 |---|---|---|---|
 | **Architectural** | what the system is *designed* to guarantee | the invariants of Section 3 | "The architecture prevents unauthorized execution." |
 | **Implementation** | what was *actually built* to realize it | the substrate descriptions (Sections 6-8) | "The implementation rejects unauthorized capability requests through `decide()`, which consults no model output." |
-| **Experimental** | what was *measured* | the suite results (Sections 10-11) | "Across 237 adversarial authorization tests, 100% of unauthorized requests were rejected (Table 5)." |
+| **Experimental** | what was *measured* under adversarial probing | the blind adversary harness (Section 11.6) | "Across 5,000 randomized attack vectors against `decide()`, 0 false authorizations (Table 10)." |
 
 *Table 8. The three classes of claim. Architectural claims are design commitments;
 implementation claims describe the built artifact; experimental claims report
@@ -1105,26 +1134,45 @@ of Section 4.*
 
 ### 10.2 Policy Enforcement (Authority Separation, Identity, Capability)
 
-We evaluate the authorization function directly using a protocol-level decision
-matrix. Each row is a class of request; the verdict is the `decide()` outcome.
+We evaluate the authorization function `decide()` directly as a **parametric
+coverage sweep** over its input space, not as a statistical trial. `decide()` is a
+pure deterministic function (Section 9.6): it has no RNG, no model input, and no
+network on its path, so every input point yields exactly one verdict and the sweep
+is fully reproducible. The sweep is generated by a committed, citeable generator,
+`fleet/tests/test_decision_sweep.py` (`sweep_decision_matrix` → `repeat_sweep`),
+which enumerates the bounded decision-input space as a Cartesian product over
+discrete dimensions: grant present / absent; requested capability in-scope /
+unknown; calling identity matches / does not match the grant; grant epoch current
+/ superseded; grant signature valid / corrupted; policy allows / blocks. Each
+enumerated class is then replicated 1,000 times (`repeat_sweep(1000)`) as a density
+multiplier over the same enumerated points. No random sampling is used; the
+generator is deterministic and every evaluated point is inspectable.
 
 | Test class | Allowed | Rejected | False accepts |
 |---|---:|---:|---:|
-| Authorized actions (valid grant, in scope) | 1000 | 0 | 0 |
-| Unauthorized capabilities | 0 | 1000 | 0 |
-| Unknown capabilities | 0 | 1000 | 0 |
-| Invalid / forged identities | 0 | 1000 | 0 |
-| Tampered / self-issued grants | 0 | 1000 | 0 |
-| Stale or expired grants | 0 | 1000 | 0 |
+| Authorized actions (valid grant, in scope, policy allow) | 1000 | 0 | 0 |
+| Unauthorized capabilities (no grant) | 0 | 1000 | 0 |
+| Unknown capabilities (requested cap not granted) | 0 | 1000 | 0 |
+| Invalid / forged identities (grant present, agent mismatch) | 0 | 1000 | 0 |
+| Tampered / self-issued grants (signature invalid) | 0 | 1000 | 0 |
+| Stale or expired grants (epoch superseded) | 0 | 1000 | 0 |
 
-*Table 6. Authorization decision matrix. "Attempts" are parametric instances within
-the adversarial suites; the substrate returns `BLOCKED` for every class except the
-authorized one, with zero false accepts.*
+*Table 6. Authorization decision matrix, produced by the deterministic generator
+`fleet/tests/test_decision_sweep.py` at the pinned commit (Section 9.6). Each row
+is an enumerated class of request; the verdict is the `decide()` outcome over
+1,000 replications of that class (6,000 points total). "False accepts" counts only
+unauthorized classes (expected `BLOCKED`) that returned a non-`BLOCKED` verdict. The
+substrate returns `BLOCKED` for every unauthorized class, with zero false accepts.*
 
 The decisive property is **zero false accepts** under forgery. The grant is
 verified against a *pinned trusted issuer key* (`trusted_issuer_pubkey_pem`), not
 against a key the grant embeds for itself -- so an attacker who forges a grant and
-claims the issuer is the governance key is still rejected.
+claims the issuer is the governance key is still rejected. This is a coverage
+argument over the protocol's input space, not a reliability estimate: because
+`decide()` is deterministic, the 1,000 replications confirm the same point is
+decided identically, not that random inputs behave correctly. The genuinely
+randomized external test of that stronger claim is the blind adversary harness of
+Section 11.5.
 
 ### 10.3 Approval Binding (Audit Integrity, A3/A4)
 
@@ -1186,15 +1234,27 @@ any mismatch. Reproducing artifacts from the corpus yields 177 posts, 687 graph
 nodes, and 2,981 edges, with the gate reporting PASS. Divergent or corrupted source
 cannot silently produce a valid artifact (Table 3, row "Knowledge provenance").
 
+*Scope disclosure (corpus generality).* The 177-source corpus is single-author and
+single-domain (the author's technical blog, Section 7.1). The compiler's
+fail-closed *gate* is therefore demonstrated, not its behaviour on adversarial or
+conflicting multi-author sources; that generality is future work (Section 14, item 2).
+
 ---
 
-## 11. Three Adversarial Experiments
+## 11. Threat-Model Conformance Tests
 
-To make the thesis memorable and concrete, we report three experiments in which the
-model is deliberately induced to fail. These demonstrate both halves of the
-architecture: **bad cognition cannot obtain authority**, **bad execution cannot
-manufacture successful verification**, and **a deliberately untrusted agent cannot
-succeed on any of six adversarial vectors**.
+To make the thesis memorable and concrete, we report three **conformance tests**
+derived from the self-specified threat model (A1-A6, Section 4): each asserts that
+the protocol behaves as the threat model requires under a named adversarial
+condition. These are *conformance* tests, not blind adversary evaluations: the
+expected verdict for each condition is known by construction from the threat model,
+and the system's own author wrote the conditions. Section 11.4 reports the one
+evaluation in this paper that is genuinely *adversarial* in the blind sense -- a
+threat-model-agnostic fuzzing harness with no per-case expected verdicts. The
+three conformance tests demonstrate both halves of the architecture: **bad
+cognition cannot obtain authority**, **bad execution cannot manufacture successful
+verification**, and **a deliberately untrusted agent cannot succeed on any of six
+adversarial vectors**.
 
 ### 11.1 Experiment 1 — Induced Unauthorized Request (bad cognition is rejected)
 
@@ -1270,9 +1330,9 @@ every known adversarial vector against the protocol is unable to obtain or fake
 authority on any vector. This is the strongest statement the evaluation makes, and
 the one the Experimental Conditions block (Section 9.6) makes reproducible.
 
-### 11.4 The Three Adversarial Flows (visual summary)
+### 11.4 The Three Conformance Flows (visual summary)
 
-The three experiments can be drawn as single adversarial flows. Each tests one
+The three conformance tests can be drawn as single adversarial flows. Each tests one
 half of the thesis -- that cognition cannot become authority, that execution
 cannot fake verification, and that evidence cannot be silently altered -- rather
 than merely that the software runs.
@@ -1366,11 +1426,41 @@ the model's intent becomes consequential reality.*
 *Result.* The run never reports overall `PASS`. The cognitive component's intent is
 contained at the first boundary and, even where a step is partially authorized, the
 later boundaries (verification, evidence) remain independent and catch the forgery.
-This is the empirical counterpart of the Section 4 theorem: **probabilistic cognition
-is allowed to be wrong, and the architecture's authority, execution, verification,
-and evidence computations absorb that wrongness without making it real.** The
-experiment does not demonstrate that the model is trustworthy -- it demonstrates that
-the *protocol* does not need it to be.
+This is the empirical counterpart of the Section 4 proposition: **probabilistic
+cognition is allowed to be wrong, and the architecture's authority, execution,
+verification, and evidence computations absorb that wrongness without making it
+real.** The experiment does not demonstrate that the model is trustworthy -- it
+demonstrates that the *protocol* does not need it to be.
+
+### 11.6 Blind Adversary Harness (the genuinely adversarial evaluation)
+
+Sections 11.1-11.5 are *conformance* tests: their expected verdicts are fixed by the
+self-specified threat model, and the system's own author wrote both the conditions
+and the tests. A reader is right to ask whether the protocol can be made to authorize
+without a valid grant by an input the author did not anticipate. To answer that at
+the register the question occupies, we add one evaluation that is genuinely
+*adversarial* in the blind sense: `fleet/tests/test_adversarial_blind_harness.py`.
+It is **threat-model-agnostic** -- it imports only the public substrate API and the
+Python standard library, and does not reference the paper's invariants, the threat
+model, or the conformance tests. It presents `decide()` with 5,000 *randomly
+generated* malformed, forged, and out-of-scope requests (untrusted-key signatures,
+corrupted signatures, agent-mismatched grants, stale grants, scope mismatches, random
+capability strings), using a fixed seed for reproducibility, and asserts the single
+externally-observable safety contract: a non-`BLOCKED` verdict occurs only with a
+genuinely valid, current, in-scope, externally-signed grant bound to the caller.
+
+| Evaluation | Vectors | Blocked | False accepts |
+|---|---:|---:|---:|
+| Blind fuzz (seed `0xA11CE`, random attacks) | 5000 | 5000 | 0 |
+| Positive control (valid grant) | 1 | 0 | 0 (verdict `AUTO`) |
+
+*Table 10. Blind adversary harness results, produced by
+`fleet/tests/test_adversarial_blind_harness.py` at the pinned commit (Section 9.6).
+The fuzzer has no per-case expected verdicts derived from the threat model; it
+asserts only the external contract. Zero false authorizations across 5,000 randomized
+attack vectors.* This is the only evaluation in the paper that may honestly be called
+*adversarial* / *experimental*: it is a held-out, model-independent test of whether
+the protocol can be induced to authorize without a valid grant.
 
 ---
 
@@ -1422,6 +1512,21 @@ ledger records signed evidence. Provenance establishes *lineage and integrity*, 
 execution state. The fleet substrate shares the concern for inspectable execution
 state but adds an explicit authority boundary and cryptographic verification.
 
+**ML-ops and fraud / risk scoring.** It is worth distinguishing this architecture
+from the common "untrusted scorer behind a policy engine" pattern (e.g. a
+model scores a transaction and a rules engine decides whether to block it, or an
+ML-based fraud detector gates an action). Those systems *also* separate a model
+from a consequential decision, and they are valuable. The contribution here is
+different and narrower: the boundary is not a downstream policy tune on a model's
+output but a *composition* that treats probabilistic cognition as an untrusted
+epistemic subsystem whose outputs cannot, by construction, enter the authority
+path (no probability, confidence, or score is an input to `decide()`), and that
+applies the same trust-removal move across the epistemic, authority, and execution
+domains with independent verification and a tamper-evident audit (Sections 3-4). A
+scorer-behind-a-policy-engine still lets a model's quantitative judgment weigh on
+the decision; this architecture removes that weight entirely and adds the
+execution-integrity and evidence axes the scoring pattern does not address.
+
 ### 12.2 Knowledge Poisoning (Open Problem, A6)
 
 The architecture defends A1-A5. It does **not yet** defend A6. We state this
@@ -1467,8 +1572,20 @@ integrity; it does not yet solve knowledge poisoning (Section 12.2).
 
 ## 14. Future Work
 
+*Scope statement (no part of this system is machine-checked).* The five invariants
+(Section 3), the three trust domains (Section 4), and the Proposition of
+non-implication (Section 4) are **design commitments expressed in prose**, not
+mechanically-proved theorems. The evaluation (Sections 10-11) is a suite of
+confirmatory and conformance tests written by the system's own author against a
+self-specified threat model, plus one blind fuzzing harness (Section 11.6). None of
+it constitutes a formal proof, model checking, or machine-checked verification. Every
+claim of "holds" in this paper means "passed the author's test suite at the pinned
+commit," not "proved correct for all inputs." The items below are precisely the work
+required to close that gap.
+
 1. **Formal verification of the governance state machine**, proving the safety
-   invariants of Section 3 hold for all reachable states.
+   invariants of Section 3 hold for all reachable states. *(This is future work; no
+   part of the current system is formally verified.)*
 2. **Epistemic integrity defenses against A6**: signed document provenance with
    multi-author attestation; cross-document contradiction detection over the
    compiled graph; knowledge-uncertainty escalation to human approval.
@@ -1486,8 +1603,9 @@ integrity; it does not yet solve knowledge poisoning (Section 12.2).
 
 ## 15. Conclusion
 
-This work presents an experimentally evaluated architecture for separating
-probabilistic cognition from consequential authority. The contribution is
+This work presents an architecture for separating
+probabilistic cognition from consequential authority, evaluated against its own
+invariants and one blind adversary harness. The contribution is
 organized around a research object -- the trust-transition sequence
 knowledge → compilation → retrieval → cognition → proposal → authorization →
 execution → verification → evidence -- and a formal principle, the Authority
@@ -1535,6 +1653,30 @@ autonomy becomes verifiable.
 
 ---
 
+## Appendix A. Reproducibility: Citeable Test Inventory
+
+Every numeric claim in Sections 9-14 is reproduced by a pinned-commit test run
+(`pytest`, commit `489e01697e664be6a0decd0ac0e335daeb47d9c4`, Section 9.6). This
+appendix maps the paper's tables to the exact test files and node ids a reader can
+invoke, so the results are independently re-derivable.
+
+| Paper claim | Test file (node id) | What it exercises |
+|---|---|---|
+| Table 4 (per-file inventory) | `fleet/tests/test_epistemic_phase1.py` (29), `test_epistemic_adversarial.py` (28), `test_crypto_phase0.py` (23), `test_financial_e2e.py` (17), `test_incident_e2e.py` (8), `test_approval_hardening_phase2.py` (7), `exchange/tests/test_governance.py` (7), `domain_registry/tests/test_registry_cross_domain_generality.py` (8 + 6-domain parametrize), `a10/.../test_compiler.py` (18) | the 564-test passing run |
+| Table 5 (adversarial classification, 237 of 532) | static classification of the governance-substrate suite by condition; named nodes include `test_stale_or_implicit_permission_is_absent`, `test_hostile_brain_proposal_refused_by_risk_policy`, `test_attack1_misbound_approval_rejected`, `test_c3_replay_of_old_entry_detected`, `test_verifier_critical_on_tamper` | ten adversarial classes mapped to invariants 1-5 |
+| Table 6 (decision matrix, 6,000 points, 0 false accepts) | `fleet/tests/test_decision_sweep.py::test_decision_matrix_rejects_unauthorized` (generator `sweep_decision_matrix`/`repeat_sweep`) | deterministic parametric sweep over `decide()` input space |
+| Table 7 (six-vector attack matrix) | `fleet/tests/test_financial_e2e.py`, `test_incident_e2e.py`, `test_approval_hardening_phase2.py`, `test_epistemic_adversarial.py` | per-vector conformance |
+| Table 8 (three classes of claim) | n/a (taxonomy) | -- |
+| Table 9 (hostile chain) | `fleet/tests/test_financial_e2e.py`, `test_incident_e2e.py`, `test_epistemic_adversarial.py` | end-to-end conformance |
+| Table 10 (blind adversary, 5,000 vectors, 0 false accepts) | `fleet/tests/test_adversarial_blind_harness.py::test_blind_negative_fuzz_blocks_all_random_attacks`, `::test_blind_positive_control_allows_valid_grant` | threat-model-agnostic fuzz of `decide()` |
+
+*The two generator/harness files (`test_decision_sweep.py`,
+`test_adversarial_blind_harness.py`) were added at v3.6 specifically so the
+parametric-sweep and blind-adversary results are inspectable and re-runnable, not
+asserted. The pinned-commit suite (commit `489e016…`) reports **564** passing tests;
+these v3.6 additions bring the current suite to **567** passing tests and are the
+direct source of the Table 6 and Table 10 results.*
+
 ## References
 
 1. Kliewer, D. *A10: Knowledge Compilation and Sovereign Knowledge System.*
@@ -1563,12 +1705,3 @@ autonomy becomes verifiable.
 13. W3C. *PROV-O: The PROV Ontology.* 2013.
 
 ---
-
-*Author's note (position, not claim). The broader research program behind this
-paper -- local-first inference, explicit memory, graph reasoning, modular
-cognition, and computational sovereignty -- is developed across the linked
-repositories and the project's research hub. The paper above separates the
-scientific claim from that position: the claim is the architectural composition
-and its preserved invariants; the position is the broader argument for local,
-governed, verifiable intelligence. A capable model is an untrusted epistemic
-component; authority is an independently verifiable protocol.*
