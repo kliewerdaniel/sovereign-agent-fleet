@@ -1,5 +1,5 @@
 {
-  "title": "Sovereign Agent Fleet — Hackathon Demo",
+  "title": "Sovereign Agent Fleet \u2014 Hackathon Demo",
   "voice": "John.mp3",
   "speed": 1.0,
   "width": 1920,
@@ -13,7 +13,7 @@
     },
     {
       "id": "b2",
-      "text": "The thesis is simple to say and hard to build. Do not trust the model. Trust the execution protocol. Cognition is probabilistic and may be wrong, or compromised, or hostile. Authority is deterministic and lives in a policy function the model never touches.",
+      "text": "The thesis sounds simple and is hard to engineer. Don't trust the model; trust the execution protocol. Thinking is probabilistic and can be mistaken, or subverted, or adversarial. Authority is deterministic and lives inside a policy function the model never reaches.",
       "route": "http://localhost:8099/paper#2-the-research-object-and-the-central-principle"
     },
     {
