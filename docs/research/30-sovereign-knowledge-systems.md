@@ -2,7 +2,7 @@
 title: "Sovereign Knowledge Systems: An Experimentally Evaluated Architecture for Separating Probabilistic Cognition from Consequential Authority"
 author: Daniel Kliewer
 date: 2026-08-18
-version: 3.3
+version: 3.4
 status: evaluated
 canonical_url: /paper
 abstract: >-
@@ -228,7 +228,57 @@ system, not properties of the model:
 What the architecture does *not* establish is stated explicitly in Section 13 and
 Section 12.2: it does not prove the model truthful, intelligent, or that the
 resulting knowledge is correct; it does not guarantee universal AI safety, the
-correct specification of policy, or the absence of all attack surfaces.
+correct specification of policy, or the absence of all attack surfaces. We make
+this distinction formal as a standing **Claims and Guarantees** statement, against
+which every architectural assertion in the paper can be checked:
+
+**The architecture guarantees:**
+
+- **Model output alone cannot authorize consequential execution.** Authorization
+  is decided by an external, deterministic policy function over non-epistemic
+  inputs (Invariant 1).
+- **Authorization is evaluated independently of model confidence.** The policy
+  engine consults no model output, score, or probability; the same proposal
+  receives the same verdict regardless of how confidently the model asserts it
+  (Invariant 1, Experiments 11.1 and 11.3).
+- **Consequential execution can be independently verified.** An executor's claim
+  of success is not believed; verification recomputes or re-checks against the
+  authoritative record (Invariant 3, Experiment 11.2).
+- **Relevant evidence can be cryptographically authenticated and made
+  tamper-evident.** Historical records are chained, signed, and replay-detectable
+  (Invariant 4).
+- **Domain-specific adapters can operate without changing the core authority
+  model.** Six distinct domains run over the same `decide()` function without
+  altering the authority boundary (Invariant 5, Table 6).
+
+**The architecture does not guarantee:**
+
+- **That model reasoning is correct.** The model may be wrong; the architecture
+  constrains what a wrong model can *do*, not whether it is right (Section 4, the
+  Authorized-to-be-wrong case).
+- **That source knowledge is true.** Compilation and retrieval faithfully
+  reproduce source content; they do not certify its truth (Section 7, A6).
+- **That policy is correctly specified.** The protocol enforces *the* policy
+  faithfully; it does not judge whether *that* policy is desirable or complete
+  (Section 13).
+- **That every possible attack is detected.** The evaluation covers a defined
+  adversarial set (A1-A6, six-vector matrix); it is not a proof of
+  attack-surface completeness.
+- **That authorization implies desirable outcomes.** A legitimately authorized
+  action can still be the wrong thing to do; cryptographic integrity proves *how*
+  it happened, not that it *should* have (Section 4, the third independence case).
+
+This guarantee/non-guarantee split is the central rigor discipline of the paper:
+every "the architecture does X" claim is paired with the boundary where X stops
+applying. It is the primary defense against a skeptical reader over-reading the
+title's word "architecture."
+
+> **Novelty as boundary, not as algorithm.** The contribution is not a new policy
+> language or a new agent algorithm: it is the *system boundary* at which
+> probabilistic cognition produces proposals while authority is independently
+> determined by a governed protocol. Policy, approval, and verification are each
+> individually long established; the novelty is their composition behind a single
+> authority boundary.
 
 ---
 
@@ -1186,6 +1236,55 @@ The matrix converts the thesis into a single, falsifiable claim: an agent attemp
 every known adversarial vector against the protocol is unable to obtain or fake
 authority on any vector. This is the strongest statement the evaluation makes, and
 the one the Experimental Conditions block (Section 9.6) makes reproducible.
+
+### 11.4 The Three Adversarial Flows (visual summary)
+
+The three experiments can be drawn as single adversarial flows. Each tests one
+half of the thesis -- that cognition cannot become authority, that execution
+cannot fake verification, and that evidence cannot be silently altered -- rather
+than merely that the software runs.
+
+<figure className="paper-figure">
+<svg viewBox="0 0 640 150" width="100%" role="img" aria-label="Figure: Flow 1. An untrusted agent emits an unauthorized proposal; the deterministic policy returns REJECT; execution never occurs.">
+  <style>.b{font:600 13px ui-sans-serif,system-ui,sans-serif;fill:var(--color-ink)}.g{font:600 13px ui-sans-serif,system-ui,sans-serif;fill:var(--color-green)}.r{font:700 13px ui-sans-serif,system-ui,sans-serif;fill:var(--color-red)}.ar{stroke:var(--color-ink-3);stroke-width:1.4;fill:none;marker-end:url(#ah11a)}</style>
+  <defs><marker id="ah11a" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="currentColor"/></marker></defs>
+  <text x="16" y="22" class="b">Untrusted Agent</text>
+  <text x="16" y="44" class="b">↓ Unauthorized Proposal</text>
+  <text x="16" y="74" class="g">Deterministic Policy</text>
+  <text x="16" y="96" class="g">↓ decide()</text>
+  <text x="16" y="128" class="r">REJECT — execution never occurs</text>
+  <path class="ar" d="M150,30 L150,64"/><path class="ar" d="M150,82 L150,116"/>
+</svg>
+<figcaption><strong>Flow 1 (Experiment 11.1).</strong> Probabilistic cognition produces an unauthorized proposal; the policy function -- which consults no model output -- returns <code>REJECT</code>, and no execution is triggered.</figcaption>
+</figure>
+
+<figure className="paper-figure">
+<svg viewBox="0 0 640 150" width="100%" role="img" aria-label="Figure: Flow 2. An authorized proposal is executed; the executor makes a false claim of success; independent verification detects the mismatch.">
+  <style>.b{font:600 13px ui-sans-serif,system-ui,sans-serif;fill:var(--color-ink)}.g{font:600 13px ui-sans-serif,system-ui,sans-serif;fill:var(--color-green)}.r{font:700 13px ui-sans-serif,system-ui,sans-serif;fill:var(--color-red)}.ar{stroke:var(--color-ink-3);stroke-width:1.4;fill:none;marker-end:url(#ah11b)}</style>
+  <defs><marker id="ah11b" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="currentColor"/></marker></defs>
+  <text x="16" y="22" class="b">Authorized Proposal</text>
+  <text x="16" y="44" class="b">↓ Execution</text>
+  <text x="16" y="74" class="g">False Executor Claim</text>
+  <text x="16" y="96" class="g">↓ Independent Verification</text>
+  <text x="16" y="128" class="r">DETECT — run cannot report PASS</text>
+  <path class="ar" d="M150,30 L150,64"/><path class="ar" d="M150,82 L150,116"/>
+</svg>
+<figcaption><strong>Flow 2 (Experiment 11.2).</strong> A legitimately authorized action is executed, but the executor's false claim of success is caught by an independent verifier recomputing against the authoritative record.</figcaption>
+</figure>
+
+<figure className="paper-figure">
+<svg viewBox="0 0 640 150" width="100%" role="img" aria-label="Figure: Flow 3. Signed evidence is subjected to a tampering attempt; the integrity check fails; the modification is detected.">
+  <style>.b{font:600 13px ui-sans-serif,system-ui,sans-serif;fill:var(--color-ink)}.g{font:600 13px ui-sans-serif,system-ui,sans-serif;fill:var(--color-green)}.r{font:700 13px ui-sans-serif,system-ui,sans-serif;fill:var(--color-red)}.ar{stroke:var(--color-ink-3);stroke-width:1.4;fill:none;marker-end:url(#ah11c)}</style>
+  <defs><marker id="ah11c" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="currentColor"/></marker></defs>
+  <text x="16" y="22" class="b">Signed Evidence</text>
+  <text x="16" y="44" class="b">↓ Tampering Attempt</text>
+  <text x="16" y="74" class="g">Integrity Check</text>
+  <text x="16" y="96" class="g">↓ verify_chain</text>
+  <text x="16" y="128" class="r">DETECT — audit fails closed</text>
+  <path class="ar" d="M150,30 L150,64"/><path class="ar" d="M150,82 L150,116"/>
+</svg>
+<figcaption><strong>Flow 3 (Experiment 11.3, vector 6).</strong> Tampering with a signed, chained audit record breaks integrity verification; the modification is detected rather than silently accepted (Invariant 4).</figcaption>
+</figure>
 
 ---
 
