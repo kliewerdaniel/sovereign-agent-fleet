@@ -2,7 +2,7 @@
 title: "Sovereign Knowledge Systems: An Experimentally Evaluated Architecture for Separating Probabilistic Cognition from Consequential Authority"
 author: Daniel Kliewer
 date: 2026-08-18
-version: 3.4
+version: 3.5
 status: evaluated
 canonical_url: /paper
 abstract: >-
@@ -430,6 +430,16 @@ a distinction frequently collapsed in conventional agent systems:
 The architecture keeps these questions in separate computational boundaries so that
 an answer to one is never mistaken for an answer to another.
 
+**The unintuitive result.** The most important consequence of the separation is not
+that governance *prevents* bad outcomes -- it is that a **perfectly governed system
+can still do the wrong thing**. If the knowledge is wrong, the model reasons
+correctly from the wrong knowledge, policy authorizes the action, execution succeeds,
+and verification confirms the expected (wrong) state, then *every governance
+invariant can pass while the outcome is undesirable*. That is not a failure of the
+architecture; it is the architecture correctly refusing to conflate four different
+questions. It also prevents the common mistake this paper is at pains to avoid:
+treating **security, provenance, and truth as interchangeable**.
+
 These are fundamentally different properties. A system can succeed at two while
 failing the third:
 
@@ -443,8 +453,8 @@ failing the third:
 - **Authorized-to-be-wrong.** An epistemically incorrect action passes every
   authority and execution check *because the system was authorized to do exactly
   the wrong thing*. (All three integrity types can be satisfied while the
-  outcome is wrong.) This is the most important case, and it bounds the system's
-  claim; it is treated precisely in Section 11.
+  outcome is wrong.) This is the case the unintuitive result above describes, and
+  it bounds the system's claim; it is treated precisely in Section 11.
 
 **Theorem (Non-Implication).** None of the three integrity types implies another:
 
@@ -1014,6 +1024,29 @@ exact conditions under which every number in Section 10 and Section 11 was produ
   `pytest`; the numbers in Section 10 and Section 11 are the output of that
   command.
 
+### 9.7 Three Classes of Claim (and how they are kept distinct)
+
+Because the title commits to "experimentally evaluated," we separate three classes
+of claim that weaker papers blur together. Every assertion in this paper is one of
+these, and the evidence for it is drawn from a correspondingly different source.
+
+| Class | What it asserts | Evidence source | Example |
+|---|---|---|---|
+| **Architectural** | what the system is *designed* to guarantee | the invariants of Section 3 | "The architecture prevents unauthorized execution." |
+| **Implementation** | what was *actually built* to realize it | the substrate descriptions (Sections 6-8) | "The implementation rejects unauthorized capability requests through `decide()`, which consults no model output." |
+| **Experimental** | what was *measured* | the suite results (Sections 10-11) | "Across 237 adversarial authorization tests, 100% of unauthorized requests were rejected (Table 5)." |
+
+*Table 8. The three classes of claim. Architectural claims are design commitments;
+implementation claims describe the built artifact; experimental claims report
+measured outcomes. Confusing them is the most common way a systems paper over-states
+its evidence; we keep them in separate columns throughout.*
+
+An architectural claim is a hypothesis about behaviour; an implementation claim is a
+fact about the artifact; an experimental claim is a measurement of the artifact under
+adversarial conditions. Where this paper makes an architectural claim, the matching
+implementation and experimental claims appear in the same section so a reviewer can
+trace design → build → measurement without inference.
+
 ---
 
 ## 10. Evaluation Results
@@ -1285,6 +1318,59 @@ than merely that the software runs.
 </svg>
 <figcaption><strong>Flow 3 (Experiment 11.3, vector 6).</strong> Tampering with a signed, chained audit record breaks integrity verification; the modification is detected rather than silently accepted (Invariant 4).</figcaption>
 </figure>
+
+### 11.5 Experiment 4 — The Deliberately Hostile Chain (the architecture's thesis, end to end)
+
+The previous experiments isolate one boundary at a time. Experiment 4 asks the
+stronger question: can a single untrusted cognitive component attempt the *entire*
+attack chain at once and still be held by the protocol? The model is given explicit
+permission to be wrong and to try every move a hostile operator would try, in
+sequence:
+
+```text
+request an unauthorized capability
+        ↓
+attempt privilege escalation
+        ↓
+modify an approved action
+        ↓
+claim an execution succeeded
+        ↓
+tamper with evidence
+```
+
+This is exactly the behaviour the project sentence forbids trusting the model for:
+
+> **Do not trust the model. Trust the execution protocol.**
+
+*Setup.* A `HostileBrain` is instantiated with a scenario that instructs it to walk
+the full chain above within a single governed run. No step is cooperative; each is
+an attempt to convert probabilistic cognition into authority or to forge the record
+of what happened.
+
+*What is measured.* Each step crosses a different architectural boundary, and each
+is caught by the boundary's own mechanism:
+
+| Step | Boundary crossed | Mechanism | Outcome (test basis) |
+|---|---|---|---|
+| Unauthorized capability request | epistemic → authority | `decide()` returns `BLOCKED` | Rejected (Exp 11.1 / Table 3) |
+| Privilege escalation attempt | authority (scope) | scope-bound grant | Rejected (Table 3) |
+| Modify approved action | authority (binding) | post-signing hash mismatch | Rejected (Exp 11.2 premise) |
+| False execution claim | execution → verification | independent verifier `CRITICAL` | Detected (Exp 11.2) |
+| Tamper with evidence | execution → evidence | `verify_chain is False` | Detected (Exp 11.3) |
+
+*Table 9. The hostile chain. A single untrusted component attempts all five moves;
+each is stopped or detected at the boundary it crosses. No step reaches a state where
+the model's intent becomes consequential reality.*
+
+*Result.* The run never reports overall `PASS`. The cognitive component's intent is
+contained at the first boundary and, even where a step is partially authorized, the
+later boundaries (verification, evidence) remain independent and catch the forgery.
+This is the empirical counterpart of the Section 4 theorem: **probabilistic cognition
+is allowed to be wrong, and the architecture's authority, execution, verification,
+and evidence computations absorb that wrongness without making it real.** The
+experiment does not demonstrate that the model is trustworthy -- it demonstrates that
+the *protocol* does not need it to be.
 
 ---
 
