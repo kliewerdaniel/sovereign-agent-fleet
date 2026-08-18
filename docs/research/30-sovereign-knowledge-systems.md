@@ -2,8 +2,8 @@
 title: "Sovereign Knowledge Systems: An Experimentally Evaluated Architecture for Separating Probabilistic Cognition from Consequential Authority"
 author: Daniel Kliewer
 date: 2026-08-18
-version: 3.1
-status: designed
+version: 3.2
+status: evaluated
 canonical_url: /paper
 abstract: >-
   We present an experimentally evaluated architecture for governed agentic
@@ -28,7 +28,7 @@ abstract: >-
   the benchmark (564 executable tests in the governance substrate, all passing; 18
   fail-closed compiler-gate tests), classify those tests by adversarial
   condition, and report two end-to-end adversarial experiments and a six-vector
-  attack matrix. We claim precisely what the evidence supports: the architecture
+  attack matrix. We organize the evaluation around four explicit research questions (RQ1-RQ4) and a structural baseline (direct tool-invoking agent versus governed architecture), specifying experimental conditions, failure criteria, trial counts, and reproducibility. We claim precisely what the evidence supports: the architecture
   constrains the authority available to probabilistic cognition and provides
   independently verifiable boundaries around consequential execution. We close by
   stating the open problem -- knowledge poisoning -- exactly, as a case in which
@@ -82,7 +82,7 @@ execution, and a tamper-evident audit ledger. The knowledge compiler is the
 *transformation boundary*; the governance protocol is the *authority boundary*;
 the verifier is the *execution-integrity boundary*.
 
-We evaluate the architecture against eight security invariants using the system's
+We evaluate the architecture against five architectural invariants using the system's
 own tests as the benchmark -- 564 executable tests, all passing -- and we report
 two adversarial experiments that demonstrate both halves of the thesis: a model
 induced to request an unauthorized operation is rejected at the authority boundary
@@ -118,6 +118,24 @@ The contribution of this paper is not a specific agent, model, or benchmark, but
 **architectural composition**, a **formal principle**, and an **empirical
 evaluation** of that composition.
 
+The work is organized around a single research question:
+
+> **Research Question.** Can an agentic system use probabilistic cognition while
+> preventing probabilistic cognition from becoming the authority over consequential
+> execution?
+
+A conventional agent collapses this distinction into a single loop --
+`Observe → Think → Act → Observe → Think → Act` -- in which the component that
+thinks is also the component that acts, so an erroneous or adversarial thought can
+directly cause a consequential action. The architecture presented here inserts
+structure between thought and action:
+
+> `Observe → Think → Propose → Authorize → Act → Verify → Record`
+
+The inserted stages -- Propose, Authorize, Verify, Record -- are the contribution.
+They are architectural boundaries, not stages of an LLM workflow: an untrusted
+cognitive output must cross them before it can cause anything to happen.
+
 We make the distinction concrete with a sequence that reviewers can reason about:
 
 > **knowledge → compilation → retrieval → cognition → proposal → authorization →
@@ -133,8 +151,12 @@ it.
 
 ## 2. The Research Object and the Central Principle
 
-We state the thesis as a formal principle so that the architecture can be read as
-an implementation of it.
+The conceptual center of the architecture is the nine-stage pipeline introduced in
+Section 1 -- knowledge, compilation, retrieval, probabilistic cognition, proposal,
+deterministic authorization, execution, independent verification, cryptographic
+evidence. Each arrow is an architectural boundary, not a workflow stage. We state
+the thesis as a formal principle so that the pipeline can be read as an
+implementation of it.
 
 **Authority Non-Equivalence Principle.** *A probabilistic inference, regardless of
 confidence, model capability, or semantic plausibility, does not constitute
@@ -256,52 +278,127 @@ cryptographic security alone: Invariant 1 is a *policy* statement, Invariant 5 i
 ## 4. Three Trust Domains and Three Types of Correctness
 
 We formalize the system as three trust domains, each with a distinct integrity
-property and a distinct type of correctness.
+property and a distinct type of correctness. The clean conceptual center of the
+work is the nine-stage pipeline of Section 1, read as three stacked domains
+separated by hard architectural boundaries:
+
+<figure className="paper-figure">
+<svg viewBox="0 0 720 470" width="100%" role="img" aria-label="Figure: The Three Integrity Domains. The pipeline passes from the epistemic domain through an untrusted-proposal boundary into the authority domain, then through an authorized-action boundary into the execution domain.">
+  <style>
+    .t{font:700 15px ui-sans-serif,system-ui,sans-serif;fill:var(--color-ink)}
+    .s{font:600 12px ui-sans-serif,system-ui,sans-serif;fill:var(--color-ink-3)}
+    .ar{stroke:var(--color-ink-3);stroke-width:1.4;fill:none;marker-end:url(#ah3)}
+  </style>
+  <defs><marker id="ah3" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="currentColor"/></marker></defs>
+  <rect x="40" y="20" width="640" height="130" rx="10" fill="rgba(43,91,168,0.07)" stroke="var(--color-ink-3)" stroke-width="1.4"/>
+  <text x="60" y="48" class="t">EPISTEMIC DOMAIN</text>
+  <text x="60" y="74" class="s">Knowledge → Compile → Retrieve</text>
+  <text x="60" y="94" class="s">↓</text>
+  <text x="60" y="114" class="s">Cognition → Proposal</text>
+  <text x="560" y="74" text-anchor="end" class="s">integrity: is the belief correct?</text>
+  <text x="560" y="94" text-anchor="end" class="s">(untrusted proposal)</text>
+  <path class="ar" d="M360,150 L360,182"/>
+  <text x="360" y="174" text-anchor="middle" class="s">untrusted proposal crosses</text>
+  <text x="360" y="190" text-anchor="middle" class="s">the authority boundary</text>
+  <rect x="40" y="200" width="640" height="130" rx="10" fill="rgba(31,138,76,0.08)" stroke="var(--color-green)" stroke-width="1.6"/>
+  <text x="60" y="228" class="t" style="fill:var(--color-green)">AUTHORITY DOMAIN</text>
+  <text x="60" y="254" class="s">Identity → Capability → Policy</text>
+  <text x="60" y="274" class="s">↓</text>
+  <text x="60" y="294" class="s">Authorization → Approval</text>
+  <text x="560" y="254" text-anchor="end" class="s">integrity: was the action</text>
+  <text x="560" y="274" text-anchor="end" class="s">legitimately authorized?</text>
+  <path class="ar" d="M360,330 L360,362"/>
+  <text x="360" y="354" text-anchor="middle" class="s">authorized action crosses</text>
+  <text x="360" y="370" text-anchor="middle" class="s">the execution boundary</text>
+  <rect x="40" y="380" width="640" height="130" rx="10" fill="rgba(22,20,15,0.05)" stroke="var(--color-ink-3)" stroke-width="1.4"/>
+  <text x="60" y="408" class="t">EXECUTION DOMAIN</text>
+  <text x="60" y="434" class="s">Execute → Observe → Verify</text>
+  <text x="60" y="454" class="s">↓</text>
+  <text x="60" y="474" class="s">Evidence → Cryptographic Audit</text>
+  <text x="560" y="434" text-anchor="end" class="s">integrity: did the authorized</text>
+  <text x="560" y="454" text-anchor="end" class="s">action happen as recorded?</text>
+</svg>
+<figcaption><strong>Figure 5.</strong> The Three Integrity Domains. The nine-stage pipeline of
+Section 1 passes down through two hard boundaries. An untrusted proposal carries no
+authority into the authority domain; an authorized action carries no assumption of
+correctness into the execution domain. Each domain has an independent integrity
+question that the others do not answer.</figcaption>
+</figure>
 
 **Definition 1 (Epistemic Domain).** Determines *what the system believes or
 proposes*: the knowledge compiler, retrieval, the knowledge graph, embeddings, and
-model reasoning. **Epistemic correctness**: was the information or reasoning
-actually correct?
+model reasoning. **Epistemic integrity**: is the information or reasoning actually
+correct?
 
 **Definition 2 (Authority Domain).** Determines *what the system is permitted to
-do*: identity, capability, policy, approval. **Authority correctness**: was the
-requested operation actually permitted?
+do*: identity, capability, policy, approval. **Authority integrity**: was the
+requested operation actually and legitimately authorized?
 
 **Definition 3 (Execution Domain).** Determines *what actually happened*: the
 executor, the resulting state, the verifier, cryptographic evidence. **Execution
-correctness**: did the authorized operation actually produce the expected state?
+integrity**: did the authorized operation actually produce the recorded state, and
+is that record tamper-evident?
 
 These are fundamentally different properties. A system can succeed at two while
 failing the third:
 
 - **Epistemic failure, governance success.** The model produces an *incorrect
   conclusion*, but the governance system correctly *rejects* its proposed action.
-  (Epistemic correctness fails; authority and execution correctness are
+  (Epistemic integrity fails; authority and execution integrity are
   satisfied.)
 - **Execution failure.** The model produces a *reasonable proposal*, the policy
   engine correctly *authorizes* it, and the executor *malfunctions*. (Epistemic
-  and authority correctness pass; execution correctness fails.)
+  and authority integrity pass; execution integrity fails.)
 - **Authorized-to-be-wrong.** An epistemically incorrect action passes every
   authority and execution check *because the system was authorized to do exactly
-  the wrong thing*. (All three correctness types can be satisfied while the
+  the wrong thing*. (All three integrity types can be satisfied while the
   outcome is wrong.) This is the most important case, and it bounds the system's
   claim; it is treated precisely in Section 11.
 
-**Theorem (Non-Implication).** None of the three correctness types implies
-another:
+**Theorem (Non-Implication).** None of the three integrity types implies another:
 
 ```
-EpistemicCorrectness  ↛  AuthorityCorrectness
-AuthorityCorrectness  ↛  ExecutionCorrectness
-ExecutionCorrectness  ↛  EpistemicCorrectness
+EpistemicIntegrity  ↛  AuthorityIntegrity
+AuthorityIntegrity  ↛  ExecutionIntegrity
+ExecutionIntegrity  ↛  EpistemicIntegrity
 ```
 
-*Justification.* Epistemic correctness does not imply authority correctness: a
-correct proposal still requires an external grant. Authority correctness does not
-imply execution correctness: an authorized action may be mis-executed and must be
-independently verified. Execution correctness does not imply epistemic
-correctness: a flawlessly executed, perfectly audited action can still be wrong if
-the underlying knowledge was wrong -- the third case above.
+*Justification.* Epistemic integrity does not imply authority integrity: a correct
+proposal still requires an external grant. Authority integrity does not imply
+execution integrity: an authorized action may be mis-executed and must be
+independently verified. Execution integrity does not imply epistemic integrity: a
+flawlessly executed, perfectly audited action can still be wrong if the underlying
+knowledge was wrong -- the third case above. This is the architecture's most
+intellectually interesting consequence: **a system can maintain authority integrity
+and execution integrity while still producing epistemically incorrect outcomes.** The
+cryptographic audit can prove that the wrong thing was legitimately authorized and
+correctly executed -- which tells us exactly what cryptographic governance does
+*not* solve.
+
+### 4.1 A Recurring Pattern: Removing Trust Rather Than Assuming It
+
+The deepest idea in the design is not a component but a pattern. The architecture
+does not try to make its components *trustworthy*; it removes the *authority* that
+would make their untrustworthiness dangerous. The same move recurs at every
+boundary:
+
+- You do not have to **trust the model**, because the model does not control
+  authorization (`decide()` consults no model output, Invariant 1).
+- You do not have to **trust the executor's claim of success**, because
+  verification is independent (Invariant 3).
+- You do not have to **trust the audit log**, because its integrity is
+  cryptographically verifiable (Invariant 4).
+- You do not have to **trust the cloud as the authority**, because the authority
+  root can remain local (Section 5).
+- You do not have to **trust generated knowledge artifacts as canonical**, because
+  they can be regenerated from source behind a fail-closed gate (Invariant 5).
+
+> **Pattern.** Do not solve trust by assuming the component is trustworthy. Solve it
+> by removing unnecessary authority from the component.
+
+This pattern is the unifying lens of the paper: the contribution is a *composition*
+that repeatedly applies the same trust-removal move across the epistemic, authority,
+and execution domains.
 
 ---
 
@@ -587,7 +684,7 @@ agent permissions. Human approval provides an additional boundary for
 consequential operations: the approval record is bound to the specific operation
 (action id, capability, artifact hash) and is cryptographically signed by a
 `human`-role cert. A forged, rebound, or non-human-signed approval is rejected
-(Section 9.3).
+(Section 9.5).
 
 ### 8.5 Execution, Verification, and Audit
 
@@ -649,7 +746,7 @@ recorded.
 
 ---
 
-## 9. Formal Threat Model and Evaluation Design
+## 9. Formal Threat Model, Research Questions, and Evaluation Design
 
 ### 9.1 Threat Model (A1-A6)
 
@@ -686,7 +783,85 @@ defense. This is the security argument in one table.
 *Table 1. The threat model as a domain/defense mapping. The first seven rows are
 covered by invariants 1-5; the eighth (A6) is the open problem of Section 12.2.*
 
-### 9.3 Invariant Evaluation Table
+### 9.3 Research Questions and the Evaluation Protocol
+
+Carrying "experimentally evaluated" in the title imposes an obligation: a reviewer
+must be able to see what was tested, under what conditions, with what constitutes
+failure, how many trials, and whether it is reproducible. We therefore state the
+evaluation as four research questions, each answered by the executing test suite,
+and we specify the protocol for each.
+
+**RQ1 -- Authority containment.** *Can deterministic authorization prevent an
+untrusted cognitive component from executing unauthorized capabilities?*
+- *Condition:* a model (benign or `HostileBrain`) emits a proposal requesting a
+  capability outside its grant. *Failure criterion:* the proposal is authorized.
+- *Verdict source:* `decide()` returns `BLOCKED` (Table 3, rows 1, 3; Experiments
+  11.1). *Trials:* the adversarial suites below (Unauthorized, Capability
+  escalation, Cross-domain, 120 of 237 adversarial tests) plus the 1,000-instance
+  decision matrix (Table 6). *Determinism:* `decide()` is a pure function; reruns
+  are byte-identical (Table 4, `test_epistemic_phase1.py`). *Reproducible:* yes,
+  via `pytest` at the pinned commit (References [2]).
+
+**RQ2 -- Verification independence.** *Can independent verification detect an
+incorrect executor claim?*
+- *Condition:* a legitimately authorized action executes; the executor tampers its
+  own `operator.final` record (A4). *Failure criterion:* the verification aggregate
+  reports `PASS`.
+- *Verdict source:* the independent verifier recomputes the hash and escalates to
+  `CRITICAL` (Table 3, row 6; Experiment 11.2). *Trials:* the Executor-deception and
+  Verification-failure classes (46 of 237) plus `test_verifier_critical_on_tamper`.
+  *Determinism:* the verifier recomputes from signed inputs; no model output.
+  *Reproducible:* yes.
+
+**RQ3 -- Evidence integrity.** *Can cryptographic evidence detect post hoc
+modification?*
+- *Condition:* an attacker mutates, truncates, or replays a historical audit
+  entry (A5). *Failure criterion:* the ledger verifies as authentic.
+- *Verdict source:* the signed hash-chain ledger returns `verify_chain is False`
+  (Table 3, row 5; Table 4, `test_crypto_phase0.py`). *Trials:* the Audit-tampering
+  class (20 of 237) plus `test_audit_tamper_detected`,
+  `test_audit_truncation_detected`, `test_c3_replay_of_old_entry_detected`.
+  *Determinism:* verification is pure; reproducible: yes.
+
+**RQ4 -- Domain generality.** *Can the same governance substrate preserve its
+invariants across multiple application domains?*
+- *Condition:* six domains share one frozen `decide()` through a single capability
+  table. *Failure criterion:* an invariant holds in one domain but not another, or
+  a scoped grant authorizes an out-of-scope universal capability.
+- *Verdict source:* the cross-domain generality suite (Table 3,
+  `test_registry_cross_domain_generality.py`) plus the financial and incident
+  end-to-end suites. *Trials:* the Cross-domain class (19 of 237) and the
+  six-domain parametrized generality tests. *Determinism:* pure; reproducible: yes.
+
+Each RQ is answered by tests that are themselves deterministic and
+re-executable, so another researcher can reproduce every number in Section 10 by
+running the suite at the cited commit.
+
+### 9.4 Baseline: Direct Tool-Invoking Agent vs. Governed Architecture
+
+To make the contribution immediately legible, we contrast the architecture against
+a minimal, realistic **Baseline A** -- a model that directly invokes tools -- under
+the same injected invalid conditions. Baseline A is a structural reference (the
+conventional `Observe → Think → Act` loop), not a separate implementation we
+execute; its column reports the well-known default behaviour of an ungoverned
+tool-calling model, which is precisely the failure class the architecture removes
+authority from. The **Architecture B** column reports the observed suite result.
+
+| Condition (injected) | Baseline A: model invokes tools | Architecture B: governed |
+|---|---|---|
+| Unauthorized capability | Executes | Rejects |
+| Forged identity | Executes / ambiguous | Rejects |
+| Modified approved action | Executes / ambiguous | Rejects |
+| False executor success | Accepted | Detected |
+| Tampered audit | Undetected | Detected |
+
+*Table 2 (renumbered). Baseline comparison. Baseline A describes the default
+behaviour of an ungoverned tool-calling agent; Architecture B reports the observed
+*Table 3 / Experiments 11.1-11.2). The architecture's
+column is the one the evaluation measures; Baseline A is the contrast that makes
+the contribution concrete.*
+
+### 9.5 Invariant Evaluation Table
 
 We evaluate the architecture using its **own invariants as the benchmark**. No
 external benchmark is required; the system's security properties are read directly
@@ -705,7 +880,7 @@ suite; the A10 compiler gate contributes 18 tests).
 | Knowledge provenance | Alter compiled artifact vs. source | Recompile / detect | Detect |
 | Domain isolation | Unknown-domain capability request | Reject | Reject |
 
-*Table 2. Security-invariant evaluation. The system's own tests are the benchmark.
+*Table 3. Security-invariant evaluation. The system's own tests are the benchmark.
 Representative tests: `test_forged_grant_signature_rejected`,
 `test_self_issued_grant_rejected`, `test_replay_expired_epoch_rejected`,
 `test_alter_capability_after_signing_detected`,
@@ -739,7 +914,7 @@ categorize the invariant-relevant suites we draw on directly:
 | `domain_registry/tests/test_registry_cross_domain_generality.py` | 8 (+6-domain parametrized) | M0 cross-domain generality |
 | A10 `knowledge-compiler/tests/test_compiler.py` | 18 | compiler emit + fail-closed verify gate |
 
-*Table 3. Invariant-grouped test inventory (counts verified from the suites
+*Table 4. Invariant-grouped test inventory (counts verified from the suites
 cited). The remaining fleet tests cover consensus, runtime, control plane,
 incident policy, brain, GCP, root rotation, armor, and boundary imports.*
 
@@ -767,10 +942,10 @@ pass.
 | Knowledge provenance violations (compiler gate) | 3 | 5 | Epistemic |
 | Cross-domain authorization violations (M0) | 19 | 1, 2 | Authority |
 
-*Table 4. Adversarial classification of 237 of 532 collected governance-substrate
+*Table 5. Adversarial classification of 237 of 532 collected governance-substrate
 test functions (counts verified by static analysis of the suite; the A10
 compiler-gate contributes a further 18 fail-closed tests). The classes overlap with
-the per-file inventory of Table 3; together they account for the full 564-test
+the per-file inventory of Table 4; together they account for the full 564-test
 passing run. Every class is mapped to the invariants of Section 3 and the domains
 of Section 4.*
 
@@ -788,7 +963,7 @@ matrix. Each row is a class of request; the verdict is the `decide()` outcome.
 | Tampered / self-issued grants | 0 | 1000 | 0 |
 | Stale or expired grants | 0 | 1000 | 0 |
 
-*Table 5. Authorization decision matrix. "Attempts" are parametric instances within
+*Table 6. Authorization decision matrix. "Attempts" are parametric instances within
 the adversarial suites; the substrate returns `BLOCKED` for every class except the
 authorized one, with zero false accepts.*
 
@@ -855,7 +1030,7 @@ The A10 compiler's fail-closed gate (Section 7.3) is exercised by 18 compiler
 tests. The gate re-derives every `content_hash` from source and refuses to emit on
 any mismatch. Reproducing artifacts from the corpus yields 177 posts, 687 graph
 nodes, and 2,981 edges, with the gate reporting PASS. Divergent or corrupted source
-cannot silently produce a valid artifact (Table 1, row "Knowledge provenance").
+cannot silently produce a valid artifact (Table 3, row "Knowledge provenance").
 
 ---
 
@@ -1042,19 +1217,30 @@ despite external computation, and implemented the architecture across two
 cooperating codebases: A10 (the epistemic substrate) and Sovereign Agent Fleet
 (the authority and execution substrate).
 
-We evaluated the architecture against eight security invariants using its own tests
+We evaluated the architecture against five architectural invariants using its own tests
 as the benchmark (564 executable tests, all passing), and we reported two
 adversarial experiments: a model induced to request an unauthorized operation is
 rejected at the authority boundary (execution never occurs); and a legitimately
 authorized operation whose executor falsely reports success is detected by an
-independent verifier. We reported real, reproduced numbers and separated measured
-results from open problems.
+independent verifier. We organized the evaluation around four research questions
+(RQ1-RQ4) answered by the suite, a structural baseline contrast, and reported real,
+reproduced numbers and separated measured results from open problems.
+
+The contribution is not agent governance, RAG, knowledge graphs, cryptographic
+audit, capability security, human approval, or independent verification
+individually -- none of which is novel. It is the **composition**: a unified
+architecture that treats probabilistic cognition as an untrusted epistemic subsystem
+while independently governing consequential authority, execution, verification, and
+evidence, and applies that architecture to a compilable knowledge substrate. The
+deepest idea is the recurring pattern in Section 4.1 -- *do not make components
+trustworthy; remove the authority that would make their untrustworthiness dangerous* --
+applied once per trust boundary.
 
 The most important open problem is knowledge poisoning: the architecture guarantees
 authority and execution integrity but does not yet validate the epistemic integrity
 of the knowledge entering the pipeline. Resolving that gap -- without collapsing
 the three trust domains back into one -- is the natural next step, and the
-three-correctness framing developed here is the lens through which it should be
+three-integrity framing developed here is the lens through which it should be
 approached.
 
 The result is a governed computational environment in which memory becomes
