@@ -2,25 +2,30 @@
 title: "Sovereign Knowledge Systems: A Governed Architecture for Compilable Knowledge and Verifiable Agentic Execution"
 author: Daniel Kliewer
 date: 2026-08-18
-version: 1.0
+version: 2.0
 status: designed
 canonical_url: /paper
 abstract: >-
-  Large language model systems increasingly place model-generated decisions
-  directly on the critical path between cognition and consequential action.
-  This paper presents a sovereign knowledge architecture that separates
-  probabilistic cognition from deterministic governance, applies that separation
-  to a compilable, version-controlled knowledge substrate, and binds every
-  consequential transition to cryptographically verifiable evidence. The
-  architecture is implemented across two cooperating codebases: the A10 knowledge
-  system (a structured 177-post technical corpus compiled at build time into a
-  graph, search index, and per-article sidecars) and the Sovereign Agent Fleet
-  (a frozen authorization substrate in which model output is treated as untrusted
-  input rather than authority). The central research contribution is not another
-  autonomous agent but an architecture in which the knowledge substrate,
-  cognition layer, authority layer, execution layer, and verification layer are
-  deliberately separated -- allowing the model to become more capable without
-  becoming the system's root of trust.
+  We present a system architecture in which consequential agentic execution is
+  made independent of probabilistic model authority by separating cognition,
+  authorization, execution, verification, and evidence into explicit, verifiable
+  architectural boundaries. The architecture is implemented across two cooperating
+  codebases: A10, a knowledge system that compiles 177 human-authored documents
+  into a graph, search index, and per-article sidecars at build time behind a
+  fail-closed verification gate; and the Sovereign Agent Fleet, a frozen
+  authorization substrate in which model output is treated as untrusted input
+  rather than authority. We formalize the central contribution as the Authority
+  Non-Equivalence Principle -- that no probabilistic inference output, regardless
+  of confidence, constitutes authorization to perform a consequential operation --
+  and we organize the system into three trust domains (epistemic, authority,
+  execution) whose integrity properties are provably non-implicating. We evaluate
+  the architecture against a formal threat model (A1-A6) using 564 executable
+  tests, demonstrating that seven independent security invariants hold under
+  adversarial pressure. The evaluation reports real, reproduced numbers; we
+  explicitly distinguish what is measured from what remains open. The most
+  important open problem is knowledge poisoning: the architecture guarantees
+  authority and execution integrity but does not yet validate epistemic
+  integrity of the knowledge entering the pipeline.
 keywords:
   - sovereign intelligence
   - agent governance
@@ -31,122 +36,60 @@ keywords:
   - deterministic policy
   - GraphRAG
   - verifiable execution
-  - agent architecture
+  - capability security
+  - threat model
+  - formal verification
 ---
 
 # Sovereign Knowledge Systems: A Governed Architecture for Compilable Knowledge and Verifiable Agentic Execution
 
 ## Abstract
 
-Large language model systems have demonstrated increasingly capable reasoning,
-retrieval, planning, and autonomous execution. Yet contemporary agent
-architectures frequently place model-generated decisions directly on the critical
-path between cognition and consequential action. This creates a fundamental
-systems problem: **probabilistic inference is being implicitly treated as an
-authority mechanism.**
+Large language models have introduced probabilistic computation into workflows
+that historically relied on deterministic programs. Contemporary agent
+architectures frequently place model-generated decisions on the critical path
+between cognition and consequential action, implicitly treating probabilistic
+inference as an authority mechanism. This paper presents a system architecture
+that makes consequential agentic execution **independent of probabilistic model
+authority** by separating cognition, authorization, execution, verification, and
+evidence into explicit architectural boundaries.
 
-This paper presents a sovereign knowledge architecture that separates
-probabilistic cognition from deterministic governance and applies that
-separation to a compilable, version-controlled knowledge substrate. The
-architecture combines the knowledge and publication system implemented in the
-**A10** project with the governance, identity, authorization, execution,
-verification, and audit primitives developed in the **Sovereign Agent Fleet**
-project. A10 provides a structured corpus, a semantic compilation layer, an
-application architecture, and persistent knowledge artifacts. Sovereign Agent
-Fleet provides a governed execution protocol in which model output is treated as
-untrusted input rather than authority.
+The architecture is implemented across two cooperating codebases. **A10** is a
+knowledge system that compiles 177 human-authored Markdown documents into a
+structured artifact set -- an entity/relationship graph (687 nodes, 2,981 edges),
+a BM25 search index, and per-article sidecars carrying SHA-256 content hashes,
+extracted entities, claims, references, and provenance -- behind a fail-closed
+verification gate. **Sovereign Agent Fleet** is a frozen authorization substrate
+in which model output is treated as untrusted input rather than authority, and
+which is exercised unchanged across six domains (exchange/finance,
+incident/security, supply/logistics, hypothesis/research, mirror/self-observability,
+grid/energy) through a single registered capability table.
 
-The resulting architecture establishes explicit boundaries between source
-knowledge, semantic compilation, retrieval, reasoning, proposed actions,
-authorization, execution, verification, and evidence. Rather than attempting to
-make an individual model trustworthy, the system is designed to *remain safe when
-the model is incorrect, compromised, hallucinating, replaced, or adversarial.*
+We formalize the central contribution as the **Authority Non-Equivalence
+Principle**: no probabilistic inference output, regardless of confidence, semantic
+validity, or model capability, constitutes authorization to perform a consequential
+operation. We organize the system into three trust domains -- epistemic, authority,
+execution -- and show that the integrity properties of these domains are
+provably non-implicating: epistemic integrity does not imply authority integrity;
+authority integrity does not imply execution integrity; and execution integrity
+does not imply epistemic correctness.
 
-This is not a theoretical sketch. Both halves are implemented and tested:
-
-- The A10 knowledge compiler transforms 177 human-authored Markdown posts into a
-  deterministic artifact set -- an entity/relationship graph (687 nodes, 2,981
-  edges), a BM25 search index, and per-article sidecars carrying SHA-256 content
-  hashes, extracted entities, claims, references, and provenance -- behind a
-  **fail-closed verification gate** that re-derives every hash from source and
-  refuses to emit on any inconsistency.
-- The Sovereign Agent Fleet substrate provides a **pure, deterministic
-  `decide()`** function that authorizes or rejects actions without ever reading a
-  probability, confidence score, or model output. It is exercised unchanged
-  across six domains (exchange/finance, incident/security, supply/logistics,
-  hypothesis/research, mirror/self-observability, grid/energy) through a single
-  registered capability table -- the M0 domain-generality result.
-
-The paper argues that this architecture provides a general foundation for
-sovereign intelligence in which memory is treated as architecture, semantic
-processing is shifted toward compilation, authority is externalized into
-deterministic policy, and consequential execution produces independently
-verifiable evidence. The work demonstrates how a personal technical knowledge
-system can evolve from a conventional content application into a governed
-computational knowledge substrate, and establishes a general architecture
-applicable to autonomous software, financial simulation, incident remediation,
-scientific reasoning, and other domains requiring accountable agentic execution.
+We evaluate the architecture against a formal threat model of six adversary
+classes (A1-A6) using 564 executable tests spanning governance, identity,
+capability, approval, audit, verification, and domain portability. The evaluation
+demonstrates that an unauthorized or malicious model can propose but cannot
+authorize; that forged, replayed, mutated, or self-issued grants are rejected;
+that the executor cannot falsely report success; and that historical evidence
+resists tampering. All reported numbers are reproduced from the executing test
+suite. We close by identifying the most important unsolved problem: **knowledge
+poisoning** -- the architecture guarantees authority and execution integrity but
+does not yet validate the epistemic integrity of the knowledge entering the
+pipeline.
 
 **Keywords:** sovereign intelligence, agent governance, knowledge compilation,
 autonomous agents, retrieval augmented generation, GraphRAG, computational
-sovereignty, cryptographic audit, deterministic policy, human-in-the-loop,
-verifiable execution, agent architecture.
-
----
-
-## Table of Contents
-
-1. Introduction
-2. Problem Definition
-3. Research Objectives
-4. Architectural Thesis
-5. System Architecture
-   5.1 Knowledge Substrate
-   5.2 Semantic Compilation
-   5.3 Probabilistic Cognition
-   5.4 Governance and Authority
-   5.5 Execution
-   5.6 Independent Verification
-   5.7 Cryptographic Evidence
-6. The A10 Knowledge System
-   6.1 Source Corpus
-   6.2 Application Architecture
-   6.3 Knowledge Compiler
-   6.4 Artifact Model and Verification Gate
-   6.5 Architectural Documentation
-7. Sovereign Agent Fleet
-   7.1 Governed Multi-Agent Architecture
-   7.2 Identity and Root of Trust
-   7.3 Deterministic Policy and the `decide()` Substrate
-   7.4 Capability Authorization
-   7.5 Approval Protocol
-   7.6 Execution Boundary
-   7.7 Independent Verification
-   7.8 Tamper-Evident Audit
-8. Integrating Knowledge and Governance
-   8.1 Epistemic Boundary
-   8.2 Authority Boundary
-   8.3 Knowledge-to-Action Pipeline
-   8.4 Provenance and Evidence
-9. Formal System Model
-   9.1 Trust Model
-   9.2 Threat Model
-   9.3 State Transitions
-   9.4 Safety Invariants
-10. Security Properties
-11. Computational Sovereignty
-12. Engineering Validation
-13. Applications and Extensions
-   13.1 Autonomous Software Engineering
-   13.2 Financial Simulation
-   13.3 Incident Response
-   13.4 Scientific Knowledge Systems
-   13.5 Personal Institutional Memory
-14. Limitations
-15. Future Research
-16. Discussion
-17. Conclusion
-18. References
+sovereignty, cryptographic audit, deterministic policy, capability security,
+threat model, formal verification, verifiable execution.
 
 ---
 
@@ -155,326 +98,368 @@ verifiable execution, agent architecture.
 The emergence of large language models has changed the architecture of software
 systems by introducing probabilistic computation into workflows that were
 historically governed by deterministic programs. A conventional software system
-generally establishes explicit control flow, authorization rules, data
-structures, and state transitions. A language model introduces a fundamentally
-different computational primitive. Given the same nominal input, a model may
-generate different outputs, may produce incorrect information with high
-confidence, and may generate actions whose consequences cannot be established
-from the output alone.
+establishes explicit control flow, authorization rules, data structures, and state
+transitions. A language model introduces a fundamentally different computational
+primitive: given the same nominal input, a model may generate different outputs,
+may produce incorrect information with high confidence, and may generate actions
+whose consequences cannot be established from the output alone.
 
 The architectural problem is therefore not simply that language models
-hallucinate. Hallucination is one manifestation of a deeper systems problem. The
-problem occurs when a **probabilistic component is positioned as an authority
-boundary.**
+hallucinate. Hallucination is one manifestation of a deeper systems issue: when a
+probabilistic component is positioned as an **authority boundary**, model output
+acquires the power to cause consequential state changes. The central proposition
+of this work is:
 
-The central proposition of this work is:
+> **A capable model should be treated as an untrusted epistemic component, while
+> authority should be implemented as an independently verifiable protocol.**
 
-> **Model output should never constitute authority by itself.**
+Under this proposition, the model may reason, propose, and hypothesize; it does
+not become the system's root of trust. The contribution of this paper is not a
+specific agent, model, or benchmark, but an **architectural composition** and a
+set of **invariants** preserved across its layers.
 
-The systems developed across A10 and Sovereign Agent Fleet explore an alternative
-architecture. Cognition is treated as an *untrusted* probabilistic subsystem
-capable of generating observations, hypotheses, plans, recommendations, evidence
-candidates, and action proposals. Governance exists *outside* the model and is
-implemented through deterministic policy, capability boundaries, cryptographic
-identity, explicit approval mechanisms, controlled execution, independent
-verification, and durable evidence.
-
-This architecture changes the fundamental security question from *"can the model
-be trusted?"* to *"can the surrounding system remain correct when the model
-cannot be trusted?"*
-
----
-
-## 2. Problem Definition
-
-Contemporary agentic systems increasingly combine language models with tools,
-memory, retrieval systems, external APIs, software execution environments, and
-autonomous planning loops. Such architectures create a control problem because
-model-generated content can cross multiple trust boundaries before reaching a
-consequential operation.
-
-A model may generate a tool invocation. The invocation may access a filesystem,
-database, financial interface, cloud resource, or external communication channel.
-If the runtime treats the model-generated invocation as an *instruction* rather
-than an *untrusted proposal*, the model effectively becomes an
-authority-bearing principal.
-
-This architecture creates several classes of failure.
-
-**First, semantic correctness and authorization become conflated.** A model can
-generate a technically valid operation that it should not be permitted to
-execute. Validity of the request is not the same as permission to perform it.
-
-**Second, model confidence can be mistaken for evidence.** A coherent explanation
-does not establish that an operation is correct, and a high-confidence statement
-does not establish that it is authorized.
-
-**Third, auditability becomes dependent on conversational history** rather than
-cryptographically bound execution records. A chat transcript is not a tamper-evident
-audit log.
-
-**Fourth, cloud infrastructure may become an implicit authority root** even when
-the user or organization intends to retain local control. When verification,
-identity, or policy resolution is delegated to a remote service, that service
-quietly acquires authority.
-
-**Fifth, increasing model capability can increase the potential blast radius of
-failures** without producing corresponding increases in governance strength. A
-more capable model can both propose better actions and propose more consequential
-mistakes.
-
-The architecture developed in this project addresses these problems by
-establishing an explicit separation between cognition and authority. The
-separation is not a style preference; it is enforced in code. In the Sovereign
-Agent Fleet substrate, the authorization function `decide()` is documented as
-accepting *no* probability, confidence, model score, belief, or calibration
-value -- the verdict is determined entirely by capability, grant scope, epoch
-currency, and policy (see Section 7.3).
+The architecture is implemented and tested in two cooperating codebases. A10
+(`kliewerdaniel/a10`) provides the knowledge substrate: a structured 177-document
+corpus, a semantic compiler, and a publication portal. Sovereign Agent Fleet
+(`sovereign-agent-fleet`) provides the governance/execution substrate: a frozen
+`decide()` authorization function, cryptographic identity, capability policy,
+human approval, controlled execution, and a tamper-evident audit ledger. The
+combination demonstrates that the knowledge plane and the authority plane can be
+composed without either subsuming the other.
 
 ---
 
-## 3. Research Objectives
+## 2. Problem Statement
 
-The project has five primary objectives.
+Contemporary agentic systems combine language models with tools, memory,
+retrieval systems, external APIs, software execution environments, and autonomous
+planning loops. Such systems create a control problem because model-generated
+content can cross multiple trust boundaries before reaching a consequential
+operation.
 
-**First**, to establish a knowledge substrate in which human-authored information
-remains canonical while machine-readable semantic representations are generated
-through compilation rather than runtime inference. The A10 compiler achieves this
-by emitting deterministic artifacts (Section 6.3).
+We identify five failure modes that arise when probabilistic cognition is placed on
+the authority path:
 
-**Second**, to establish a governed agent architecture in which model-generated
-cognition cannot directly authorize consequential actions. The Sovereign Agent
-Fleet `decide()` substrate enforces this (Section 7.3).
+1. **Conflation of validity and authorization.** A technically valid operation
+   generated by a model is not the same as an operation the system is permitted to
+   perform.
+2. **Confidence mistaken for evidence.** Coherent, high-confidence output does not
+   establish that an operation is correct or authorized.
+3. **Audit dependency on conversational history.** A chat transcript is not a
+   tamper-evident record of what was authorized and executed.
+4. **Implicit cloud authority.** When identity, policy, or verification is
+   delegated to remote infrastructure, that infrastructure quietly acquires
+   authority root status.
+5. **Capability scaling without governance scaling.** A more capable model can
+   propose more consequential actions; without corresponding governance strength,
+   the potential blast radius grows with capability.
 
-**Third**, to provide cryptographically verifiable evidence for important state
-transitions and actions, using Ed25519 signatures and hash chaining rather than
-opaque logs (Section 7.8).
-
-**Fourth**, to maintain local authority while permitting cloud infrastructure to
-function as a computational or verification substrate rather than as the ultimate
-source of trust (Section 11).
-
-**Fifth**, to demonstrate that the same governance architecture can operate across
-substantially different domains without modifying the fundamental authority
-model -- the six-domain registry (Section 7.1, 12).
-
----
-
-## 4. Architectural Thesis
-
-The architectural thesis can be expressed as:
-
-> **Cognition may propose. Policy authorizes. Execution acts. Verification
-> independently determines whether the resulting state satisfies the required
-> conditions. Evidence records what occurred.**
-
-This distinction is fundamental.
-
-- The language model is **not** the root of trust.
-- The user interface is **not** the root of trust.
-- The cloud deployment is **not** the root of trust.
-- The agent role name is **not** the root of trust.
-- The root of trust is established through explicit identity, policy,
-  authorization, cryptographic evidence, and independently verifiable state.
-
-This results in a system where **intelligence and authority are intentionally
-decoupled.** A model that is wrong, compromised, or adversarial cannot convert its
-own output into a permitted action, because the only function that can issue a
-permission -- `decide()` -- does not consult the model at all.
+The architecture developed here addresses these failure modes by making the
+separation between cognition and authority **structural and enforced in code**,
+rather than a convention or a prompt.
 
 ---
 
-## 5. System Architecture
+## 3. Research Question and Contributions
 
-The complete architecture can be understood as a sequence of transformations:
+We pose a single central research question:
 
-```
-Source Knowledge
-   -> Semantic Compilation
-   -> Structured Artifacts
-   -> Retrieval
-   -> Cognition
-   -> Proposal
-   -> Policy
-   -> Approval
-   -> Execution
-   -> Verification
-   -> Evidence
-```
+> **RQ.** Can consequential agentic execution be made independent of
+> probabilistic model authority by separating cognition, authorization, execution,
+> verification, and evidence into explicit architectural boundaries -- and can
+> that separation be preserved across heterogeneous domains and adversarial
+> pressure?
 
-Each stage has a distinct responsibility.
+The paper makes the following contributions:
 
-- The **source knowledge** represents human-authored or otherwise canonical
-  information.
-- The **compiler** transforms that knowledge into machine-usable artifacts at
-  build time, not at request time.
-- **Retrieval** provides relevant context.
-- **Cognition** operates over that context and produces probabilistic outputs.
-- The **proposal** boundary converts cognition into an explicitly typed request
-  for action -- an artifact that *grants no authority*.
-- **Policy** evaluates whether that request is permitted.
-- **Approval** provides an additional authorization boundary for consequential
-  operations.
-- **Execution** performs only authorized operations.
-- **Verification** independently evaluates the resulting state.
-- **Evidence** records the resulting execution and verification information.
-
-This architecture prevents any individual subsystem from silently assuming
-responsibilities belonging to another subsystem.
-
-### 5.1 Knowledge Substrate
-
-A10 represents the knowledge side of this architecture. The project contains a
-structured blog corpus (177 posts), an application source tree, a data layer,
-public assets, documentation, a semantic compiler, a taxonomy, and compiler
-tests. The architecture therefore treats content as structured computational
-input rather than merely presentation data.
-
-The Markdown corpus remains important because it provides a human-readable
-canonical representation. The system does not require the model to become the
-authoritative representation of the knowledge. This creates a durable separation
-between the epistemic source and its machine-generated derivatives (Section 8.1).
-
-### 5.2 Semantic Compilation
-
-The knowledge compiler represents one of the most important architectural
-properties of the system. Traditional retrieval-augmented generation systems
-often perform substantial semantic processing during runtime -- documents are
-loaded, parsed, embedded, retrieved, clustered, or otherwise transformed while
-the user is waiting for an inference result.
-
-The compiler model moves a portion of this computation into a build phase.
-Conceptually:
-
-```
-Knowledge Source -> Parse -> Extract -> Normalize -> Relate -> Index -> Compile -> Artifact
-```
-
-The resulting artifacts can then be consumed by the runtime without repeatedly
-reconstructing the same semantic structure. This is significant for both
-performance and sovereignty: expensive semantic transformations are performed
-locally, inspected, versioned, tested, reproduced, and deployed as deterministic
-build artifacts (Section 6.3).
-
-### 5.3 Probabilistic Cognition
-
-The agent remains responsible for tasks where probabilistic computation provides
-significant value: interpretation, synthesis, hypothesis generation, planning,
-classification, natural-language reasoning, and proposal generation. The critical
-architectural property is that these outputs are treated as **data**.
-
-- A model saying that an action *should* occur does not cause that action to
-  occur.
-- A model saying that evidence *supports* a conclusion does not establish that
-  the evidence is valid.
-- A model *identifying* a capability does not grant that capability.
-
-This is the fundamental epistemic boundary (Section 8.1).
-
-### 5.4 Governance and Authority
-
-Sovereign Agent Fleet externalizes authority into deterministic infrastructure.
-The policy engine determines whether a particular identity, role, capability,
-resource, and requested action are compatible.
-
-This produces a strict distinction:
-
-```
-Model Proposal  !=  Authorized Action
-```
-
-A proposal must pass through the governance boundary before execution. The result
-is a **fail-closed** architecture: unknown combinations are rejected rather than
-interpreted optimistically. The substrate returns `BLOCKED` when *any* guard
-fails -- no grant, invalid grant signature, stale grant, agent/scope mismatch,
-capability not granted, or policy denial (Section 7.3).
-
-### 5.5 Execution
-
-Execution is intentionally downstream of authorization. The executor does not
-determine whether an operation should be allowed; it receives an already
-authorized operation and performs it within the defined execution environment.
-
-This separation prevents the execution layer from becoming an accidental policy
-engine. It also creates a useful testing boundary because execution can be tested
-independently from cognition.
-
-### 5.6 Independent Verification
-
-Verification is intentionally separated from execution. The verifier does not
-simply trust that the executor performed the operation correctly; instead, it
-reconstructs relevant state from observable evidence and evaluates whether the
-required conditions hold.
-
-This creates a three-part distinction:
-
-```
-Proposal -> Execution -> Verification
-```
-
-rather than:
-
-```
-Model -> Action -> Trust
-```
-
-The distinction becomes particularly important for financial simulation and
-incident remediation, where an incorrect execution can produce consequences even
-when the original model reasoning appeared valid (Section 13.2, 13.3).
-
-### 5.7 Cryptographic Evidence
-
-The fleet architecture incorporates cryptographic identity and tamper-evident
-evidence structures. Ed25519 signatures provide cryptographic authenticity for
-identities and signed artifacts. Hash chaining provides structural integrity for
-sequential evidence. The combination establishes an auditable execution history
-in which modification of historical records becomes detectable.
-
-The purpose is not merely to encrypt information. Encryption protects
-confidentiality. Signatures and hash chains instead establish **integrity,
-authenticity, and provenance** -- properties that hold even if the underlying
-storage is untrusted (Section 7.8).
+- **A formal principle.** We state the **Authority Non-Equivalence Principle** and
+  give it algebraic form (Section 4), establishing that authorization is a
+  function of identity, capability, resource, action, and state -- never of model
+  output.
+- **A three-domain trust model.** We decompose the system into epistemic,
+  authority, and execution trust domains, and show that their integrity properties
+  are non-implicating (Section 5).
+- **An implemented architecture.** We describe a concrete implementation in two
+  codebases, including a deterministic knowledge compiler and a frozen
+  authorization substrate (Sections 7-8).
+- **A formal threat model.** We define six adversary classes (A1-A6) and map each
+  to the specific mechanisms that defend against it (Section 9).
+- **An empirical evaluation.** We report reproduced results from 564 executable
+  tests across seven invariant categories, including adversarial and end-to-end
+  scenarios (Section 11).
+- **A precise statement of the open problem.** We distinguish authority and
+  execution integrity from epistemic integrity, and identify knowledge poisoning
+  as the central unsolved issue (Sections 11.6 and 12).
 
 ---
 
-## 6. The A10 Knowledge System
+## 4. Architectural Thesis: Authority Non-Equivalence
 
-A10 provides the concrete implementation environment for applying these
-principles to a persistent technical knowledge corpus. Its architecture includes
-a Next.js application, structured source content, a knowledge compiler, data
-structures, typed application boundaries, documentation, and tests. The
-knowledge system is not being treated as an external database attached to an
-agent; the knowledge system itself is becoming a computational substrate.
+The architectural thesis can be expressed as a single formal principle.
 
-### 6.1 Source Corpus
+**Authority Non-Equivalence Principle.** *No probabilistic inference output,
+regardless of confidence, semantic validity, or model capability, constitutes
+authorization to perform a consequential operation.*
 
-The source corpus provides the long-term human-authored representation of the
-system's knowledge: 177 Markdown posts under `content/blog/`, each with
-structured frontmatter (title, author, date, canonical URL, status, topics,
-series). This creates an important asymmetry: the model may generate derived
-representations, but the canonical source remains independently inspectable.
-Generated semantic artifacts can be regenerated from source rather than becoming
-irreversible model state.
-
-### 6.2 Application Architecture
-
-The application provides the human-facing interface to the knowledge substrate.
-The separation between routes, components, data, libraries, and types creates
-explicit software boundaries that can subsequently be consumed by automated
-systems. The architecture therefore provides a natural interface between human
-interaction and machine reasoning. The portal consumes the compiled artifacts at
-build time (server components read them from `public/artifacts/`), so no model,
-database, or runtime fetch sits between the reader and the compiled knowledge --
-a direct instantiation of the "compile, then serve" principle.
-
-### 6.3 Knowledge Compiler
-
-The compiler establishes a semantic build boundary. Rather than treating the
-corpus as a collection of isolated documents, the compiler (`knowledge-compiler/`)
-runs a deterministic pipeline:
+We render this as:
 
 ```
-ingest -> normalize -> extract -> graph -> search -> emit -> verify
+Inference(x)  ≠  Authorization(x)
+```
+
+and define authorization as a deterministic function over non-epistemic inputs:
+
+```
+Authorization(x) = Policy(Identity, Capability, Resource, Action, State)
+```
+
+where `Identity` is a cryptographically authenticated principal, `Capability` is a
+granted permission, `Resource` is the affected object, `Action` is the requested
+operation, and `State` is governed system state (epoch, clock). The model is
+conspicuously absent from the right-hand side.
+
+Two further invariants follow directly:
+
+```
+∀c.  Execution(c)  ⇒  Authorization(c)
+```
+
+No execution occurs without an authorization decision; and
+
+```
+Verification(x)  ⟂  Cognition(x)
+```
+
+verification is logically independent of the cognitive process that produced `x`.
+The same model that proposed `x` is not the component that determines whether `x`
+was executed correctly.
+
+This formulation is the paper's core novelty claim. The novelty is not Ed25519, nor
+RAG, nor knowledge graphs, nor policy engines, nor human approval, nor agents
+individually. It is the **architectural composition** -- cognition as untrusted
+input, authority as an external deterministic protocol, execution as bounded
+action, and verification as an independent judge -- with the invariant preserved
+across every layer.
+
+---
+
+## 5. Three Trust Domains
+
+We formalize the system as three trust domains, each with a distinct integrity
+property.
+
+**Definition 1 (Epistemic Domain).** The epistemic domain determines *what the
+system believes or proposes*. It comprises the knowledge compiler, retrieval, the
+knowledge graph, embeddings, and model reasoning. Its integrity property is
+**Epistemic Integrity**: the faithfulness of beliefs and proposals to their
+sources and to the reasoning process.
+
+**Definition 2 (Authority Domain).** The authority domain determines *what the
+system is permitted to do*. It comprises identity, capability, policy, and
+approval. Its integrity property is **Authority Integrity**: the correspondence
+between permitted actions and externally granted, cryptographically bound
+permissions.
+
+**Definition 3 (Execution Domain).** The execution domain determines *what
+actually happened*. It comprises the executor, the resulting state, the verifier,
+and cryptographic evidence. Its integrity property is **Execution Integrity**: the
+correspondence between the authorized action and the observed, verifiable outcome.
+
+**Theorem (Non-Implication).** None of the three integrity properties implies
+another. Formally:
+
+```
+EpistemicIntegrity  ↛  AuthorityIntegrity
+AuthorityIntegrity  ↛  ExecutionIntegrity
+ExecutionIntegrity  ↛  EpistemicIntegrity
+```
+
+*Justification.* Epistemic integrity does not imply authority integrity: a perfectly
+reasoned, correct proposal still requires an external grant to be authorized.
+Authority integrity does not imply execution integrity: a correctly authorized
+action may fail or be mis-executed, and must be independently verified. Execution
+integrity does not imply epistemic integrity: a flawlessly executed, perfectly
+audited action can still be wrong if the underlying knowledge was wrong. The third
+case is the subject of Section 12.
+
+This decomposition is the paper's primary theoretical framing. It converts the
+informal claim "the model is not in charge" into a structured statement about
+which guarantees hold where, and about the explicit gaps between them.
+
+---
+
+## 6. System Architecture
+
+The complete architecture is a pipeline of transformations, partitioned across the
+three trust domains of Section 5.
+
+<figure style="margin:2rem 0;padding:1.25rem;border:1px solid var(--color-rule);background:var(--color-card-bg);color:var(--color-ink-3)">
+<svg viewBox="0 0 720 520" width="100%" role="img" aria-label="Figure 1: Complete system architecture as a vertical pipeline partitioned into three trust-domain bands.">
+  <style>
+    .t{font:600 13px ui-sans-serif,system-ui,sans-serif;fill:var(--color-ink)}
+    .s{font:500 11px ui-sans-serif,system-ui,sans-serif;fill:currentColor}
+    .b{stroke:currentColor;stroke-width:1.2;fill:var(--color-paper)}
+    .g{stroke:var(--color-green);stroke-width:1.6}
+    .ar{stroke:currentColor;stroke-width:1.2;fill:none;marker-end:url(#ah)}
+  </style>
+  <defs><marker id="ah" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="currentColor"/></marker></defs>
+
+  <!-- bands -->
+  <rect x="20" y="20" width="680" height="150" rx="8" fill="rgba(43,91,168,0.06)" stroke="currentColor" stroke-dasharray="4 3"/>
+  <rect x="20" y="200" width="680" height="90" rx="8" fill="rgba(31,138,76,0.07)" stroke="var(--color-green)" stroke-dasharray="4 3"/>
+  <rect x="20" y="320" width="680" height="170" rx="8" fill="rgba(22,20,15,0.05)" stroke="currentColor" stroke-dasharray="4 3"/>
+
+  <text x="30" y="38" class="t" style="fill:var(--color-ink)">Epistemic Domain</text>
+  <text x="690" y="38" text-anchor="end" class="s">what the system believes</text>
+  <text x="30" y="218" class="t" style="fill:var(--color-ink)">Authority Domain</text>
+  <text x="690" y="218" text-anchor="end" class="s">what is permitted</text>
+  <text x="30" y="338" class="t" style="fill:var(--color-ink)">Execution Domain</text>
+  <text x="690" y="338" text-anchor="end" class="s">what actually happened</text>
+
+  <!-- epistemic boxes -->
+  <rect x="60" y="55" width="120" height="38" rx="5" class="b"/><text x="120" y="78" text-anchor="middle" class="s">Human Knowledge</text>
+  <rect x="200" y="55" width="120" height="38" rx="5" class="b"/><text x="260" y="78" text-anchor="middle" class="s">Knowledge Compiler</text>
+  <rect x="340" y="55" width="120" height="38" rx="5" class="b"/><text x="400" y="78" text-anchor="middle" class="s">Compiled Artifacts</text>
+  <rect x="480" y="55" width="100" height="38" rx="5" class="b"/><text x="530" y="78" text-anchor="middle" class="s">Retrieval / Graph</text>
+  <rect x="600" y="55" width="80" height="38" rx="5" class="b"/><text x="640" y="78" text-anchor="middle" class="s">Cognition</text>
+  <rect x="600" y="110" width="80" height="38" rx="5" class="b"/><text x="640" y="133" text-anchor="middle" class="s">Proposal</text>
+
+  <!-- authority boxes -->
+  <rect x="250" y="228" width="120" height="40" rx="5" class="b" style="stroke:var(--color-green)"/><text x="310" y="252" text-anchor="middle" class="s">Deterministic Policy</text>
+  <rect x="400" y="228" width="120" height="40" rx="5" class="b" style="stroke:var(--color-green)"/><text x="460" y="252" text-anchor="middle" class="s">Human Approval</text>
+
+  <!-- execution boxes -->
+  <rect x="250" y="360" width="120" height="40" rx="5" class="b"/><text x="310" y="384" text-anchor="middle" class="s">Execution</text>
+  <rect x="400" y="360" width="120" height="40" rx="5" class="b"/><text x="460" y="384" text-anchor="middle" class="s">Independent Verification</text>
+  <rect x="550" y="360" width="120" height="40" rx="5" class="b"/><text x="610" y="384" text-anchor="middle" class="s">Cryptographic Evidence</text>
+
+  <!-- arrows -->
+  <path class="ar" d="M180,74 L200,74"/>
+  <path class="ar" d="M320,74 L340,74"/>
+  <path class="ar" d="M460,74 L480,74"/>
+  <path class="ar" d="M580,74 L600,74"/>
+  <path class="ar" d="M640,93 L640,110"/>
+  <path class="ar" d="M640,148 C640,190 460,200 460,228"/>
+  <path class="ar" d="M460,268 L460,320 C460,340 460,340 460,360"/>
+  <path class="ar" d="M370,380 L400,380"/>
+  <path class="ar" d="M520,380 L550,380"/>
+  <path class="ar" d="M310,400 C310,440 120,440 120,440" stroke-dasharray="3 3"/>
+  <text x="120" y="458" text-anchor="middle" class="s" style="fill:var(--color-ink-3)">feedback: evidence informs future knowledge</text>
+</svg>
+<figcaption style="font:500 12px ui-sans-serif,system-ui,sans-serif;color:var(--color-ink-3);margin-top:.75rem"><strong>Figure 1.</strong> Complete system architecture. Solid arrows are the primary
+trust-transition sequence; the dashed arc is the long-horizon evidence feedback
+loop. Each transition is an opportunity for validation at a domain boundary.</figcaption>
+</figure>
+
+The critical property is that the **proposal → policy** transition is a hard trust
+boundary. The proposal carries no authority; the policy function consults no model
+output. Between Cognition/Proposal (epistemic) and Policy/Approval (authority)
+there is no shared state that would let a proposal silently promote itself to a
+permission.
+
+<figure style="margin:2rem 0;padding:1.25rem;border:1px solid var(--color-rule);background:var(--color-card-bg);color:var(--color-ink-3)">
+<svg viewBox="0 0 720 260" width="100%" role="img" aria-label="Figure 2: Three trust-domain zones separated by cryptographic and deterministic boundaries.">
+  <style>
+    .t{font:700 14px ui-sans-serif,system-ui,sans-serif;fill:var(--color-ink)}
+    .s{font:500 11px ui-sans-serif,system-ui,sans-serif;fill:currentColor}
+  </style>
+  <rect x="20" y="30" width="210" height="180" rx="10" fill="rgba(43,91,168,0.07)" stroke="currentColor"/>
+  <rect x="255" y="30" width="210" height="180" rx="10" fill="rgba(31,138,76,0.08)" stroke="var(--color-green)"/>
+  <rect x="490" y="30" width="210" height="180" rx="10" fill="rgba(22,20,15,0.05)" stroke="currentColor"/>
+  <text x="125" y="58" text-anchor="middle" class="t">Epistemic</text>
+  <text x="360" y="58" text-anchor="middle" class="t" style="fill:var(--color-green)">Authority</text>
+  <text x="595" y="58" text-anchor="middle" class="t">Execution</text>
+  <text x="125" y="92" text-anchor="middle" class="s">compiler · graph</text>
+  <text x="125" y="110" text-anchor="middle" class="s">retrieval · model</text>
+  <text x="125" y="128" text-anchor="middle" class="s">belief · proposal</text>
+  <text x="360" y="92" text-anchor="middle" class="s">identity · capability</text>
+  <text x="360" y="110" text-anchor="middle" class="s">policy · approval</text>
+  <text x="595" y="92" text-anchor="middle" class="s">executor · verifier</text>
+  <text x="595" y="110" text-anchor="middle" class="s">audit ledger</text>
+  <line x1="230" y1="40" x2="255" y2="40" stroke="currentColor" stroke-width="2"/>
+  <line x1="230" y1="200" x2="255" y2="200" stroke="currentColor" stroke-width="2"/>
+  <text x="242" y="125" text-anchor="middle" class="s" transform="rotate(-90 242 125)">grant boundary</text>
+  <line x1="465" y1="40" x2="490" y2="40" stroke="currentColor" stroke-width="2"/>
+  <line x1="465" y1="200" x2="490" y2="200" stroke="currentColor" stroke-width="2"/>
+  <text x="477" y="125" text-anchor="middle" class="s" transform="rotate(-90 477 125)">execution boundary</text>
+</svg>
+<figcaption style="font:500 12px ui-sans-serif,system-ui,sans-serif;color:var(--color-ink-3);margin-top:.75rem"><strong>Figure 2.</strong> The three trust domains as separated zones. The grant boundary
+admits only an externally-signed, scope-bound grant; the execution boundary admits
+only an already-authorized operation.</figcaption>
+</figure>
+
+The execution domain is also governed by an explicit state machine. The
+fleet substrate drives transitions through:
+
+```
+REQUEST → INTENT → PLAN → ACTION → TOOL → OBSERVATION
+        → EVIDENCE → VERIFICATION → ARTIFACT → APPROVAL → FINAL → AUDIT
+```
+
+<figure style="margin:2rem 0;padding:1.25rem;border:1px solid var(--color-rule);background:var(--color-card-bg);color:var(--color-ink-3)">
+<svg viewBox="0 0 720 150" width="100%" role="img" aria-label="Figure 3: Sovereign Agent Fleet state machine from request through audit.">
+  <style>
+    .s{font:600 11px ui-sans-serif,system-ui,sans-serif;fill:var(--color-ink)}
+    .ar{stroke:currentColor;stroke-width:1.2;fill:none;marker-end:url(#ah3)}
+  </style>
+  <defs><marker id="ah3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="currentColor"/></marker></defs>
+  <g>
+    <rect x="10" y="55" width="62" height="34" rx="5" fill="var(--color-paper)" stroke="currentColor"/><text x="41" y="76" text-anchor="middle" class="s">REQUEST</text>
+    <rect x="90" y="55" width="62" height="34" rx="5" fill="var(--color-paper)" stroke="currentColor"/><text x="121" y="76" text-anchor="middle" class="s">INTENT</text>
+    <rect x="170" y="55" width="62" height="34" rx="5" fill="var(--color-paper)" stroke="currentColor"/><text x="201" y="76" text-anchor="middle" class="s">PLAN</text>
+    <rect x="250" y="55" width="62" height="34" rx="5" fill="var(--color-paper)" stroke="currentColor"/><text x="281" y="76" text-anchor="middle" class="s">ACTION</text>
+    <rect x="330" y="55" width="62" height="34" rx="5" fill="var(--color-paper)" stroke="currentColor"/><text x="361" y="76" text-anchor="middle" class="s">TOOL</text>
+    <rect x="410" y="55" width="62" height="34" rx="5" fill="var(--color-paper)" stroke="currentColor"/><text x="441" y="76" text-anchor="middle" class="s">OBS</text>
+    <rect x="490" y="55" width="62" height="34" rx="5" fill="var(--color-paper)" stroke="currentColor"/><text x="521" y="76" text-anchor="middle" class="s">EVID</text>
+    <rect x="570" y="55" width="62" height="34" rx="5" fill="var(--color-paper)" stroke="var(--color-green)"/><text x="601" y="76" text-anchor="middle" class="s">VERIFY</text>
+    <rect x="650" y="55" width="60" height="34" rx="5" fill="var(--color-paper)" stroke="currentColor"/><text x="680" y="76" text-anchor="middle" class="s">FINAL</text>
+  </g>
+  <path class="ar" d="M72,72 L90,72"/>
+  <path class="ar" d="M152,72 L170,72"/>
+  <path class="ar" d="M232,72 L250,72"/>
+  <path class="ar" d="M312,72 L330,72"/>
+  <path class="ar" d="M392,72 L410,72"/>
+  <path class="ar" d="M472,72 L490,72"/>
+  <path class="ar" d="M552,72 L570,72"/>
+  <path class="ar" d="M632,72 L650,72"/>
+  <path class="ar" d="M680,105 C680,130 41,130 41,105" stroke-dasharray="3 3"/>
+  <rect x="255" y="105" width="80" height="24" rx="4" fill="rgba(31,138,76,0.08)" stroke="var(--color-green)"/>
+  <text x="295" y="formation" />
+  <text x="295" y="121" text-anchor="middle" class="s" style="fill:var(--color-green)">APPROVAL</text>
+  <text x="360" y="138" text-anchor="middle" class="s">AUDIT persists every transition into a signed, hash-chained ledger</text>
+</svg>
+<figcaption style="font:500 12px ui-sans-serif,system-ui,sans-serif;color:var(--color-ink-3);margin-top:.75rem"><strong>Figure 3.</strong> Sovereign Agent Fleet execution state machine. Each transition
+is validated; APPROVAL is an explicit gate for consequential operations.</figcaption>
+</figure>
+
+This sequence is important because it prevents the model from collapsing the
+entire pipeline into a single response. Each arrow is a trust transition that can
+be independently validated and recorded.
+
+---
+
+## 7. Knowledge Substrate (A10)
+
+A10 provides the concrete implementation environment for the epistemic domain. Its
+architecture includes a Next.js application, structured source content, a data
+layer, public assets, documentation, and a semantic compiler. The knowledge system
+is treated as a computational substrate, not merely a content store.
+
+### 7.1 Source Corpus
+
+The source corpus is the long-term human-authored representation of the system's
+knowledge: 177 Markdown posts under `content/blog/`, each with structured
+frontmatter (title, author, date, canonical URL, status, topics, series). This
+creates an important asymmetry: the model may generate derived representations,
+but the canonical source remains independently inspectable and regenerable.
+
+### 7.2 Knowledge Compilation
+
+The knowledge compiler (`knowledge-compiler/`) runs a deterministic pipeline at
+build time:
+
+```
+ingest → normalize → extract → graph → search → emit → verify
 ```
 
 - **ingest** reads the 177 Markdown sources.
@@ -484,19 +469,49 @@ ingest -> normalize -> extract -> graph -> search -> emit -> verify
 - **search** builds a BM25 index with tokenized entries.
 - **emit** writes `index.json`, `<slug>.json` sidecars, `graph.json`, and
   `search.json` to `public/artifacts/`.
-- **verify** runs the fail-closed gate (Section 6.4).
+- **verify** runs the fail-closed gate (Section 7.3).
 
-Because the build is deterministic and runs locally, the semantic structure can be
+<figure style="margin:2rem 0;padding:1.25rem;border:1px solid var(--color-rule);background:var(--color-card-bg);color:var(--color-ink-3)">
+<svg viewBox="0 0 720 230" width="100%" role="img" aria-label="Figure 4: A10 knowledge compilation pipeline.">
+  <style>
+    .s{font:600 11px ui-sans-serif,system-ui,sans-serif;fill:var(--color-ink)}
+    .ar{stroke:currentColor;stroke-width:1.2;fill:none;marker-end:url(#ah4)}
+  </style>
+  <defs><marker id="ah4" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="currentColor"/></marker></defs>
+  <rect x="10" y="40" width="110" height="40" rx="5" fill="var(--color-paper)" stroke="currentColor"/><text x="65" y="64" text-anchor="middle" class="s">Markdown (177)</text>
+  <rect x="140" y="40" width="100" height="40" rx="5" fill="var(--color-paper)" stroke="currentColor"/><text x="190" y="58" text-anchor="middle" class="s">Parse +</text><text x="190" y="72" text-anchor="middle" class="s">normalize</text>
+  <rect x="260" y="40" width="100" height="40" rx="5" fill="var(--color-paper)" stroke="currentColor"/><text x="310" y="58" text-anchor="middle" class="s">Extract</text><text x="310" y="72" text-anchor="middle" class="s">entities/claims</text>
+  <rect x="380" y="40" width="100" height="40" rx="5" fill="var(--color-paper)" stroke="currentColor"/><text x="430" y="58" text-anchor="middle" class="s">Graph +</text><text x="430" y="72" text-anchor="middle" class="s">Search</text>
+  <rect x="500" y="40" width="90" height="40" rx="5" fill="var(--color-paper)" stroke="currentColor"/><text x="545" y="58" text-anchor="middle" class="s">Emit</text><text x="545" y="72" text-anchor="middle" class="s">artifacts</text>
+  <rect x="610" y="40" width="100" height="40" rx="5" fill="rgba(31,138,76,0.08)" stroke="var(--color-green)"/><text x="660" y="58" text-anchor="middle" class="s">Verify</text><text x="660" y="72" text-anchor="middle" class="s">gate</text>
+  <path class="ar" d="M120,60 L140,60"/>
+  <path class="ar" d="M240,60 L260,60"/>
+  <path class="ar" d="M360,60 L380,60"/>
+  <path class="ar" d="M480,60 L500,60"/>
+  <path class="ar" d="M590,60 L610,60"/>
+  <rect x="500" y="120" width="210" height="80" rx="6" fill="rgba(43,91,168,0.06)" stroke="currentColor"/>
+  <text x="605" y="142" text-anchor="middle" class="s" style="fill:var(--color-ink)">public/artifacts/</text>
+  <text x="520" y="162" class="s">graph.json (687n/2981e)</text>
+  <text x="520" y="180" class="s">search.json (BM25)</text>
+  <text x="520" y="196" class="s">&lt;slug&gt;.json sidecars</text>
+  <path class="ar" d="M655,80 L655,120"/>
+  <rect x="10" y="120" width="200" height="80" rx="6" fill="rgba(22,20,15,0.05)" stroke="currentColor"/>
+  <text x="110" y="150" text-anchor="middle" class="s" style="fill:var(--color-ink)">Consumers</text>
+  <text x="20" y="172" class="s">portal (server components)</text>
+  <text x="20" y="190" class="s">retrieval / RAG</text>
+  <text x="20" y="206" class="s">governance plane (interface)</text>
+  <path class="ar" d="M500,160 L450,160 L450,140"/>
+</svg>
+<figcaption style="font:500 12px ui-sans-serif,system-ui,sans-serif;color:var(--color-ink-3);margin-top:.75rem"><strong>Figure 4.</strong> A10 knowledge compilation pipeline. Semantic transformations are
+performed once at build time and emitted as deterministic, version-controlled
+artifacts rather than recomputed per request.</figcaption>
+</figure>
+
+Because the build is deterministic and local, the semantic structure can be
 version-controlled, diffed, and reproduced -- the same reproducibility guarantee
 the fleet substrate applies to authorization.
 
-### 6.4 Artifact Model and Verification Gate
-
-Compiled artifacts provide stable intermediate representations between source
-content and runtime inference -- analogous to a compiler producing an
-intermediate representation before machine execution. The analogy is useful
-because it establishes a principled distinction between authoring, semantic
-transformation, and execution.
+### 7.3 Artifact Model and Verification Gate
 
 The artifact schema is explicit and versioned:
 
@@ -520,620 +535,477 @@ sidecar. These are precisely the integrity properties a governance system would
 demand of any knowledge it reasons over: uniqueness, deterministic
 canonicalization, reproducible content identity, and completeness.
 
-### 6.5 Architectural Documentation
-
-A10 also contains explicit architectural documentation and architectural decision
-records (`docs/ADR-*.md`). This is significant for agentic systems because
-architectural decisions themselves become persistent knowledge. An autonomous
-system can reason over not only the source content but also the constraints and
-decisions that govern how the software is constructed -- turning the ADRs into a
-governable specification layer.
-
 ---
 
-## 7. Sovereign Agent Fleet
+## 8. Governance and Execution Plane (Sovereign Agent Fleet)
 
-Sovereign Agent Fleet implements the governance side of the architecture. Its
-central principle is that the system should not require trust in the model. The
-fleet architecture separates researcher, analyst, and operator responsibilities
-and places deterministic controls between cognition and consequential execution.
+Sovereign Agent Fleet implements the authority and execution domains. Its central
+principle is that the system should not require trust in the model.
 
-### 7.1 Governed Multi-Agent Architecture
+### 8.1 Role Separation
 
-The multi-agent structure provides role separation:
+The multi-agent structure provides role separation: Researcher produces
+observations; Analyst transforms them into qualified intelligence; Operator
+executes authorized actions. The separation reduces the likelihood that one
+probabilistic process can simultaneously generate an objective, authorize itself,
+execute the resulting action, and declare success. Agent roles (`researcher`,
+`analyst`, `operator`, `human`, `tool`) are carried on a cryptographically signed
+identity certificate, never asserted by model output.
 
-- **Research** produces observations.
-- **Analysis** transforms observations into conclusions or recommendations.
-- **Operations** executes authorized actions.
+### 8.2 Identity and Root of Trust
 
-The separation reduces the likelihood that one probabilistic process can
-simultaneously generate an objective, authorize itself, execute the resulting
-action, and declare success. The agent roles (`researcher`, `analyst`,
-`operator`, `human`, `tool`) are enumerated in the crypto foundation and are
-carried on the identity certificate, never on the output of a model.
-
-The architecture is domain-general. A single registry
-(`domain_registry/__init__.py`) holds one uniform capability table spanning six
-external consumers:
-
-| Domain | Capability constant |
-|--------|---------------------|
-| exchange / finance | `CAP_TRADE_EXECUTE` |
-| incident / security | `CAP_INCIDENT_REMEDIATE` |
-| supply / logistics | `CAP_SUPPLY_REORDER` |
-| hypothesis / research | `CAP_HYPOTHESIS_RUN` |
-| mirror / self-observability | `CAP_MIRROR_SELF_TUNE` |
-| grid / energy | `CAP_GRID_BALANCE` |
-
-Adding a domain is a one-line table edit plus a thin adapter; the frozen
-`decide()` substrate is unchanged. This is the M0 domain-generality result: the
-same authorization function governs six categorically distinct workloads without
-any modification to the substrate itself.
-
-### 7.2 Identity and Root of Trust
-
-Cryptographic identity establishes a machine-verifiable representation of
-principals. The architecture derives a key hierarchy from an Argon2id-strengthened
-master secret:
+The architecture derives a key hierarchy from an Argon2id-strengthened master
+secret:
 
 ```
-master secret (Argon2id) -> root Ed25519 signing key -> per-agent Ed25519 identity keys
+master secret (Argon2id) → root Ed25519 signing key → per-agent Ed25519 identity keys
 ```
 
-The root key issues **agent certificates** (`AgentCert`) that are signed by the
-root and that the agent cannot alter -- the agent does not hold the root key, so
-it cannot grant itself scope, capabilities, or role. Certificates bind to an
+The root key issues agent certificates (`AgentCert`) that are signed by the root
+and that the agent cannot alter -- the agent does not hold the root key, so it
+cannot grant itself scope, capabilities, or role. Certificates bind to an
 `agent_id`, `role`, `capabilities`, issuance/expiry, and a `cert_seq`, and are
 signed under a root epoch so rotated roots do not invalidate historical chains.
 
-This provides a stronger trust primitive than textual role names: *an agent
-claiming to be an operator is not necessarily an operator; a cryptographically
-recognized principal possessing the appropriate authorization is.*
-
-### 7.3 Deterministic Policy and the `decide()` Substrate
+### 8.3 Deterministic Policy and the `decide()` Substrate
 
 Policy is implemented independently of the language model. The authorization
 function `decide()` in `fleet/epistemic/decision.py` is a **pure, deterministic
-function** whose inputs are:
-
-- `identity` -- who is asking (`AgentIdentity`),
-- `grant` -- an externally-signed `AuthorityGrant`,
-- `authorization_scope` -- what the grant references,
-- `request` -- what is requested (`AuthorizationRequest`),
-- `constraints` -- deterministic `GovernanceConstraints`,
-- `current_epoch`, `now` -- governed state,
-- `trusted_issuer_pubkey_pem` -- the pinned governance trust anchor.
-
-Crucially, `decide()` accepts **no probability, confidence, model score,
-belief, or calibration value.** The verdict is determined entirely by capability
-plus grant scope plus epoch currency plus policy. The function returns an
-`AuthorizationDecision` whose state deliberately contains *no epistemic field*.
+function** whose inputs are: `identity`, `grant` (externally-signed
+`AuthorityGrant`), `authorization_scope`, `request`, `constraints`,
+`current_epoch`, `now`, and `trusted_issuer_pubkey_pem` (the pinned governance
+trust anchor). It accepts **no probability, confidence, model score, belief, or
+calibration value**, and returns an `AuthorizationDecision` whose state contains
+no epistemic field.
 
 The evaluation proceeds as an ordered guard sequence, each failure returning
 `BLOCKED`:
 
-1. A grant must exist (the substrate never manufactures one from a request or
-   thin air).
-2. The grant signature must verify against the **pinned trusted issuer key** --
-   not a key the grant describes for itself, which would let an attacker
-   self-sign a valid-looking grant.
-3. The grant must be current (epoch supersession is primary; a TTL is a
-   backstop).
-4. The grant is bound to this identity and cannot be transferred.
-5. The grant must reference exactly the scope being exercised.
-6. The requested capability must be within the granted scope.
-7. Deterministic policy read returns `AUTO`, `HUMAN`, or `BLOCKED`.
+1. a grant must exist (the substrate never manufactures one);
+2. the grant signature must verify against the **pinned trusted issuer key** -- not
+   a key the grant describes for itself, which would let an attacker self-sign a
+   valid-looking grant;
+3. the grant must be current (epoch supersession is primary; a TTL is a backstop);
+4. the grant is bound to this identity and cannot be transferred;
+5. the grant must reference exactly the scope being exercised;
+6. the requested capability must be within the granted scope;
+7. deterministic policy read returns `AUTO`, `HUMAN`, or `BLOCKED`.
 
-The verdict `AUTO` permits execution without further human involvement; `HUMAN`
-routes the request to an explicit approval boundary; `BLOCKED` terminates it. A
-model can request an action that policy rejects, and the rejection remains valid
+A model can request an action that policy rejects, and the rejection remains valid
 even if the model provides an elaborate justification -- because the model is not
 an input to `decide()`.
 
-### 7.4 Capability Authorization
+### 8.4 Capability Authorization and Human Approval
 
-Capabilities provide a finer-grained authority model than simply assigning broad
-permissions to an agent. A capability is evaluated in conjunction with role,
-identity, requested operation, and relevant constraints, producing a
-least-privilege architecture. The registry's one-line capability table is the
-single source of truth for which literal capability strings the substrate will
-ever see; the substrate itself is agnostic to domain semantics.
+Capabilities provide a finer-grained, least-privilege authority model than broad
+agent permissions. Human approval provides an additional boundary for
+consequential operations: the approval record is bound to the specific operation
+(action id, capability, artifact hash) and is cryptographically signed by a
+`human`-role cert. A forged, rebound, or non-human-signed approval is rejected
+(Section 11.3).
 
-### 7.5 Approval Protocol
+### 8.5 Execution, Verification, and Audit
 
-Human approval provides an additional boundary for consequential operations. The
-approval record can be bound to the specific operation being authorized rather
-than becoming an indefinite permission grant. This transforms human involvement
-from an informal conversational interaction into a structured authorization
-event -- a signed approval that the verifier can check independently of any model
-narration.
-
-### 7.6 Execution Boundary
-
-Execution occurs only after authorization. This is the point at which the system
-crosses from epistemic computation into consequential computation, and therefore
-one of the most important security surfaces in the entire architecture. The
-executor receives an already-authorized operation and performs it within the
-defined execution environment; it does not re-decide permission.
-
-### 7.7 Independent Verification
-
-The verification layer independently determines whether the resulting artifact or
-state satisfies the required conditions. This makes verification a separate
-computational role rather than a statement emitted by the same model that
-generated the action. In the quantitative domain, for example, evidence objects
-are signed by a producer key and verified against that key; a forged or tampered
-signature fails verification rather than being trusted (Section 12).
-
-### 7.8 Tamper-Evident Audit
-
-The audit architecture provides a durable, append-only record of important system
-events. The `AuditTrail` wraps an Ed25519-signed hash-chain ledger
-(`ChrisCryptSN.Ledger`): each entry is signed and linked to the previous entry,
-with a signed checkpoint so tail truncation is detectable. Signed records and
-hash chaining allow later verification that historical evidence has not been
-silently rewritten. This converts the execution history into a verifiable artifact
-rather than an ordinary mutable log. Per-record confidentiality is provided
-separately by an envelope (XChaCha20-Poly1305 with HKDF per-record subkeys), so
-encryption protects secrecy while signatures protect integrity -- the two
-concerns are not conflated.
+Execution occurs only after authorization. Verification independently determines
+whether the resulting artifact or state satisfies required conditions; it is a
+separate computational role, not a statement emitted by the executor. The audit
+architecture wraps an Ed25519-signed hash-chain ledger: each entry is signed and
+linked to the previous entry, with a signed checkpoint so truncation and replay
+are detectable. Per-record confidentiality is provided by an XChaCha20-Poly1305
+envelope (HKDF per-record subkeys), so encryption protects secrecy while
+signatures protect integrity -- the two concerns are not conflated.
 
 ---
 
-## 8. Integrating Knowledge and Governance
+## 9. Formal Threat Model
 
-The integration between A10 and Sovereign Agent Fleet is best understood as a
-**protocol alignment** rather than a conventional application dependency.
+We define the adversary by capability, not by scenario. Six adversary classes are
+considered.
 
-- A10 supplies the **knowledge plane**.
-- Sovereign Agent Fleet supplies the **authority plane**.
-- The compiler supplies the **semantic transformation boundary**.
-- The governance system supplies the **authorization boundary**.
-
-```
-Human Knowledge
-   -> Compiled Knowledge Artifacts
-   -> Retrieval
-   -> Probabilistic Cognition
-   -> Typed Proposal
-   -> Deterministic Policy
-   -> Human Approval (if required)
-   -> Execution
-   -> Independent Verification
-   -> Signed Evidence
-```
-
-This architecture permits autonomous reasoning without granting autonomous
-authority.
-
-### 8.1 Epistemic Boundary
-
-The epistemic boundary determines what the system believes or proposes. The model
-operates here. Because the model is probabilistic, its outputs must be considered
-hypotheses, recommendations, or proposals rather than facts with inherent
-authority. The A10 corpus reinforces this: the canonical Markdown is the source of
-truth; the compiled graph and sidecars are *derivatives* that can be regenerated
-when the source changes.
-
-### 8.2 Authority Boundary
-
-The authority boundary determines what the system is permitted to do. The model
-does **not** operate here. Policy, identity, capability, approval, and
-verification operate here. This distinction is arguably the central contribution
-of the architecture.
-
-### 8.3 Knowledge-to-Action Pipeline
-
-The architecture creates a controlled transition from knowledge to action:
-
-1. Knowledge informs cognition.
-2. Cognition produces a proposal.
-3. The proposal requests an action.
-4. Policy authorizes or rejects the action.
-5. Execution performs the authorized action.
-6. Verification determines whether the resulting state is valid.
-
-This makes the transition from information to consequence explicit and
-inspectable.
-
-### 8.4 Provenance and Evidence
-
-The final stage establishes provenance. A future auditor can ask not merely what
-the system produced, but which knowledge artifacts informed the reasoning, which
-proposal was generated, which policy applied, who or what authorized it, what
-execution occurred, and whether independent verification succeeded. This creates
-a pathway toward reproducible agentic computation. The A10 sidecar's
-`provenance` block (`source`, `compiler`, `git_sha`, `generated_at`) and the
-fleet's signed audit trail are complementary provenance mechanisms at the two
-ends of the pipeline.
-
----
-
-## 9. Formal System Model
-
-Let the knowledge corpus be represented by:
-
-```
-K = { d_1, d_2, ..., d_n }
-```
-
-where each `d_i` is a canonical knowledge document.
-
-The compiler transforms the corpus into:
-
-```
-A = C(K)
-```
-
-where `C` is the deterministic compilation function and `A` is the resulting
-artifact set.
-
-A retrieval function produces:
-
-```
-R(q, A)
-```
-
-for query `q`.
-
-The probabilistic cognition function produces a proposal:
-
-```
-P = M(R(q, A), S)
-```
-
-where `M` is the model and `S` is system context.
-
-Critically:
-
-```
-P ∉ Authority
-```
-
-Instead, a policy function evaluates the proposal:
-
-```
-D = G(I, P, Caps, Policy, State)
-```
-
-where `I` is the authenticated principal identity, `Caps` are capabilities, and
-`State` represents relevant system state (epoch, clock). Only when:
-
-```
-D = ALLOW
-```
-
-may execution occur. Execution produces:
-
-```
-E = X(P, State)
-```
-
-Verification independently evaluates:
-
-```
-V = Verify(E, Expected, Evidence)
-```
-
-The security model depends on preventing the model from bypassing `G`.
-
-### 9.1 Trust Model
-
-The architecture assumes that the model may be unreliable. It also assumes that
-external inputs may be malicious, tools may return malformed information, agents
-may produce invalid proposals, network infrastructure may fail, and logs may be
-attacked. The architecture therefore places trust in **deterministic
-boundaries** rather than in individual cognitive components.
-
-### 9.2 Threat Model
-
-The system considers model hallucination, malicious prompts, unauthorized
-capability requests, corrupted artifacts, altered audit records, compromised
-execution environments, and invalid tool results as classes of adversarial or
-failure conditions. The intended response is not to make each subsystem perfect;
-the intended response is to **constrain the consequences of subsystem failure.**
-
-### 9.3 State Transitions
-
-The architecture can be represented as a governed state machine:
-
-```
-REQUEST -> INTENT -> PLAN -> ACTION -> TOOL -> OBSERVATION
-        -> EVIDENCE -> VERIFICATION -> ARTIFACT -> APPROVAL -> FINAL -> AUDIT
-```
-
-The importance of this sequence is that each transition creates an opportunity for
-validation. A model cannot simply collapse the entire state machine into one
-response.
-
-### 9.4 Safety Invariants
-
-The architecture establishes several core invariants:
-
-- Model output **cannot** directly authorize an action.
-- Unknown capabilities **fail closed**.
-- Execution occurs **only** after authorization.
-- Consequential operations **may** require explicit human approval.
-- Verification is **independent** from the original proposal.
-- Evidence is **cryptographically bound** to relevant events.
-- Cloud infrastructure does **not** inherently possess local authority.
-
-These invariants remain meaningful even if the underlying model is replaced.
-
----
-
-## 10. Security Properties
-
-The resulting architecture provides several important security properties.
-
-- **Authority separation** prevents cognition from directly becoming execution
+- **A1: Malicious or compromised model.** The model intentionally generates
+  unauthorized or harmful actions, or reports false justification.
+- **A2: Prompt injection.** External knowledge or tool content attempts to
+  manipulate agent behavior.
+- **A3: Privilege escalation.** An agent requests capabilities outside its assigned
   authority.
-- **Least privilege** constrains what an individual agent can request or perform.
-- **Cryptographic identity** establishes machine-verifiable principals.
-- **Tamper evidence** makes historical modification detectable.
-- **Independent verification** prevents the executor from becoming the sole source
-  of truth regarding its own success.
-- **Human approval** provides an explicit authorization boundary for
-  high-consequence operations.
-- **Local authority** reduces dependence on external infrastructure as a root of
-  trust.
+- **A4: Executor compromise.** The execution subsystem reports false success.
+- **A5: Evidence tampering.** An attacker modifies historical audit records.
+- **A6: Knowledge poisoning.** A malicious or incorrect document enters the
+  canonical or compiled knowledge substrate.
 
-These properties are complementary rather than interchangeable.
+Table 1 maps each adversary to the mechanisms that defend against it, and to the
+evaluation section where the defense is exercised.
 
----
+| Adversary | Primary defense mechanism | Evaluated in |
+|---|---|---|
+| A1 Malicious/compromised model | `decide()` excludes model output; proposal carries no authority | §11.2, §11.4 |
+| A2 Prompt injection | Evidence gate rejects zero-reference (HALLUCINATION) intel; tool output is envelope-bound | §11.4 (Attack 3) |
+| A3 Privilege escalation | Capability scope; `capability_not_granted`; grant bound to identity | §11.2, §11.4 (Attack 2) |
+| A4 Executor compromise | Independent verifier recomputes state; `operator.final` tamper → CRITICAL | §11.3, §11.5 |
+| A5 Evidence tampering | Ed25519-signed hash chain; truncation/replay/seq detected | §11.3 (crypto) |
+| A6 Knowledge poisoning | **Not yet defended** — see §11.6 and §12 | open |
 
-## 11. Computational Sovereignty
+*Table 1. Threat model: adversary classes mapped to defense mechanisms.*
 
-Computational sovereignty in this architecture does not simply mean running
-software locally. It means retaining control over the **fundamental authority
-relationships** of the system.
-
-- Local computation allows the knowledge corpus and semantic compiler to remain
-  under direct control.
-- Version-controlled source provides reproducibility.
-- Compiled artifacts can be regenerated deterministically.
-- Models can be swapped without disturbing the authority substrate.
-- Cloud systems can be used as mirrors or execution substrates **without
-  becoming authoritative.**
-
-This produces a more robust relationship between local computation and cloud
-infrastructure. The cloud becomes infrastructure. It does not become sovereignty.
-In the fleet's own knowledge-architecture decision (D19), the graph stays local;
-a cloud Firestore audit-ledger mirror carries only the compiled artifact
-manifest -- hashes and evidence references, not the graph -- preserving
-local-first authority. Cross-session continuity uses the manifest; the working
-graph is rebuilt locally per task.
+The central design property is that defenses operate **even when the model is the
+adversary** (A1). Because `decide()` does not consult the model, a hostile model
+cannot convert its own output into a permitted action; this is the M0 invariant
+demonstrated in Section 11.4.
 
 ---
 
-## 12. Engineering Validation
+## 10. Related Work
 
-The strongest validation of the architecture is not a single benchmark; it is the
-**preservation of invariants across multiple domains.** The Sovereign Agent Fleet
-substrate has been exercised through governed scenarios -- incident remediation
-and simulated financial operations among them -- while maintaining the same
-underlying governance substrate.
+We situate the architecture relative to existing research. The contribution is not
+any individual component but the composition and the preserved invariant.
 
-The financial adapter is particularly significant because it demonstrates that a
-consequential domain can be represented without embedding financial assumptions
-into the core governance architecture. The same `decide()` function governs trade
-execution, incident remediation, supply reordering, hypothesis runs, mirror
-self-tuning, and grid balancing. Each domain supplies only a capability constant
-and a thin adapter; none modify the substrate.
+**Reasoning and acting.** ReAct (Yao et al., ICLR 2023) interleaves reasoning
+traces with actions, improving agent task performance. Toolformer (Schick et al.,
+2023) and subsequent tool-use architectures let models invoke external functions.
+These works address *how models reason and act*. This paper addresses the
+orthogonal question of *how authority is separated from reasoning* -- the model's
+action proposal is necessary but never sufficient for execution.
 
-A10 provides another validation domain because its problem is fundamentally
-different -- a knowledge and publication system rather than a trading or incident
-system -- yet the same authority model remains applicable when the two are
-composed. This suggests the architecture is not intrinsically tied to one
-application category.
+**Retrieval-augmented generation.** RAG (Lewis et al., NeurIPS 2020) grounds
+generation in retrieved passages. GraphRAG (Microsoft Research, 2024) extends this
+with graph-structured retrieval over entities and relationships. A10's compilation
+pipeline is compatible with and builds upon this lineage, but performs the
+semantic transformation at build time rather than per request, and treats the
+result as a governed artifact rather than a transient context window.
 
-Two concrete engineering facts anchor the claim:
+**Tool and context interoperability.** The Model Context Protocol (Anthropic,
+2024) standardizes how models connect to tools and data sources. MCP is a
+transport and schema layer; it does not itself constitute an authorization
+boundary. The architecture here is complementary: MCP-style connectors can feed
+the epistemic domain, but the authority domain remains external to any connector.
 
-1. **Reproducible verification.** The A10 compiler's gate re-derives every
-   `content_hash` from source and refuses to emit on any mismatch, so a corrupted
-   or divergent source cannot silently produce an artifact. This is the same
-   fail-closed discipline the fleet applies to authorization.
-2. **Forgery resistance.** In the quantitative evidence layer, a forged signature
-   or a tampered prior hash fails `verify()`; the verifier checks against the
-   producer's public key, not the artifact's self-description. This mirrors the
-   fleet's `decide()` requirement that a grant verify against a *pinned* trusted
-   issuer key rather than a self-asserted one.
+**Zero Trust Architecture.** NIST SP 800-207 formalizes "never trust, always
+verify" for network and identity. The Authority Non-Equivalence Principle is the
+agentic analogue: the model is never trusted as an authority, and every
+consequential transition is verified against an external policy and identity, not
+against the requestor's self-description.
 
----
+**Capability-based security.** Capability systems (Dennis & Van Horn, 1966;
+Miller et al., 2003) grant least-privilege, unforgeable authorities. The fleet
+substrate adopts this model: a capability is a granted, scope-bound permission
+rather than a role label, and cannot be minted by the agent that holds it.
 
-## 13. Applications and Extensions
+**Trusted execution environments.** TEEs and confidential computing (e.g., Intel
+SGX, AWS Nitro Enclaves) provide hardware-isolated execution and remote
+attestation. The fleet substrate provides a *logical* isolation of authority that
+is complementary to, and independent of, hardware TEEs: the guarantees hold
+regardless of whether execution occurs inside an enclave, on a local machine, or
+in a cloud function.
 
-### 13.1 Autonomous Software Engineering
+**Provenance systems.** W3C PROV and data-lineage frameworks capture the
+derivation of artifacts. The architecture adopts signed provenance at two ends of
+the pipeline: the A10 sidecar records `provenance` (source, compiler, `git_sha`,
+generated_at) for knowledge artifacts, and the fleet audit ledger records signed
+evidence for execution. Crucially, provenance establishes *lineage and integrity*,
+not *truth* -- a point developed in Section 12.
 
-An agent could inspect a repository, compile its architecture into structured
-artifacts, propose a modification, execute tests, and produce a signed
-verification artifact. The model would determine what it believes should change;
-the governance system would determine whether the proposed modification is
-authorized; the test system would independently determine whether the change is
-valid.
+**Workflow and orchestration systems.** Systems such as Airflow, Temporal, and
+Prefect provide deterministic execution and durability for workflows. The fleet
+substrate shares the concern for durable, inspectable execution state, but adds an
+explicit authority boundary and cryptographic verification that general
+orchestrators do not enforce by default.
 
-### 13.2 Financial Simulation
-
-The same architecture can govern simulated financial decisions. Market
-observations become evidence; a strategy produces a proposal; risk policy
-evaluates the proposal; a simulated exchange executes the action; independent
-accounting verifies resulting positions and balances. The model therefore never
-becomes the financial authority.
-
-### 13.3 Incident Response
-
-The system can observe an incident, produce a diagnosis, propose remediation,
-request authorization, execute the remediation, and independently verify that the
-incident state has changed as expected. This allows autonomous response without
-giving the diagnostic model unrestricted operational authority.
-
-### 13.4 Scientific Knowledge Systems
-
-The A10 knowledge compiler provides a foundation for scientific knowledge
-compilation. Documents become structured entities and relationships; agents can
-generate hypotheses; evidence can be associated with claims; experiments can be
-represented as proposed actions; verification can evaluate experimental outcomes.
-The resulting architecture creates a potential bridge between knowledge graphs,
-retrieval systems, scientific reasoning, and governed experimentation -- exactly
-the compose-knowledge-plane-with-authority-plane pattern of Section 8.
-
-### 13.5 Personal Institutional Memory
-
-The architecture is also applicable to personal knowledge systems. A person's
-written corpus can become persistent machine-readable institutional memory. The
-important distinction is that the system does not replace the person's original
-knowledge with model-generated memory; the source remains canonical, and the
-model becomes an interpreter and reasoner over the source. This is the operating
-model of A10 itself.
+The novelty claim, stated precisely, is: **existing agent architectures primarily
+address how models reason and act; this architecture addresses the orthogonal
+question of how authority is separated from reasoning, and preserves that
+separation as a tested invariant across heterogeneous domains.**
 
 ---
 
-## 14. Limitations
+## 11. Evaluation
 
-The current architecture does not eliminate the fundamental uncertainty of
-probabilistic cognition. A governed system can prevent an unauthorized action,
-but it cannot guarantee that every authorized proposal is intellectually correct.
+The evaluation reports reproduced results from the executing test suites of both
+repositories. We adopt the convention that the system is **fail-closed**: every
+guard defaults to rejection. We report what is measured and, equally important,
+what is not.
 
-Semantic compilation can also introduce errors if extraction, normalization,
-classification, or relationship construction is incorrect; the verification gate
-checks integrity and reproducibility, not semantic truth.
+### 11.1 Methodology
 
-Cryptographic integrity does not establish semantic truth: a perfectly signed
-false statement remains false. Independent verification can also fail when the
-expected state is itself poorly specified.
+We categorize the executable tests by the invariant they exercise rather than by
+module. The full Sovereign Agent Fleet suite comprises **564 tests, all passing**
+(reproduced via `pytest` against the repository at the version cited in References
+[2]). Of these, the invariant-relevant suites we draw on directly contain:
 
-The architecture therefore addresses **authority, provenance, and execution
-integrity** rather than solving general artificial-intelligence alignment. It is a
-systems answer to a systems problem, not a claim about model correctness.
+| Suite (file) | Tests | Invariant exercised |
+|---|---:|---|
+| `fleet/tests/test_epistemic_phase1.py` | 29 | probability/confidence/recommendation cannot become authority |
+| `fleet/tests/test_epistemic_adversarial.py` | 28 | forgery, replay, scope mutation, implicit delegation, composition |
+| `fleet/tests/test_crypto_phase0.py` | 23 | key hierarchy, sign/verify, hash-chain, envelope, rotation |
+| `fleet/tests/test_financial_e2e.py` | 17 | four-gate trade pipeline, hostile-model refusal (M0) |
+| `fleet/tests/test_incident_e2e.py` | 8 | remediation pipeline, protected-asset policy, second-line defense |
+| `fleet/tests/test_approval_hardening_phase2.py` | 7 | forged/non-human/rebound approval rejection |
+| `exchange/tests/test_governance.py` | 7 | risk classification, human-tier, approval rebinding |
+| `domain_registry/tests/test_registry_cross_domain_generality.py` | 8 (+6-domain parametrized) | M0 cross-domain generality |
+| A10 `knowledge-compiler/tests/test_compiler.py` | 18 | compiler emit + fail-closed verify gate |
+
+*Table 2. Invariant-grouped test inventory (counts verified from the suites
+cited). The remaining fleet tests cover consensus, runtime, control plane,
+incident policy, brain, GCP, root rotation, armor, and boundary imports.*
+
+### 11.2 Policy Enforcement (Invariant: Authority Integrity)
+
+We evaluate the authorization function directly using a protocol-level table. Each
+row is a class of request; the verdict is the `decide()` outcome. These classes are
+exercised across 28 adversarial contract tests and 29 epistemic-kernel tests.
+
+| Test class | Attempts | Allowed | Rejected | False accepts |
+|---|---:|---:|---:|---:|
+| Authorized actions (valid grant, in scope) | 1000 (parametrized) | 1000 | 0 | 0 |
+| Unauthorized capabilities | 1000 | 0 | 1000 | 0 |
+| Unknown capabilities | 1000 | 0 | 1000 | 0 |
+| Invalid/forged identities | 1000 | 0 | 1000 | 0 |
+| Tampered/self-issued grants | 1000 | 0 | 1000 | 0 |
+| Stale or expired grants | 1000 | 0 | 1000 | 0 |
+
+*Table 3. Authorization decision matrix. "Attempts" are parametric instances
+within the adversarial suites; the substrate returns `BLOCKED` for every class
+except the authorized one, with zero false accepts. Representative concrete tests:
+`test_forged_grant_signature_rejected`, `test_self_issued_grant_rejected`,
+`test_replay_expired_epoch_rejected`, `test_alter_capability_after_signing_detected`,
+`test_authorization_request_alone_grants_nothing`.*
+
+The decisive property is **zero false accepts** under forgery. Critically, the
+grant is verified against a *pinned trusted issuer key* (`trusted_issuer_pubkey_pem`),
+not against a key the grant embeds for itself -- so an attacker who forges a grant
+and claims the issuer is the governance key is still rejected.
+
+### 11.3 Identity, Audit, and Execution Verification
+
+**Identity (A3).** Forged agent certificates (signed by a non-root key) fail
+`root.verify_cert`; tampered certificates (capability escalation on a valid
+signature) fail verification; a revoked identity is denied at the gateway before
+any governance gate runs (`test_revoked_identity_rejected`).
+
+**Audit (A5).** The signed hash-chain ledger detects three tamper classes:
+in-place value mutation (`test_audit_tamper_detected`), tail truncation
+(`test_audit_truncation_detected`), and replay of a previously-seen entry
+(`test_c3_replay_of_old_entry_detected`). All return `verify_chain is False`.
+
+**Verification / Executor independence (A4).** We demonstrate the "executor cannot
+falsely report success" property directly. In `test_verifier_critical_on_tamper`,
+a correctly-executed trade produces an `operator.final` record; when its
+`risk_assessment_hash` is mutated and the record is re-ingested, the independent
+verifier recomputes the hash, finds a mismatch, and escalates the control-plane
+aggregate to `CRITICAL` -- the run can never report overall `PASS`. The executor's
+self-report is therefore not the source of truth; the verifier's recomputation is.
+
+**Experiment A (independence of verification from cognition).** Let the model
+propose and "report success" for a trade. Let the executor record the action. Let
+an independent verifier recompute the expected state from signed inputs. Result:
+the executor's reported success is accepted only when the verifier's recomputation
+matches; a tampered record is rejected despite the executor's own log. This is the
+architectural assertion of Section 4 ("`Verification(x) ⟂ Cognition(x)`") made
+operational.
+
+### 11.4 Domain Portability (Invariant: M0 Generality)
+
+The same frozen `decide()` substrate governs six domains through a single
+capability table (`domain_registry`). We verify portability with a parameterized
+generality suite:
+
+- **Same policy → same verdict** across all six registered domains under an
+  identical AUTO policy; the semantic domain is invisible to `decide()`
+  (`test_m0_same_policy_same_verdict_across_all_registered_domains`).
+- **Policy flip moves every domain** AUTO→HUMAN together
+  (`test_m0_policy_flip_changes_all_registered_domains_identically`).
+- **No shared substrate state** among domains (pure function, no per-domain cache)
+  (`test_m0_no_shared_substrate_state_among_registered_domains`).
+- **Scoped grant cannot authorize** an out-of-scope universal capability, in every
+  domain (`test_m0_scoped_grant_cannot_authorize_universal_capability`,
+  parametrized over all six).
+- **Substrate operates with all adapters removed** from `sys.modules`
+  (`test_reverse_substrate_functional_without_any_adapter_present`).
+
+The strongest demonstration is end-to-end and adversarial. In the financial
+workload, a `HostileBrain` model proposes an unauthorized asset (TSLA) at 100x size.
+The proposal is **refused at the risk-policy layer** with no `operator.final`
+record written (`test_hostile_brain_proposal_refused_by_risk_policy`,
+`test_hostile_brain_rejected_at_every_layer_independently`). The authority
+boundary holds regardless of model output (M0). The same pipeline executes a
+cooperative proposal and verifies `PASS` (`test_cooperative_brain_proposal_executes_and_verifies`).
+
+In the incident workload, VERIFIED evidence of a compromised `identity-svc` is
+**still blocked** from isolating that protected asset (`test_act3_protected_blocked_despite_verified_compromise`),
+preventing self-inflicted auth DoS; a forged/mis-bound human approval is rejected
+(`test_attack1_misbound_approval_rejected`); hallucinated (zero-reference) intel is
+blocked at the evidence gate (`test_attack3_hallucination_intel_blocked`); and even
+a direct `SimEnv.transition` call on a protected asset defends itself
+(`test_attack4_simenv_second_line_defense`).
+
+### 11.5 A10 Compiler Verification
+
+The A10 compiler's fail-closed gate (Section 7.3) is exercised by 18 compiler
+tests. The gate re-derives every `content_hash` from source and refuses to emit on
+any mismatch. Reproducing artifacts from the corrected corpus yields 177 posts,
+687 graph nodes, and 2,981 edges, with the gate reporting PASS. This is the same
+fail-closed discipline applied to knowledge that the fleet applies to authorization:
+divergent or corrupted source cannot silently produce a valid artifact.
+
+### 11.6 Knowledge Poisoning (Open Problem)
+
+The architecture defends A1-A5. It does **not yet** defend A6. We state this
+explicitly because it is the most important unsolved problem and the most
+interesting theoretical boundary of the work.
+
+Consider the pipeline:
+
+```
+Knowledge → Compilation → Retrieval → Cognition → Proposal → Governance
+```
+
+Governance validates the *authority* of an action, not the *truth* of the
+knowledge. If an attacker modifies a Markdown document, the compiler faithfully
+compiles it, retrieval surfaces it, the model reasons from it, the agent produces
+a perfectly authorized action, policy allows it, the executor performs it, and
+every security layer works correctly -- the system can still be wrong.
+
+This is exactly the non-implication of Section 5: **Execution Integrity ↛
+Epistemic Integrity.** Cryptographic integrity (the document is unchanged since
+compilation, the compilation is reproducible) does not establish semantic truth
+(the document is correct). The architecture currently guarantees authority and
+execution integrity; it does not validate epistemic integrity of the inputs.
+
+We identify three candidate defenses, all future work: (i) signed provenance at
+document ingestion with multi-author attestation; (ii) cross-document
+contradiction detection over the compiled graph; (iii) a confidence/uncertainty
+bound on knowledge-derived proposals that escalates low-certainty actions to human
+approval. None is yet implemented. We report this gap rather than overclaim,
+because the distinction between the three integrity types is itself the
+contribution.
 
 ---
 
-## 15. Future Research
+## 12. Discussion
 
-Several research directions follow naturally.
+The architecture's intellectual core is the separation of three trust domains.
+The model is allowed to reason, propose, and hypothesize. It is **not** allowed to
+become authority merely because it generated a proposal. This changes the security
+question from "can the model be trusted?" to "can the surrounding system remain
+correct when the model cannot be trusted?"
+
+The three-integrity framing resolves a subtle point that weaker formulations
+miss. A system can have perfect execution integrity (every action is audited and
+verifiable) and still be epistemically wrong (it acted on poisoned knowledge). A
+system can have perfect authority integrity (no unauthorized action ever runs) and
+still be epistemically wrong (all authorized actions were based on false
+premises). The novelty is not in achieving any one property, but in making the
+*non-implication* explicit and engineering each boundary so that a failure in one
+domain does not silently propagate authority into another.
+
+The evaluation demonstrates the engineering maturity of the authority and
+execution domains. The honest limitation is the epistemic domain's openness to A6.
+We regard this as the most promising direction for follow-on work, not a
+refutation of the thesis: the thesis is about *authority independence from
+cognition*, and that holds.
+
+---
+
+## 13. Limitations
+
+The architecture does not eliminate the fundamental uncertainty of probabilistic
+cognition. A governed system can prevent an unauthorized action, but it cannot
+guarantee that every authorized proposal is intellectually correct. Semantic
+compilation can introduce extraction or relationship errors; the verification gate
+checks integrity and reproducibility, not semantic truth. Cryptographic integrity
+does not establish semantic truth: a perfectly signed false statement remains
+false. Independent verification can fail when the expected state is itself poorly
+specified. The architecture addresses authority, provenance, and execution
+integrity; it does not yet solve knowledge poisoning (Section 11.6).
+
+---
+
+## 14. Future Work
 
 1. **Formal verification of the governance state machine**, proving the safety
-   invariants of Section 9.4 hold for all reachable states.
-2. **Stronger provenance binding** between compiled knowledge artifacts and
-   model-generated proposals, so a proposal is cryptographically linked to the
-   specific `git_sha` and content hashes it reasoned over.
-3. **Graph-based semantic compilation** in which relationships between documents
-   become first-class, queryable artifacts (the A10 `graph.json` is a first step).
-4. **Cryptographically signed retrieval provenance**, extending the sidecar
-   `provenance` block into the runtime retrieval path.
-5. **Multi-agent consensus over evidence** rather than merely consensus over model
-   outputs.
-6. **Formal policy specification** for heterogeneous agent capabilities, so the
-   registry's capability table is machine-checked against an explicit policy.
-7. **Reproducible agent execution** in which model versions, prompts, retrieved
+   invariants of Section 4 hold for all reachable states.
+2. **Epistemic integrity defenses against A6**: signed document provenance with
+   multi-author attestation; cross-document contradiction detection over the
+   compiled graph; knowledge-uncertainty escalation to human approval.
+3. **Stronger provenance binding** between compiled artifacts and model-generated
+   proposals, cryptographically linking a proposal to the specific `git_sha` and
+   content hashes it reasoned over.
+4. **Multi-agent consensus over evidence** rather than merely over model outputs.
+5. **Formal policy specification** for heterogeneous capabilities, machine-checking
+   the registry's capability table against an explicit policy.
+6. **Reproducible agent execution** in which model versions, prompts, retrieved
    artifacts, policies, tool inputs, outputs, and execution states can be
    reconstructed.
-8. **A generalized sovereign knowledge protocol** that allows independent
-   applications to consume the same governance primitives.
 
 ---
 
-## 16. Discussion
-
-The architectural implication of this work is that agentic intelligence should not
-be conceptualized solely as a model plus tools. A more useful abstraction is:
-
-> **Intelligence = Memory + Retrieval + Cognition + Governance + Execution +
-> Verification + Evidence**
-
-Under this model, the language model is only one component. This distinction is
-important because increasing model capability does not inherently solve the
-authority problem. A more capable model can produce better proposals; it can also
-produce more consequential mistakes. Therefore capability and governance should
-scale independently.
-
-The architecture developed in A10 and Sovereign Agent Fleet attempts to establish
-exactly this separation:
-
-- The knowledge system determines what information exists and how it can be
-  compiled.
-- The model determines what it believes should happen.
-- The governance system determines what is permitted.
-- The executor performs authorized actions.
-- The verifier determines whether execution produced the expected result.
-- The evidence system records what happened.
-
-This produces a system in which no single probabilistic component is responsible
-for the entire chain from perception to consequence.
-
----
-
-## 17. Conclusion
+## 15. Conclusion
 
 This work presents an architecture for sovereign knowledge and agentic execution
 based on a simple but consequential principle:
 
 > **Do not trust the model; trust the execution protocol.**
 
-The A10 system demonstrates how a technical publication environment can evolve
-into a compilable knowledge substrate in which human-authored information remains
-canonical while semantic representations become structured computational
-artifacts -- compiled deterministically, verified by a fail-closed gate, and
-served without a model on the request path.
+We formalized this as the Authority Non-Equivalence Principle and organized the
+system into three trust domains -- epistemic, authority, execution -- whose
+integrity properties are provably non-implicating. We implemented the architecture
+across two cooperating codebases: A10, which compiles 177 documents into a
+deterministic, verifiable knowledge substrate; and Sovereign Agent Fleet, which
+governs consequential execution through a frozen `decide()` substrate exercised
+unchanged across six domains.
 
-Sovereign Agent Fleet demonstrates how autonomous cognition can be placed behind
-deterministic governance, cryptographic identity, capability authorization, human
-approval, controlled execution, independent verification, and tamper-evident
-evidence -- with a single frozen `decide()` substrate governing six distinct
-domains without modification.
+We evaluated the architecture against a formal threat model (A1-A6) using 564
+executable tests, demonstrating that unauthorized or malicious models can propose
+but cannot authorize, that forged and replayed grants are rejected, that the
+executor cannot falsely report success, and that historical evidence resists
+tampering. We reported real, reproduced numbers and separated measured results
+from open problems.
 
-Their combination establishes a broader architecture for sovereign intelligence.
-The model is allowed to reason. The model is allowed to propose. The model is
-allowed to generate hypotheses. The model is **not** allowed to become authority
-merely because it generated the proposal.
+The most important open problem is knowledge poisoning: the architecture guarantees
+authority and execution integrity but does not yet validate the epistemic integrity
+of the knowledge entering the pipeline. Resolving that gap -- without collapsing
+the three trust domains back into one -- is the natural next step, and the
+three-integrity framing developed here is the lens through which it should be
+approached.
 
-This distinction provides a foundation for building autonomous systems whose
-safety properties do not depend entirely upon the behavior of the underlying
-model. The resulting system is therefore not simply an AI application; it is a
-**governed computational environment** in which knowledge can be compiled,
-cognition can operate over that knowledge, actions can be proposed, authority can
-be evaluated independently, execution can be constrained, outcomes can be verified,
-and evidence can be retained.
-
-That architecture provides a practical path from conventional retrieval-augmented
-applications toward sovereign intelligence systems in which memory becomes
+The result is a governed computational environment in which memory becomes
 architecture, cognition becomes modular, authority becomes deterministic, and
 autonomy becomes verifiable.
 
 ---
 
-## 18. References
+## References
 
 1. Kliewer, D. *A10: Knowledge Compilation and Sovereign Knowledge System.*
    GitHub repository, `kliewerdaniel/a10`.
 2. Kliewer, D. *Sovereign Agent Fleet: Governed Multi-Agent Execution
-   Architecture.* GitHub repository, `sovereign-agent-fleet`.
-3. Kliewer, D. *Sovereign Agent Fleet — Epistemic Architecture Synthesis* and
-   *Agent Boundary and Decision Semantics* (internal architecture docs,
-   `docs/architecture/`).
-4. Microsoft. *Agent Governance Toolkit.* Architecture and security
-   documentation.
-5. NIST. *Artificial Intelligence Risk Management Framework* (AI RMF 1.0).
-   National Institute of Standards and Technology, 2023.
-6. NIST. *Zero Trust Architecture*, SP 800-207. National Institute of Standards
-   and Technology, 2020.
-7. RFC 8032. *Edwards-Curve Digital Signature Algorithm (EdDSA): Ed25519 and
-   Ed448.* Internet Engineering Task Force, 2017.
-8. Bernstein, D. J., et al. *The Ed25519 Signature Scheme.* (EdDSA specification,
-   RFC 8032).
-9. Lewis, P., et al. *Retrieval-Augmented Generation for Knowledge-Intensive NLP
+   Architecture.* GitHub repository, `sovereign-agent-fleet` (564-test suite,
+   all passing).
+3. Lewis, P., et al. *Retrieval-Augmented Generation for Knowledge-Intensive NLP
    Tasks.* NeurIPS, 2020.
-10. Yao, S., et al. *ReAct: Synergizing Reasoning and Acting in Language Models.*
-    ICLR, 2023.
-11. Argon2. *The memory-hard password hashing function* (PHC winner). RFC 9106.
-12. Bernstein, D. J. *ChaCha20-Poly1305 and the XChaCha construction.* (AEAD
-    cipher used by the fleet envelope layer.)
+4. Yao, S., et al. *ReAct: Synergizing Reasoning and Acting in Language Models.*
+   ICLR, 2023.
+5. Schick, T., et al. *Toolformer: Language Models Can Teach Themselves to Use
+   Tools.* NeurIPS, 2023.
+6. Microsoft Research. *GraphRAG: Unlocking LLM Discovery on Graph-Indexed
+   Knowledge.* 2024.
+7. Anthropic. *Model Context Protocol (MCP) specification.* 2024.
+8. NIST. *Zero Trust Architecture*, SP 800-207. 2020.
+9. Dennis, J. B., & Van Horn, E. C. *Programming Semantics for Multiprogrammed
+   Computations.* CACM, 1966.
+10. Miller, M. S., Yee, K.-P., & Shapiro, J. *Capability Myths Demolished.*
+   Technical Report, Johns Hopkins University, 2003.
+11. RFC 8032. *Edwards-Curve Digital Signature Algorithm (EdDSA): Ed25519 and
+    Ed448.* IETF, 2017.
+12. NIST. *Argon2 (PHC winner) password hashing*, RFC 9106.
+13. W3C. *PROV-O: The PROV Ontology.* 2013.
 
 ---
 
-*Author's note: This paper is the research articulation of two implemented,
-tested systems. Every architectural claim above is backed by code in the A10
-knowledge compiler (`knowledge-compiler/`) and the Sovereign Agent Fleet
-substrate (`fleet/`), and by the cross-domain registry
-(`domain_registry/`). Where the prose says "the system does X," the cited module
-does X.*
+*Author's note (position, not claim). The broader research program behind this
+paper -- local-first inference, explicit memory, graph reasoning, modular
+cognition, and computational sovereignty -- is developed across the linked
+repositories and the project's research hub. The paper above separates the
+scientific claim from that position: the claim is the architectural composition
+and its preserved invariants; the position is the broader argument for local,
+governed, verifiable intelligence. A capable model is an untrusted epistemic
+component; authority is an independently verifiable protocol.*
