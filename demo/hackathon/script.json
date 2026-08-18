@@ -1,0 +1,50 @@
+{
+  "title": "Sovereign Agent Fleet — Hackathon Demo",
+  "voice": "John.mp3",
+  "speed": 1.0,
+  "width": 1920,
+  "height": 1080,
+  "paper_base": "http://localhost:8099/paper",
+  "beats": [
+    {
+      "id": "b1",
+      "text": "Here's the problem every agentic system gets wrong: it puts the model's guess on the critical path to action. We treat a confident model output as if it were permission. It isn't. Sovereign Agent Fleet is built on one line: Model Output is not Authorization.",
+      "route": "http://localhost:8099/paper#1-introduction"
+    },
+    {
+      "id": "b2",
+      "text": "The thesis is simple to say and hard to build. Do not trust the model. Trust the execution protocol. Cognition is probabilistic and may be wrong, or compromised, or hostile. Authority is deterministic and lives in a policy function the model never touches.",
+      "route": "http://localhost:8099/paper#2-the-research-object-and-the-central-principle"
+    },
+    {
+      "id": "b3",
+      "text": "We hold the system to five invariants. The core one: no model output, no matter how confident, constitutes authorization. The others bound execution, verification, evidence, and provenance. None of them depend on the model behaving well.",
+      "route": "http://localhost:8099/paper#3-architectural-invariants"
+    },
+    {
+      "id": "b4",
+      "text": "The architecture is three trust domains stacked behind hard boundaries. The epistemic domain decides what we believe. The authority domain decides what we're permitted to do. The execution domain decides what actually happened. A wrong belief can pass every governance check and still produce a bad outcome. That's not a bug. That's the point.",
+      "route": "http://localhost:8099/paper#4-three-trust-domains-and-three-types-of-correctness"
+    },
+    {
+      "id": "b5",
+      "text": "Now the live system. The authorization decision is a pure deterministic function called decide. No randomness, no model input, no network. It only sees identity, capability scope, a signed grant, and policy. Watch the test suite it's defended by: 567 tests, all passing.",
+      "route": "live:pytest"
+    },
+    {
+      "id": "b6",
+      "text": "Against it we run a genuinely blind adversary: five thousand randomized attack vectors, fuzzed with no knowledge of our threat model. Forged grants, mismatched identities, corrupted signatures, stale epochs, out-of-scope capabilities. Zero false authorizations.",
+      "route": "http://localhost:8099/paper#11-threat-model-conformance-tests"
+    },
+    {
+      "id": "b7",
+      "text": "And it's domain-general. Six completely different workloads, from finance to incident response to energy grids, all call the same frozen decide function with zero substrate edits. The substrate literally cannot tell which domain is feeding it.",
+      "route": "http://localhost:8099/paper#10-evaluation-results"
+    },
+    {
+      "id": "b8",
+      "text": "We don't claim the system is infallible. We claim something sharper and honest: the authority available to probabilistic cognition is independently verifiable. The open problem, knowledge poisoning, is exactly a case where a perfectly authorized, perfectly executed action is still wrong. That separation is the whole contribution. Read the paper at danielkliewer.com slash paper.",
+      "route": "http://localhost:8099/paper#15-conclusion"
+    }
+  ]
+}
