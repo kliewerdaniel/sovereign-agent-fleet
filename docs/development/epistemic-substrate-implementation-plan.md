@@ -281,17 +281,19 @@ All additive, none change the authority boundary.
 ---
 
 ## 12. Acceptance criteria
-> **M0 PROVEN (post-freeze):** FOUR independent external consumers (`exchange/` finance,
+> **M0 PROVEN (post-freeze):** FIVE independent external consumers (`exchange/` finance,
 > `incident/` incident-response, `supply/` operations/logistics, `hypothesis/` scientific
-> research) drive the identical frozen `fleet.epistemic.decide()` with zero substrate edits;
-> the substrate returns identical verdicts under equal policy and flips `AUTO→HUMAN` together
-> on policy change, regardless of domain. The 4th (`hypothesis/`) is the exact domain the
-> substrate's own `Proposition` docstring names as the canonical non-finance example. The
-> cross-domain generality claim is consolidated into ONE parameterized suite owned by the
-> `domain_registry/` harness node (5th bilingual node) — adding a domain is a one-line table
-> edit. Frozen substrate suite (83 tests) unchanged; full suite 533. The freeze is lifted —
-> see §1 banner and §16. Adding the next domain is a recipe, not a substrate change — see
-> `docs/development/adding-an-epistemic-domain.md`.
+> research, `mirror/` agent self-observability) drive the identical frozen `fleet.epistemic.decide()`
+> with zero substrate edits; the substrate returns identical verdicts under equal policy and flips
+> `AUTO→HUMAN` together on policy change, regardless of domain. The 5th (`mirror/`) exercises the
+> full L0 ladder (`Proposition` → `Assessment` → `Recommendation` → `Proposal` bounded by
+> `ProposalScope` → `AuthorizationRequest`) and proves the L0 promotion gate can be enforced
+> fail-closed at the bilingual adapter boundary (the frozen substrate is intentionally domain-neutral
+> and does not enforce `ProposalScope`). The cross-domain generality claim is consolidated into ONE
+> parameterized suite owned by the `domain_registry/` harness node (a bilingual node, not a domain) —
+> adding a domain is a one-line table edit. Frozen substrate suite (83 tests) unchanged; full suite 546.
+> The freeze is lifted — see §1 banner and §16. Adding the next domain is a recipe, not a substrate
+> change — see `docs/development/adding-an-epistemic-domain.md`.
 1. `fleet/epistemic/` imports **only** `fleet.crypto.foundation` (+ stdlib). AST test green.
 2. Full repo suite green (no regression from 480 baseline); locked layers byte-untouched.
 3. L0 ladder types exist; `Recommendation` cannot become `Proposal` without explicit `proposal_scope`.

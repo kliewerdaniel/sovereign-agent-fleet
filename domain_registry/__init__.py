@@ -37,6 +37,7 @@ from exchange.epistemic_adapter import (
 from incident.epistemic_adapter import CAP_INCIDENT_REMEDIATE
 from supply.epistemic_adapter import CAP_SUPPLY_REORDER
 from hypothesis.epistemic_adapter import CAP_HYPOTHESIS_RUN
+from mirror.epistemic_adapter import CAP_MIRROR_SELF_TUNE
 
 from fleet.epistemic.identity import AgentIdentity
 from fleet.epistemic.decision import AuthorizationRequest, decide
@@ -50,6 +51,7 @@ REGISTERED_CAPABILITIES: tuple[tuple[str, str], ...] = (
     ("incident/security", CAP_INCIDENT_REMEDIATE),
     ("supply/logistics", CAP_SUPPLY_REORDER),
     ("hypothesis/research", CAP_HYPOTHESIS_RUN),
+    ("mirror/self-observability", CAP_MIRROR_SELF_TUNE),
 )
 
 

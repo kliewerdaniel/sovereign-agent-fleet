@@ -124,6 +124,7 @@ passing test.
 | `incident/` | **Second external consumer — M0 domain-generality proof** — a non-finance (incident-response) workload whose `epistemic_adapter/` consumes the *same* frozen `fleet.epistemic.decide()` as `exchange/`, with **zero substrate edits**. Proves the substrate cannot distinguish which domain feeds it. |
 | `supply/` | **Third external consumer (M0)** — operations/logistics (supply-chain replenishment) workload. Same frozen `decide()`, same contract, a completely different domain *shape* than finance or security. |
 | `hypothesis/` | **Fourth external consumer (M0)** — scientific research / hypothesis reasoning. The exact domain the substrate's own `Proposition` docstring names as the canonical non-finance example; exercises the linchpin `Proposition` type hardest. |
+| `mirror/` | **Fifth external consumer (M0)** — agent self-observability / introspection. Exercises the full L0 ladder (`Proposition` → `Assessment` → `Recommendation` → `Proposal` bounded by `ProposalScope` → `AuthorizationRequest`) through the same frozen `decide()`. The L0 promotion gate is enforced fail-closed at this bilingual boundary because the frozen substrate is intentionally domain-neutral. |
 | `ui/` | **Canonical control-surface UI** (Next.js) over `fleet/api`. Always current. |
 | `web/` + `bridge/` | **Legacy / hands-off** control surface (Phases 0–6). Intact but not maintained. |
 | `demo_app.py` | Streamlit incident-triage viewer (D26 demo only). |
@@ -137,7 +138,7 @@ passing test.
 python -m venv .deploy-venv && source .deploy-venv/bin/activate
 pip install -r requirements.txt
 
-# 2. full test suite — 533 passing
+# 2. full test suite — 546 passing
 python -m pytest -q
 
 # 3. canonical control surface (fleet/api + ui/)
@@ -152,7 +153,7 @@ Live Kalshi market data / order routing is **opt-in and fail-closed** — the de
 fully simulated and runs end-to-end with no cloud credentials. GCP replication defaults to a
 local Firestore-shaped mirror; flip to live only with credentials present.
 
-## 8. What's implemented (all merged, 533 tests)
+## 8. What's implemented (all merged, 546 tests)
 
 - **Governance substrate** (`fleet/`): crypto, signed ledger, registry, policy, gateway, evidence
   gate, D17 approval, consensus, Model Armor, incident matrix, runtime, GCP mirror.
@@ -162,7 +163,7 @@ local Firestore-shaped mirror; flip to live only with credentials present.
 - **Flagship financial workload** (D29/D30): `exchange/` — sovereign venue + `exchange/quant/`
   (probability, edge, Kelly, Bayesian, regime, streaming, learning loop).
 - **Real ZK attestation** (D24): `exchange/quant/zk.py` — genuine Σ-protocol range proof + Ed25519 binding.
-- **Domain registry (M0 consolidation)**: `domain_registry/` — a fifth bilingual harness node (not a domain, not part of the substrate) that owns the M0 cross-domain generality claim ONCE. It holds a single `REGISTERED_CAPABILITIES` table (the four external consumers as `(label, capability)` pairs) and a single parameterized generality suite: same-policy→same-verdict across all four, policy-flip AUTO→HUMAN together, no shared per-domain state, bounded scope (out-of-scope capability BLOCKED), and AST-confirmed `fleet.epistemic` import wall. Adding a domain is now a one-line table edit plus the recipe in `docs/development/adding-an-epistemic-domain.md`. The four domain suites' duplicated C-section was removed and replaced by this registry suite.
+- **Domain registry (M0 consolidation)**: `domain_registry/` — a fifth bilingual harness node (not a domain, not part of the substrate) that owns the M0 cross-domain generality claim ONCE. It holds a single `REGISTERED_CAPABILITIES` table (the five external consumers as `(label, capability)` pairs) and a single parameterized generality suite: same-policy→same-verdict across all five, policy-flip AUTO→HUMAN together, no shared per-domain state, bounded scope (out-of-scope capability BLOCKED), and AST-confirmed `fleet.epistemic` import wall. Adding a domain is now a one-line table edit plus the recipe in `docs/development/adding-an-epistemic-domain.md`. The four domain suites' duplicated C-section was removed and replaced by this registry suite.
 - **Control surfaces**: canonical `ui/` (Next.js) over `fleet/api`; legacy `web/`+`bridge/`; `demo_app.py`.
 
 ## 9. Research / technical deep dives

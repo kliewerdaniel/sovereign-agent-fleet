@@ -36,15 +36,16 @@ def gov():
 
 
 def test_registry_table_has_all_four_consumers():
-    """The registry enumerates exactly the four external consumers; capability
+    """The registry enumerates exactly the five external consumers; capability
     strings are distinct literals (the substrate sees the string, not the label)."""
     labels = [label for label, _ in REGISTERED_CAPABILITIES]
     caps = [cap for _, cap in REGISTERED_CAPABILITIES]
     assert labels == [
         "exchange/finance", "incident/security",
         "supply/logistics", "hypothesis/research",
+        "mirror/self-observability",
     ]
-    assert len(set(caps)) == 4 == len(caps)
+    assert len(set(caps)) == 5 == len(caps)
 
 
 def test_m0_same_policy_same_verdict_across_all_registered_domains(gov):
@@ -54,10 +55,10 @@ def test_m0_same_policy_same_verdict_across_all_registered_domains(gov):
     results = decide_all(policy_allow=True, human=False, gov=gov)
     verdicts = [r.verdict for r in results]
     reasons = [r.reason for r in results]
-    assert verdicts == ["AUTO", "AUTO", "AUTO", "AUTO"]
-    assert reasons == ["granted", "granted", "granted", "granted"]
+    assert verdicts == ["AUTO", "AUTO", "AUTO", "AUTO", "AUTO"]
+    assert reasons == ["granted", "granted", "granted", "granted", "granted"]
     # Distinct capability literals survive through to the decision...
-    assert len({r.capability for r in results}) == 4
+    assert len({r.capability for r in results}) == 5
     # ...but the substrate verdict is identical across all four.
     assert len({r.verdict for r in results}) == 1
 
@@ -68,8 +69,8 @@ def test_m0_policy_flip_changes_all_registered_domains_identically(gov):
     (grant, scope, policy) — never the domain."""
     auto = decide_all(policy_allow=True, human=False, gov=gov)
     human = decide_all(policy_allow=True, human=True, gov=gov)
-    assert [r.verdict for r in auto] == ["AUTO", "AUTO", "AUTO", "AUTO"]
-    assert [r.verdict for r in human] == ["HUMAN", "HUMAN", "HUMAN", "HUMAN"]
+    assert [r.verdict for r in auto] == ["AUTO", "AUTO", "AUTO", "AUTO", "AUTO"]
+    assert [r.verdict for r in human] == ["HUMAN", "HUMAN", "HUMAN", "HUMAN", "HUMAN"]
 
 
 def test_m0_no_shared_substrate_state_among_registered_domains(gov):
@@ -84,7 +85,7 @@ def test_m0_no_shared_substrate_state_among_registered_domains(gov):
         for _ in range(1)
     ] + [decide_registered(REGISTERED_CAPABILITIES[0][0], REGISTERED_CAPABILITIES[0][1],
                            policy_allow=True, human=False, gov=gov).verdict]
-    assert verdicts == ["AUTO", "AUTO", "AUTO", "AUTO", "AUTO"]
+    assert verdicts == ["AUTO", "AUTO", "AUTO", "AUTO", "AUTO", "AUTO"]
 
 
 @pytest.mark.parametrize("label,capability", REGISTERED_CAPABILITIES)
@@ -119,6 +120,7 @@ def test_reverse_epistemic_layer_does_not_import_any_registered_adapter():
         "incident.epistemic_adapter", "incident.sim",
         "supply.epistemic_adapter", "supply.sim",
         "hypothesis.epistemic_adapter", "hypothesis.sim",
+        "mirror.epistemic_adapter", "mirror.sim",
         "domain_registry", "fleet.fin",
     )
     offenders = []
@@ -145,6 +147,7 @@ def test_reverse_substrate_functional_without_any_adapter_present():
     saved = {}
     for mod in ("exchange.epistemic_adapter", "incident.epistemic_adapter",
                 "supply.epistemic_adapter", "hypothesis.epistemic_adapter",
+                "mirror.epistemic_adapter",
                 "domain_registry"):
         saved[mod] = sys.modules.pop(mod, None)
     try:
