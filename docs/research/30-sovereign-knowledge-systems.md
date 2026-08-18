@@ -1621,11 +1621,14 @@ cooperating codebases: A10 (the epistemic substrate) and Sovereign Agent Fleet
 
 We evaluated the architecture against five architectural invariants using its own tests
 as the benchmark (564 executable tests, all passing), and we reported three
-adversarial experiments: a model induced to request an unauthorized operation is
-rejected at the authority boundary (execution never occurs); a legitimately
-authorized operation whose executor falsely reports success is detected by an
-independent verifier; and a deliberately untrusted agent is rejected or detected
-across all six adversarial vectors of the attack matrix. We organized the
+**conformance tests** (not blind adversary evaluations): a model induced to request
+an unauthorized operation is rejected at the authority boundary (execution never
+occurs); a legitimately authorized operation whose executor falsely reports success
+is detected by an independent verifier; and a deliberately untrusted agent is
+rejected or detected across all six adversarial vectors of the attack matrix. We
+additionally report one **genuinely blind adversary harness** -- a
+threat-model-agnostic fuzz of `decide()` with 5,000 randomized attack vectors and
+zero false authorizations (Section 11.6). We organized the
 evaluation around four research questions
 (RQ1-RQ4) answered by the suite, a structural baseline contrast, and reported real,
 reproduced numbers and separated measured results from open problems.
