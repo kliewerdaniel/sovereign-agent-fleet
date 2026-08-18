@@ -2,7 +2,7 @@
 title: "Sovereign Knowledge Systems: An Experimentally Evaluated Architecture for Separating Probabilistic Cognition from Consequential Authority"
 author: Daniel Kliewer
 date: 2026-08-18
-version: 3.2
+version: 3.3
 status: evaluated
 canonical_url: /paper
 abstract: >-
@@ -27,8 +27,11 @@ abstract: >-
   We evaluate the architecture against its own invariants using its test suite as
   the benchmark (564 executable tests in the governance substrate, all passing; 18
   fail-closed compiler-gate tests), classify those tests by adversarial
-  condition, and report two end-to-end adversarial experiments and a six-vector
-  attack matrix. We organize the evaluation around four explicit research questions (RQ1-RQ4) and a structural baseline (direct tool-invoking agent versus governed architecture), specifying experimental conditions, failure criteria, trial counts, and reproducibility. We claim precisely what the evidence supports: the architecture
+  condition, and report three adversarial experiments -- two end-to-end and one
+  six-vector attack matrix. We organize the evaluation around four explicit
+  research questions (RQ1-RQ4) and a structural baseline (direct tool-invoking
+  agent versus governed architecture), specifying experimental conditions, failure
+  criteria, trial counts, and reproducibility. We claim precisely what the evidence
   constrains the authority available to probabilistic cognition and provides
   independently verifiable boundaries around consequential execution. We close by
   stating the open problem -- knowledge poisoning -- exactly, as a case in which
@@ -202,6 +205,31 @@ input, authority as an external deterministic protocol, execution as bounded
 action, verification as an independent judge -- with the invariant preserved
 across every layer and demonstrated experimentally.
 
+### 2.1 Scope of the claim
+
+The architecture does not attempt to make probabilistic cognition trustworthy; it
+constrains the authority available to cognition when trust cannot be assumed. What
+the evaluation establishes is a set of *control properties* about the surrounding
+system, not properties of the model:
+
+- **The model cannot unilaterally grant itself authority.** Authorization is
+  decided by an external, deterministic function over non-epistemic inputs
+  (Invariant 1).
+- **Unauthorized capabilities are rejected deterministically.** Forgery,
+  expiration, scope mismatch, and escalation each return `BLOCKED` (Invariant 2,
+  Table 3).
+- **Consequential operations are gated by explicit authorization.** No execution
+  occurs without a verified grant (Invariant 2).
+- **Execution is evaluated independently of the model's claim.** A false executor
+  report is detected by recomputation, not believed (Invariant 3).
+- **Evidence is tamper-evident.** Historical records are chained, signed, and
+  replay-detectable (Invariant 4).
+
+What the architecture does *not* establish is stated explicitly in Section 13 and
+Section 12.2: it does not prove the model truthful, intelligent, or that the
+resulting knowledge is correct; it does not guarantee universal AI safety, the
+correct specification of policy, or the absence of all attack surfaces.
+
 ---
 
 ## 3. Architectural Invariants
@@ -338,6 +366,19 @@ requested operation actually and legitimately authorized?
 executor, the resulting state, the verifier, cryptographic evidence. **Execution
 integrity**: did the authorized operation actually produce the recorded state, and
 is that record tamper-evident?
+
+The three domains are most cleanly distinguished by the question each answers --
+a distinction frequently collapsed in conventional agent systems:
+
+- **Truth** -- *is the proposition actually correct?* -> the **epistemic** domain
+  (the model primarily operates here).
+- **Permission** -- *is the system allowed to perform the requested operation?* ->
+  the **authority** domain (the policy engine operates here).
+- **Fact** -- *what actually happened?* -> the **execution** domain (the verifier
+  and evidence system operate here).
+
+The architecture keeps these questions in separate computational boundaries so that
+an answer to one is never mistaken for an answer to another.
 
 These are fundamentally different properties. A system can succeed at two while
 failing the third:
@@ -855,11 +896,11 @@ authority from. The **Architecture B** column reports the observed suite result.
 | False executor success | Accepted | Detected |
 | Tampered audit | Undetected | Detected |
 
-*Table 2 (renumbered). Baseline comparison. Baseline A describes the default
-behaviour of an ungoverned tool-calling agent; Architecture B reports the observed
-*Table 3 / Experiments 11.1-11.2). The architecture's
-column is the one the evaluation measures; Baseline A is the contrast that makes
-the contribution concrete.*
+*Table 2. Baseline comparison. Baseline A describes the default behaviour of an
+ungoverned tool-calling agent; Architecture B reports the observed result from the
+suite (Tables 3-7 / Experiments 11.1-11.3). The architecture's column is the one the
+evaluation measures; Baseline A is the contrast that makes the contribution
+concrete.*
 
 ### 9.5 Invariant Evaluation Table
 
@@ -892,6 +933,36 @@ Representative tests: `test_forged_grant_signature_rejected`,
 This converts the paper from an architectural argument into an **empirically
 evaluated architecture**: every claimed invariant is mapped to an adversarial
 condition and an observed result drawn from the suite.
+
+### 9.6 Experimental Conditions and Reproducibility
+
+To make "experimentally evaluated" falsifiable rather than asserted, we state the
+exact conditions under which every number in Section 10 and Section 11 was produced.
+
+- **Subject under test.** The governance and execution substrate
+  (`sovereign-agent-fleet`) and the epistemic compiler (A10). The authorization
+  function `decide()` is model-independent by construction: it consults no model
+  output, so the evaluation does not require, train, or depend on a specific LLM.
+- **Adversarial model.** Where a model is involved, it is a deterministic
+  `HostileBrain` stub that emits the prohibited proposal; no production LLM is
+  needed because the boundary under test is protocol-level, not model-level.
+- **Software.** CPython 3.13; `pytest` with `-p no:cacheprovider`; a pure-Python
+  substrate with no GPU, network, or RNG dependency on the authorization path.
+- **Trials.** 564 tests in the full fleet suite (all passing); 237 of those in
+  adversarial classes (Table 5); 1,000 parametric instances per row of the
+  decision matrix (Table 6); six registered domains in the generality suite.
+- **Configuration.** Deterministic fixtures; no randomized sampling. The suite is a
+  fixed, version-controlled benchmark, not a stochastic evaluation.
+- **Adversarial conditions.** The six-vector set of Section 11.3 and the per-class
+  matrix of Table 5.
+- **Success / failure criteria.** Per RQ in Section 9.3; for the suite, a single
+  invariant violation fails the run.
+- **Reproducibility.** Every result is reproduced at a pinned commit:
+  `489e01697e664be6a0decd0ac0e335daeb47d9c4` (References [2]). A reader six months
+  hence can recover the exact subject with `git checkout
+  489e01697e664be6a0decd0ac0e335daeb47d9c4` in `sovereign-agent-fleet` and re-run
+  `pytest`; the numbers in Section 10 and Section 11 are the output of that
+  command.
 
 ---
 
@@ -985,7 +1056,7 @@ The signed hash-chain ledger detects three tamper classes: in-place value mutati
 and replay of a previously-seen entry (`test_c3_replay_of_old_entry_detected`). All
 return `verify_chain is False`.
 
-### 10.3 Verification Independence (Experiment A — bad execution cannot fake success)
+### 10.4 Verification Independence (Experiment A — bad execution cannot fake success)
 
 We make the model fail. A legitimately authorized trade is executed, producing an
 `operator.final` record. When its `risk_assessment_hash` is mutated and the record
@@ -1034,12 +1105,13 @@ cannot silently produce a valid artifact (Table 3, row "Knowledge provenance").
 
 ---
 
-## 11. Two Adversarial Experiments
+## 11. Three Adversarial Experiments
 
-To make the thesis memorable and concrete, we report two experiments in which the
+To make the thesis memorable and concrete, we report three experiments in which the
 model is deliberately induced to fail. These demonstrate both halves of the
-architecture: **bad cognition cannot obtain authority**, and **bad execution
-cannot manufacture successful verification**.
+architecture: **bad cognition cannot obtain authority**, **bad execution cannot
+manufacture successful verification**, and **a deliberately untrusted agent cannot
+succeed on any of six adversarial vectors**.
 
 ### 11.1 Experiment 1 — Induced Unauthorized Request (bad cognition is rejected)
 
@@ -1082,11 +1154,38 @@ a successful verification*. Execution correctness is established by an independe
 judge, not by the executor's report (Section 3: `Verification(x) ≠ Cognition(x)`,
 here strengthened to `Verification(x) ≠ ExecutionReport(x)`).
 
-Together the two experiments bound the architecture: it holds against a malicious
+Together the experiments bound the architecture: it holds against a malicious
 model **and** against a compromised executor. The only failure class the
 architecture does not cover is the third case of Section 4 -- an authorized action
 that is epistemically wrong because the knowledge itself was wrong. That is the
 subject of Section 12.
+
+### 11.3 Experiment 3 — Six-Vector Attack Matrix (the untrusted agent is made to fail)
+
+The two end-to-end experiments above exercise one condition each. To make the
+thesis memorable, Experiment 3 applies a single **deliberately untrusted agent**
+under six simultaneous adversarial vectors and demonstrates that the protocol
+rejects or detects each. The point is not that the agent behaves well; it is that
+**the architecture remains governed when the agent does not behave well.**
+
+| # | Vector (adversary) | Attempt | Domain | Result |
+|---|---|---|---|---|
+| 1 | Unauthorized capability (A1/A3) | request capability outside grant | Authority | Rejected (`decide()` → `BLOCKED`) |
+| 2 | Privilege escalation (A3) | request universal / out-of-scope capability | Authority | Rejected (scope-bound grant) |
+| 3 | Forged identity (A3) | self-issued / non-root certificate | Authority | Rejected (pinned issuer key) |
+| 4 | Modification after approval (A2/A4) | alter approved action post-signing | Authority | Rejected (binding + hash) |
+| 5 | False execution report (A4) | tamper `operator.final` hash | Execution | Detected (verifier `CRITICAL`) |
+| 6 | Audit modification (A5) | mutate / truncate / replay ledger | Execution / Evidence | Detected (`verify_chain is False`) |
+
+*Table 7. Six-vector attack matrix. A single untrusted agent is induced to attempt
+all six vectors; the protocol rejects or detects each. Counts underlying each row
+are the per-class totals of Table 5 and the parametric instances of Table 6; all
+are reproduced at commit `489e016` (Section 9.6).*
+
+The matrix converts the thesis into a single, falsifiable claim: an agent attempting
+every known adversarial vector against the protocol is unable to obtain or fake
+authority on any vector. This is the strongest statement the evaluation makes, and
+the one the Experimental Conditions block (Section 9.6) makes reproducible.
 
 ---
 
@@ -1218,11 +1317,13 @@ cooperating codebases: A10 (the epistemic substrate) and Sovereign Agent Fleet
 (the authority and execution substrate).
 
 We evaluated the architecture against five architectural invariants using its own tests
-as the benchmark (564 executable tests, all passing), and we reported two
+as the benchmark (564 executable tests, all passing), and we reported three
 adversarial experiments: a model induced to request an unauthorized operation is
-rejected at the authority boundary (execution never occurs); and a legitimately
+rejected at the authority boundary (execution never occurs); a legitimately
 authorized operation whose executor falsely reports success is detected by an
-independent verifier. We organized the evaluation around four research questions
+independent verifier; and a deliberately untrusted agent is rejected or detected
+across all six adversarial vectors of the attack matrix. We organized the
+evaluation around four research questions
 (RQ1-RQ4) answered by the suite, a structural baseline contrast, and reported real,
 reproduced numbers and separated measured results from open problems.
 
@@ -1254,8 +1355,9 @@ autonomy becomes verifiable.
 1. Kliewer, D. *A10: Knowledge Compilation and Sovereign Knowledge System.*
    GitHub repository, `kliewerdaniel/a10`.
 2. Kliewer, D. *Sovereign Agent Fleet: Governed Multi-Agent Execution
-   Architecture.* GitHub repository, `sovereign-agent-fleet` (564-test suite,
-   all passing).
+   Architecture.* GitHub repository, `kliewerdaniel/sovereign-agent-fleet`
+   (564-test suite, all passing). Reproducible results in this paper are pinned to
+   commit `489e01697e664be6a0decd0ac0e335daeb47d9c4`.
 3. Lewis, P., et al. *Retrieval-Augmented Generation for Knowledge-Intensive NLP
    Tasks.* NeurIPS, 2020.
 4. Yao, S., et al. *ReAct: Synergizing Reasoning and Acting in Language Models.*
