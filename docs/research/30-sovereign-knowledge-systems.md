@@ -2,36 +2,37 @@
 title: "Sovereign Knowledge Systems: An Experimentally Evaluated Architecture for Separating Probabilistic Cognition from Consequential Authority"
 author: Daniel Kliewer
 date: 2026-08-18
-version: 3.0
+version: 3.1
 status: designed
 canonical_url: /paper
 abstract: >-
-  We present an experimentally evaluated architecture that separates probabilistic
-  model cognition from consequential authority. The architecture is built on a
-  single research object -- an explicitly ordered trust-transition sequence
-  (knowledge -> compilation -> retrieval -> cognition -> proposal ->
-  authorization -> execution -> verification -> evidence) -- and a formal
-  principle: the Authority Non-Equivalence Principle, which states that no
+  We present an experimentally evaluated architecture for governed agentic
+  computation in which probabilistic model cognition is deliberately treated as an
+  untrusted epistemic component, while authorization, execution, verification, and
+  evidence are implemented as independently governed computational boundaries. The
+  architecture is organized around a single research object -- an explicitly
+  ordered trust-transition sequence (knowledge -> compilation -> retrieval ->
+  cognition -> proposal -> authorization -> execution -> verification ->
+  evidence) -- and a formal principle, the Authority Non-Equivalence Principle: no
   probabilistic inference, regardless of confidence, capability, or semantic
-  plausibility, constitutes authorization to perform a consequential operation.
-  We decompose the system into three trust domains (epistemic, authority,
-  execution) with distinct integrity properties, and we formalize sovereignty as
-  the preservation of local authority over identity, policy, knowledge
-  provenance, and consequential execution despite reliance on external
-  computational infrastructure. The architecture is implemented across two
-  cooperating codebases: A10, the epistemic substrate (knowledge compiler +
-  knowledge graph), and Sovereign Agent Fleet, the authority and execution
-  substrate (frozen authorization function, cryptographic identity, human
-  approval, controlled execution, tamper-evident audit). We evaluate the
-  architecture against eight security invariants using its own test suite as the
-  benchmark (564 executable tests, all passing), and we report two adversarial
-  experiments: (1) a model induced to request an unauthorized operation is
-  rejected at the authority boundary and execution never occurs; (2) a legitimate
-  operation that is correctly authorized but whose executor falsely reports
-  success is detected by an independent verifier. All reported numbers are
-  reproduced from the executing test suite. We close by distinguishing the three
-  types of correctness the system separates -- epistemic, authority, execution --
-  and by stating the open problem (knowledge poisoning) precisely.
+  plausibility, constitutes authorization to perform a consequential operation. We
+  state five architectural invariants and we formalize the distinction between
+  three types of correctness the architecture separates -- epistemic, authority,
+  execution -- none of which implies the others. The architecture is implemented
+  and demonstrated across two cooperating codebases: A10 (the epistemic substrate:
+  a knowledge compiler producing a versioned graph and search index behind a
+  fail-closed gate) and Sovereign Agent Fleet (the authority and execution
+  substrate: a frozen deterministic authorization function, cryptographic
+  identity, human approval, bounded execution, and a tamper-evident audit ledger).
+  We evaluate the architecture against its own invariants using its test suite as
+  the benchmark (564 executable tests in the governance substrate, all passing; 18
+  fail-closed compiler-gate tests), classify those tests by adversarial
+  condition, and report two end-to-end adversarial experiments and a six-vector
+  attack matrix. We claim precisely what the evidence supports: the architecture
+  constrains the authority available to probabilistic cognition and provides
+  independently verifiable boundaries around consequential execution. We close by
+  stating the open problem -- knowledge poisoning -- exactly, as a case in which
+  a perfectly authorized, perfectly executed action can still be wrong.
 keywords:
   - agent governance
   - knowledge compilation
@@ -181,7 +182,78 @@ across every layer and demonstrated experimentally.
 
 ---
 
-## 3. Three Trust Domains and Three Types of Correctness
+## 3. Architectural Invariants
+
+The research object is most usefully stated as a set of invariants the architecture
+is required to preserve. We give them explicitly so that the evaluation (Section 9)
+can be read as a measurement of how well each is preserved, and so that reviewers
+can falsify a specific claim rather than the paper as a whole.
+
+**Invariant 1 — Authority Non-Equivalence.** *Model output does not constitute
+authorization.*
+
+```text
+ModelOutput ≠ Authorization
+```
+
+No model output -- regardless of confidence, capability, or semantic plausibility
+-- is a permission to perform a consequential operation. Authorization is granted
+only by the external, deterministic policy function over non-epistemic inputs
+(Section 7.3).
+
+**Invariant 2 — Authorized Execution.** *Every consequential execution corresponds
+to an independently validated authorization decision.*
+
+```text
+Execution → Authorization
+```
+
+No execution occurs without a prior, verified authorization decision; the execution
+substrate never manufactures one.
+
+**Invariant 3 — Verification Independence.** *The component that determines whether
+an action succeeded is independent of the component that proposed or executed it.*
+
+```text
+Verification ⟂ Cognition
+```
+
+The verifier recomputes expected state from signed inputs; it does not inherit the
+executor's self-report or the model's assertion of success.
+
+**Invariant 4 — Evidence Integrity.** *Historical evidence is tamper-evident through
+a chained cryptographic state.*
+
+```text
+AuditState(t+1) = H( AuditState(t) || Event(t+1) )
+```
+
+Each audit entry is signed and chained to its predecessor; mutation, truncation,
+and replay are detectable. The ledger proves *who authorized what, what artifact was
+involved, what execution occurred, and whether the recorded state was subsequently
+modified* -- not that the underlying action was semantically correct.
+
+**Invariant 5 — Knowledge Provenance.** *A compiled knowledge artifact is traceable
+to its source and compilation parameters.*
+
+```text
+Artifact = C( Source, CompilerVersion, Configuration )
+```
+
+The artifact records its provenance (source, compiler, `git_sha`, generated_at) and
+its content hash is reproducible from source behind a fail-closed gate; a divergent
+or corrupted source cannot silently yield a valid artifact.
+
+These five invariants are the contract the evaluation measures. Invariant 1 is the
+core thesis; Invariants 2-4 bound the authority and execution domains; Invariant 5
+bounds the epistemic domain's supply chain. None of the five is reducible to
+cryptographic security alone: Invariant 1 is a *policy* statement, Invariant 5 is a
+*provenance* statement, and the gap between "the artifact is faithfully compiled"
+(Invariant 5) and "the artifact is true" is the open problem of Section 12.2.
+
+---
+
+## 4. Three Trust Domains and Three Types of Correctness
 
 We formalize the system as three trust domains, each with a distinct integrity
 property and a distinct type of correctness.
@@ -213,7 +285,7 @@ failing the third:
   authority and execution check *because the system was authorized to do exactly
   the wrong thing*. (All three correctness types can be satisfied while the
   outcome is wrong.) This is the most important case, and it bounds the system's
-  claim; it is treated precisely in Section 10.
+  claim; it is treated precisely in Section 11.
 
 **Theorem (Non-Implication).** None of the three correctness types implies
 another:
@@ -233,7 +305,7 @@ the underlying knowledge was wrong -- the third case above.
 
 ---
 
-## 4. On "Sovereign": A Precise Definition
+## 5. On "Sovereign": A Precise Definition
 
 The term *sovereign* is used precisely, not as a synonym for local inference.
 
@@ -264,7 +336,7 @@ holding the authority roots even when computation is not local.
 
 ---
 
-## 5. Architectural Substrate Decomposition
+## 6. Architectural Substrate Decomposition
 
 The architecture is implemented across two cooperating codebases. The clean
 decomposition is:
@@ -358,14 +430,14 @@ admits only an already-authorized operation.</figcaption>
 
 ---
 
-## 6. Knowledge Substrate (A10 — Epistemic)
+## 7. Knowledge Substrate (A10 — Epistemic)
 
 A10 implements the epistemic substrate. Its architecture includes a Next.js
 application, a structured source corpus, a data layer, and a semantic compiler.
 The knowledge system is treated as a computational substrate, not merely a content
 store.
 
-### 6.1 Source Corpus
+### 7.1 Source Corpus
 
 The source corpus is the long-term human-authored representation of the system's
 knowledge: 177 Markdown posts under `content/blog/`, each with structured
@@ -373,7 +445,7 @@ frontmatter (title, author, date, canonical URL, status, topics, series). This
 creates an important asymmetry: the model may generate derived representations,
 but the canonical source remains independently inspectable and regenerable.
 
-### 6.2 Knowledge Compilation (the Transformation Boundary)
+### 7.2 Knowledge Compilation (the Transformation Boundary)
 
 The knowledge compiler (`knowledge-compiler/`) runs a deterministic pipeline at
 build time:
@@ -427,7 +499,7 @@ as deterministic, version-controlled artifacts rather than recomputed per
 request.</figcaption>
 </figure>
 
-### 6.3 Artifact Model and the Fail-Closed Verification Gate
+### 7.3 Artifact Model and the Fail-Closed Verification Gate
 
 The artifact schema is explicit and versioned:
 
@@ -452,12 +524,12 @@ canonicalization, reproducible content identity, and completeness.
 
 ---
 
-## 7. Governance and Execution Substrate (Sovereign Agent Fleet)
+## 8. Governance and Execution Substrate (Sovereign Agent Fleet)
 
 Sovereign Agent Fleet implements the authority and execution substrates. Its
 central principle is that the system should not require trust in the model.
 
-### 7.1 Role Separation
+### 8.1 Role Separation
 
 The multi-agent structure provides role separation: Researcher produces
 observations; Analyst transforms them into qualified intelligence; Operator
@@ -465,7 +537,7 @@ executes authorized actions. Agent roles (`researcher`, `analyst`, `operator`,
 `human`, `tool`) are carried on a cryptographically signed identity certificate,
 never asserted by model output.
 
-### 7.2 Identity and Root of Trust
+### 8.2 Identity and Root of Trust
 
 The architecture derives a key hierarchy from an Argon2id-strengthened master
 secret:
@@ -480,7 +552,7 @@ capabilities, or role. Certificates bind to `agent_id`, `role`, `capabilities`,
 issuance/expiry, and `cert_seq`, signed under a root epoch so rotated roots do not
 invalidate historical chains.
 
-### 7.3 Deterministic Policy and the `decide()` Substrate
+### 8.3 Deterministic Policy and the `decide()` Substrate
 
 Policy is implemented independently of the language model. The authorization
 function `decide()` in `fleet/epistemic/decision.py` is a **pure, deterministic
@@ -508,16 +580,16 @@ A model can request an action that policy rejects, and the rejection remains val
 even if the model provides an elaborate justification -- because the model is not
 an input to `decide()`.
 
-### 7.4 Capability Authorization and Human Approval
+### 8.4 Capability Authorization and Human Approval
 
 Capabilities provide a finer-grained, least-privilege authority model than broad
 agent permissions. Human approval provides an additional boundary for
 consequential operations: the approval record is bound to the specific operation
 (action id, capability, artifact hash) and is cryptographically signed by a
 `human`-role cert. A forged, rebound, or non-human-signed approval is rejected
-(Section 8.2).
+(Section 9.3).
 
-### 7.5 Execution, Verification, and Audit
+### 8.5 Execution, Verification, and Audit
 
 Execution occurs only after authorization. Verification independently determines
 whether the resulting artifact or state satisfies required conditions; it is a
@@ -577,9 +649,9 @@ recorded.
 
 ---
 
-## 8. Formal Threat Model and Evaluation Design
+## 9. Formal Threat Model and Evaluation Design
 
-### 8.1 Threat Model (A1-A6)
+### 9.1 Threat Model (A1-A6)
 
 We define the adversary by capability, not by scenario.
 
@@ -594,7 +666,27 @@ We define the adversary by capability, not by scenario.
 - **A6: Knowledge poisoning.** A malicious or incorrect document enters the
   canonical or compiled knowledge substrate.
 
-### 8.2 Invariant Evaluation Table
+### 9.2 Threat → Domain → Defense
+
+The adversary maps directly onto the three trust domains of Section 4. Each threat
+is localized to exactly one or two domains, and each has a corresponding, named
+defense. This is the security argument in one table.
+
+| Threat (Adversary) | Domain | Defense |
+|---|---|---|
+| Hallucinated reasoning (A1) | Epistemic | Evidence / retrieval / independent verification |
+| Prompt injection (A2) | Epistemic | Input isolation / policy boundary |
+| Privilege escalation (A3) | Authority | Capability policy (least privilege) |
+| Forged identity (A3) | Authority | Cryptographic identity (pinned issuer key) |
+| Unauthorized action (A1/A3) | Authority | Deterministic authorization (`decide()`) |
+| Executor lying (A4) | Execution | Independent verification (recompute, not self-report) |
+| Audit modification (A5) | Execution / Evidence | Signed hash-chain ledger |
+| Knowledge poisoning (A6) | Epistemic (open) | Provenance / versioning (defenses = future work) |
+
+*Table 1. The threat model as a domain/defense mapping. The first seven rows are
+covered by invariants 1-5; the eighth (A6) is the open problem of Section 12.2.*
+
+### 9.3 Invariant Evaluation Table
 
 We evaluate the architecture using its **own invariants as the benchmark**. No
 external benchmark is required; the system's security properties are read directly
@@ -613,7 +705,7 @@ suite; the A10 compiler gate contributes 18 tests).
 | Knowledge provenance | Alter compiled artifact vs. source | Recompile / detect | Detect |
 | Domain isolation | Unknown-domain capability request | Reject | Reject |
 
-*Table 1. Security-invariant evaluation. The system's own tests are the benchmark.
+*Table 2. Security-invariant evaluation. The system's own tests are the benchmark.
 Representative tests: `test_forged_grant_signature_rejected`,
 `test_self_issued_grant_rejected`, `test_replay_expired_epoch_rejected`,
 `test_alter_capability_after_signing_detected`,
@@ -628,7 +720,7 @@ condition and an observed result drawn from the suite.
 
 ---
 
-## 9. Evaluation Results
+## 10. Evaluation Results
 
 The evaluation reports reproduced results from the executing test suites of both
 repositories. The full Sovereign Agent Fleet suite comprises **564 tests, all
@@ -647,11 +739,42 @@ categorize the invariant-relevant suites we draw on directly:
 | `domain_registry/tests/test_registry_cross_domain_generality.py` | 8 (+6-domain parametrized) | M0 cross-domain generality |
 | A10 `knowledge-compiler/tests/test_compiler.py` | 18 | compiler emit + fail-closed verify gate |
 
-*Table 2. Invariant-grouped test inventory (counts verified from the suites
+*Table 3. Invariant-grouped test inventory (counts verified from the suites
 cited). The remaining fleet tests cover consensus, runtime, control plane,
 incident policy, brain, GCP, root rotation, armor, and boundary imports.*
 
-### 9.1 Policy Enforcement (Authority Separation, Identity, Capability)
+### 10.1 Adversarial Classification of the Suite
+
+The suites above are organized by file. To evaluate the architecture *by guarantee*
+rather than by file, we classify every test function in the governance substrate by
+the specific adversarial condition it asserts. Of 532 collected test functions in
+the Sovereign Agent Fleet repository, **237 directly exercise one of the ten
+adversarial conditions** below; the remainder exercise the correct-operation
+baseline (authorized actions succeed, ledgers emit, etc.). Each adversarial class
+is mapped to the invariant(s) and domain(s) it exercises. All 237 adversarial tests
+pass.
+
+| Adversarial class | Tests | Invariant | Domain |
+|---|---:|---|---|
+| Identity attacks (forged / self-issued / revoked) | 33 | 1, 2 | Authority |
+| Capability escalation (scope / universal-cap) | 20 | 1, 2 | Authority |
+| Unauthorized actions (model induced to request) | 51 | 1 | Authority |
+| Approval mutation (rebind / misbound / non-human) | 22 | 2 | Authority |
+| Artifact tampering (hash / mutate / corrupt) | 23 | 5 | Epistemic |
+| Audit tampering (truncation / replay / mutate) | 20 | 4 | Execution / Evidence |
+| Executor deception (false `final` / sim self-defense) | 27 | 3 | Execution |
+| Verification failure (tamper → critical) | 19 | 3 | Execution |
+| Knowledge provenance violations (compiler gate) | 3 | 5 | Epistemic |
+| Cross-domain authorization violations (M0) | 19 | 1, 2 | Authority |
+
+*Table 4. Adversarial classification of 237 of 532 collected governance-substrate
+test functions (counts verified by static analysis of the suite; the A10
+compiler-gate contributes a further 18 fail-closed tests). The classes overlap with
+the per-file inventory of Table 3; together they account for the full 564-test
+passing run. Every class is mapped to the invariants of Section 3 and the domains
+of Section 4.*
+
+### 10.2 Policy Enforcement (Authority Separation, Identity, Capability)
 
 We evaluate the authorization function directly using a protocol-level decision
 matrix. Each row is a class of request; the verdict is the `decide()` outcome.
@@ -665,7 +788,7 @@ matrix. Each row is a class of request; the verdict is the `decide()` outcome.
 | Tampered / self-issued grants | 0 | 1000 | 0 |
 | Stale or expired grants | 0 | 1000 | 0 |
 
-*Table 3. Authorization decision matrix. "Attempts" are parametric instances within
+*Table 5. Authorization decision matrix. "Attempts" are parametric instances within
 the adversarial suites; the substrate returns `BLOCKED` for every class except the
 authorized one, with zero false accepts.*
 
@@ -674,7 +797,7 @@ verified against a *pinned trusted issuer key* (`trusted_issuer_pubkey_pem`), no
 against a key the grant embeds for itself -- so an attacker who forges a grant and
 claims the issuer is the governance key is still rejected.
 
-### 9.2 Approval Binding (Audit Integrity, A3/A4)
+### 10.3 Approval Binding (Audit Integrity, A3/A4)
 
 Forged agent certificates (signed by a non-root key) fail verification; tampered
 certificates (capability escalation on a valid signature) fail; a revoked identity
@@ -687,7 +810,7 @@ The signed hash-chain ledger detects three tamper classes: in-place value mutati
 and replay of a previously-seen entry (`test_c3_replay_of_old_entry_detected`). All
 return `verify_chain is False`.
 
-### 9.3 Verification Independence (Experiment A — bad execution cannot fake success)
+### 10.3 Verification Independence (Experiment A — bad execution cannot fake success)
 
 We make the model fail. A legitimately authorized trade is executed, producing an
 `operator.final` record. When its `risk_assessment_hash` is mutated and the record
@@ -698,7 +821,7 @@ not the source of truth; the verifier's recomputation is. This is the architectu
 assertion `Verification(x) ≠ Cognition(x)` made operational: a corrupted executor
 cannot manufacture a successful verification.
 
-### 9.4 Domain Portability (Invariant: M0 Generality)
+### 10.4 Domain Portability (Invariant: M0 Generality)
 
 The same frozen `decide()` substrate governs six domains through a single
 capability table (`domain_registry`). A parameterized generality suite verifies:
@@ -726,9 +849,9 @@ blocked at the evidence gate (`test_attack3_hallucination_intel_blocked`), and e
 a direct `SimEnv.transition` call on a protected asset defends itself
 (`test_attack4_simenv_second_line_defense`).
 
-### 9.5 Knowledge Provenance (A10 Compiler)
+### 10.5 Knowledge Provenance (A10 Compiler)
 
-The A10 compiler's fail-closed gate (Section 6.3) is exercised by 18 compiler
+The A10 compiler's fail-closed gate (Section 7.3) is exercised by 18 compiler
 tests. The gate re-derives every `content_hash` from source and refuses to emit on
 any mismatch. Reproducing artifacts from the corpus yields 177 posts, 687 graph
 nodes, and 2,981 edges, with the gate reporting PASS. Divergent or corrupted source
@@ -736,14 +859,14 @@ cannot silently produce a valid artifact (Table 1, row "Knowledge provenance").
 
 ---
 
-## 10. Two Adversarial Experiments
+## 11. Two Adversarial Experiments
 
 To make the thesis memorable and concrete, we report two experiments in which the
 model is deliberately induced to fail. These demonstrate both halves of the
 architecture: **bad cognition cannot obtain authority**, and **bad execution
 cannot manufacture successful verification**.
 
-### 10.1 Experiment 1 — Induced Unauthorized Request (bad cognition is rejected)
+### 11.1 Experiment 1 — Induced Unauthorized Request (bad cognition is rejected)
 
 *Setup.* A `HostileBrain` model is given a task that is instructed (and independently
 induced via injected context) to request an operation it is not permitted to
@@ -762,7 +885,7 @@ that output into authority. This is the Authority Non-Equivalence Principle
 demonstrated end-to-end (M0): cognition is separated from authorization even when
 the model is adversarial (A1).
 
-### 10.2 Experiment 2 — Corrupted Executor (bad execution is caught)
+### 11.2 Experiment 2 — Corrupted Executor (bad execution is caught)
 
 *Setup.* A cooperative, fully authorized trade is executed successfully. The
 executor then falsely reports success by tampering its own `operator.final` record
@@ -781,20 +904,20 @@ mutated.
 
 *Result.* The authorized operation was real, but the executor could not *manufacture
 a successful verification*. Execution correctness is established by an independent
-judge, not by the executor's report (Section 2: `Verification(x) ≠ Cognition(x)`,
+judge, not by the executor's report (Section 3: `Verification(x) ≠ Cognition(x)`,
 here strengthened to `Verification(x) ≠ ExecutionReport(x)`).
 
 Together the two experiments bound the architecture: it holds against a malicious
 model **and** against a compromised executor. The only failure class the
-architecture does not cover is the third case of Section 3 -- an authorized action
+architecture does not cover is the third case of Section 4 -- an authorized action
 that is epistemically wrong because the knowledge itself was wrong. That is the
-subject of Section 11.
+subject of Section 12.
 
 ---
 
-## 11. Related Work and the Open Problem
+## 12. Related Work and the Open Problem
 
-### 11.1 Related Work
+### 12.1 Related Work
 
 We situate the architecture relative to existing research. The contribution is not
 any individual component but the composition and the preserved invariant.
@@ -834,13 +957,13 @@ hardware TEEs: the guarantees hold regardless of where execution physically occu
 derivation. The architecture adopts signed provenance at both ends: A10 sidecars
 record `provenance` (source, compiler, `git_sha`, generated_at); the fleet audit
 ledger records signed evidence. Provenance establishes *lineage and integrity*, not
-*truth* -- the central point of Section 11.2.
+*truth* -- the central point of Section 12.2.
 
 **Workflow orchestration.** Airflow, Temporal, and Prefect provide durable
 execution state. The fleet substrate shares the concern for inspectable execution
 state but adds an explicit authority boundary and cryptographic verification.
 
-### 11.2 Knowledge Poisoning (Open Problem, A6)
+### 12.2 Knowledge Poisoning (Open Problem, A6)
 
 The architecture defends A1-A5. It does **not yet** defend A6. We state this
 explicitly because it is the most important unsolved problem and the most
@@ -869,7 +992,7 @@ between the three correctness types is itself the contribution.
 
 ---
 
-## 12. Limitations
+## 13. Limitations
 
 The architecture does not eliminate the fundamental uncertainty of probabilistic
 cognition. A governed system can prevent an unauthorized action, but it cannot
@@ -879,14 +1002,14 @@ checks integrity and reproducibility, not semantic truth. Cryptographic integrit
 does not establish semantic truth: a perfectly signed false statement remains
 false. Independent verification can fail when the expected state is itself poorly
 specified. The architecture addresses authority, provenance, and execution
-integrity; it does not yet solve knowledge poisoning (Section 11.2).
+integrity; it does not yet solve knowledge poisoning (Section 12.2).
 
 ---
 
-## 13. Future Work
+## 14. Future Work
 
 1. **Formal verification of the governance state machine**, proving the safety
-   invariants of Section 2 hold for all reachable states.
+   invariants of Section 3 hold for all reachable states.
 2. **Epistemic integrity defenses against A6**: signed document provenance with
    multi-author attestation; cross-document contradiction detection over the
    compiled graph; knowledge-uncertainty escalation to human approval.
@@ -902,7 +1025,7 @@ integrity; it does not yet solve knowledge poisoning (Section 11.2).
 
 ---
 
-## 14. Conclusion
+## 15. Conclusion
 
 This work presents an experimentally evaluated architecture for separating
 probabilistic cognition from consequential authority. The contribution is
