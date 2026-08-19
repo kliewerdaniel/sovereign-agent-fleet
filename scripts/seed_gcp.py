@@ -71,6 +71,15 @@ def _human_keypair():
 
 
 def build():
+    """Construct the ControlPlane WITHOUT side effects.
+
+    This used to publish the demo agents inside build(), which meant merely
+    *importing/constructing* the plane appended registry entries to the LIVE
+    Firestore mirror (under a fresh per-process root key) and forked the chain.
+    A judge importing this module to verify the cloud copy would silently
+    corrupt it. Construction is now purely a constructor; the state-mutating
+    work lives in publish_agents()/run_beats() and is only called from main().
+    """
     tmp = tempfile.mkdtemp(prefix="saf_live_")
     audit_key = Ed25519PrivateKey.from_private_bytes(
         HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=b"fleet:audit").derive(b"audit-live")
@@ -81,6 +90,13 @@ def build():
     kek = HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=b"fleet:mem").derive(b"mem-live")
     mem = MemBank(kek)
     rt = Runtime(cp, mem)
+    return dict(cp=cp, rt=rt, bridge=bridge)
+
+
+def publish_agents(cp, rt):
+    """The stateful part of seeding: publish the demo agents + a tool cert.
+    This WRITES registry entries to the ledger / Firestore mirror. Kept separate
+    from build() so constructing the plane is side-effect-free."""
     r = cp.publish_agent("researcher-1", "researcher", ["emit_evidence"])
     a = cp.publish_agent("analyst-1", "analyst", ["qualify", "verify_gate"])
     o = cp.publish_agent("operator-1", "operator", ["prepare_artifact", "crm_write", "outreach_send"])
@@ -88,22 +104,38 @@ def build():
     tool_cert, tool_key = cp.root.issue_cert("web_tool", "tool", ["tool_result"],
                                              int(time.time()), int(time.time()) + 86400)
     cp.registry._certs["web_tool"] = tool_cert
-    return dict(cp=cp, rt=rt, r=r, a=a, o=o, human=human, bridge=bridge,
-                tool_cert=tool_cert, tool_key=tool_key)
+    return dict(r=r, a=a, o=o, human=human, tool_cert=tool_cert, tool_key=tool_key)
+
+
+def reconstruct_audit_pubkey() -> bytes:
+    """Deterministic PUBLIC audit key for verifying the live chain.
+
+    A judge uses this to verify the Firestore copy WITHOUT constructing a
+    ControlPlane (construction no longer writes, but even calling build() is
+    unnecessary). No private key, no writes — just derive the same Ed25519
+    public key the seeder used to sign the chain. This is the only key needed
+    for FirestoreVerifier.verify(), which checks the audit-signed ledger.
+    """
+    audit_key = Ed25519PrivateKey.from_private_bytes(
+        HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=b"fleet:audit").derive(b"audit-live")
+    )
+    return audit_key.public_key().public_bytes(
+        serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo)
 
 
 def main():
     # Idempotent: every ControlPlane re-starts at GENESIS, so a re-seed must
-    # clear prior runs BEFORE building the ControlPlane (build() itself
-    # replicates the registration entries, which would otherwise survive the
-    # clear and fork the chain).
+    # clear prior runs BEFORE building the ControlPlane. build() is now
+    # side-effect-free (it only constructs the plane); the registry writes
+    # happen in publish_agents() below, after the clear.
     bridge = GcpBridge(mode="gcp", project=PROJECT, firestore_collection=COLLECTION)
     print("[seed] clearing prior live docs/pending/approvals ...")
     bridge.clear()
 
     env = build()
     cp, rt, bridge = env["cp"], env["rt"], env["bridge"]
-    r, a, o, tool_key = env["r"], env["a"], env["o"], env["tool_key"]
+    agents = publish_agents(cp, rt)
+    r, a, o, tool_key = agents["r"], agents["a"], agents["o"], agents["tool_key"]
 
     def gather(q):
         sig = ToolEnvelope.make(tool_key, "web_tool",
@@ -121,8 +153,12 @@ def main():
     assert out.get("needs_approval") or out.get("final"), out
 
     # ---- LIVE verification (public keys only) ----
+    # Use reconstruct_audit_pubkey() — the SAME key a judge uses — rather than
+    # the in-process cp. This proves the cloud copy verifies from public keys
+    # alone (no private key, no in-process authority). The verifier only needs
+    # the audit pubkey; the ledger is signed by the audit key.
     docs = bridge.mirror_docs()
-    verifier = FirestoreVerifier(docs, cp.audit.public_key_pem(), cp.root.root_public_pem)
+    verifier = FirestoreVerifier(docs, reconstruct_audit_pubkey())
     ok = verifier.verify()
     print(f"[seed] live Firestore docs: {len(docs)}")
     print(f"[seed] FirestoreVerifier.verify() = {ok}")
