@@ -19,26 +19,27 @@
 <div class="wrap">
   <h1>SOVEREIGN AGENT FLEET — GOVERNANCE SUBSTRATE TEST SUITE</h1>
   <p class="sub">Live execution · <span class="hl">fleet/epistemic.decide()</span> and the full governance substrate</p>
-  <pre>Python 3.14 · pytest · fleet repository
+  <pre>Python 3.14.6 · pytest · fleet repository
 
-<span class="dim">$ pytest -q</span>
+<span class="dim">$ pytest</span>   (network-marked live-venue tests deselected by default)
 
   <span class="dim">collected 567 items</span>
 
-  <span class="dim">fleet/tests/test_epistemic_phase1.py .............</span>            <span class="ok">29 passed</span>
-  <span class="dim">fleet/tests/test_epistemic_adversarial.py .........</span>         <span class="ok">28 passed</span>
-  <span class="dim">fleet/tests/test_crypto_phase0.py ...............</span>            <span class="ok">23 passed</span>
-  <span class="dim">fleet/tests/test_financial_e2e.py ...........</span>              <span class="ok">17 passed</span>
-  <span class="dim">fleet/tests/test_incident_e2e.py ........</span>                  <span class="ok">8 passed</span>
-  <span class="dim">fleet/tests/test_approval_hardening_phase2.py .......</span>       <span class="ok">7 passed</span>
-  <span class="dim">exchange/tests/test_governance.py .......</span>                <span class="ok">7 passed</span>
-  <span class="dim">domain_registry/tests/..._generality.py ........</span>          <span class="ok">8 passed</span>
-  <span class="dim">fleet/tests/test_decision_sweep.py .</span>                       <span class="ok">1 passed</span>
-  <span class="dim">fleet/tests/test_adversarial_blind_harness.py ...</span>          <span class="ok">2 passed</span>
-  <span class="dim">  + consensus · runtime · control-plane · incident ·</span>
-  <span class="dim">    brain · gcp · root-rotation · armor · boundary-imports</span>
+  <span class="dim">fleet/tests/test_epistemic_phase1.py</span>            <span class="ok">29 passed</span>
+  <span class="dim">fleet/tests/test_epistemic_adversarial.py</span>         <span class="ok">28 passed</span>
+  <span class="dim">fleet/tests/test_crypto_phase0.py</span>                <span class="ok">23 passed</span>
+  <span class="dim">fleet/tests/test_fleet_api.py</span>                    <span class="ok">22 passed</span>
+  <span class="dim">fleet/tests/test_incident_policy.py</span>              <span class="ok">20 passed</span>
+  <span class="dim">domain_registry/tests/..._generality.py</span>          <span class="ok">18 passed</span>
+  <span class="dim">fleet/tests/test_financial_e2e.py</span>                <span class="ok">17 passed</span>
+  <span class="dim">exchange/tests/test_quant_q3.py</span>                  <span class="ok">16 passed</span>
+  <span class="dim">fleet/tests/test_epistemic_phase2.py</span>             <span class="ok">15 passed</span>
+  <span class="dim">fleet/tests/test_control_plane_phase1.py</span>         <span class="ok">15 passed</span>
+  <span class="dim">grid/tests/test_epistemic_adapter_phase7.py</span>      <span class="ok">14 passed</span>
+  <span class="dim">fleet/tests/test_simenv.py</span>                       <span class="ok">14 passed</span>
+  <span class="dim">  + 50 more test modules across six domains</span>
 
-<span class="ok">567 passed, 1 warning in 48.75s</span>
+<span class="ok">563 passed, 4 deselected, 1 warning in 38.57s</span>
 
 <span class="hl">0 false accepts</span> across the parametric sweep (6,000 points)
 <span class="hl">0 false authorizations</span> across 5,000 blind adversary vectors</pre>

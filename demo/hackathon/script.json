@@ -28,7 +28,7 @@
     },
     {
       "id": "b5",
-      "text": "Now the live system. The authorization decision is a pure deterministic function called decide. No randomness, no model input, no network. It only sees identity, capability scope, a signed grant, and policy. Watch the test suite it's defended by: 567 tests, all passing.",
+      "text": "Now the live system. The authorization decision is a pure deterministic function called decide. No randomness, no model input, no network. It only sees identity, capability scope, a signed grant, and policy. Watch the test suite that defends it: 567 tests collected, 563 passing offline, with the four live-venue checks deselected unless you opt in.",
       "route": "live:pytest"
     },
     {
