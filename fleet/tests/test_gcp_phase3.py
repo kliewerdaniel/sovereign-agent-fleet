@@ -180,6 +180,40 @@ def test_console_wsgi_serves_pending(env):
     assert b"crm_write:7" in b"".join(body)
 
 
+def test_console_html_view_renders_without_format_error(env):
+    # Regression: GET / with Accept: text/html used str.format() on a template
+    # containing literal CSS braces ({font-family:...}), which raised KeyError
+    # and surfaced a bare "'font-family'" 500 body in the browser. It must
+    # render real HTML instead (browsers send text/html; curl/*/* takes JSON).
+    from fleet.gcp.console import ApprovalConsole
+    from wsgiref.util import setup_testing_defaults
+
+    console = ApprovalConsole(env["bridge"])
+    console.queue({"action_id": "crm_write:11", "agent_id": "operator-1",
+                   "capability": "crm_write", "artifact_hash": "deadbeefcafe",
+                   "ts": 1_000})
+    environ = {}
+    setup_testing_defaults(environ)
+    environ["REQUEST_METHOD"] = "GET"
+    environ["PATH_INFO"] = "/"
+    environ["HTTP_ACCEPT"] = "text/html"
+    out = {}
+
+    def start_response(status, headers):
+        out["status"] = status
+        out["headers"] = headers
+
+    body = console.wsgi_app(environ, start_response)
+    assert out["status"] == "200 OK"
+    content_type = dict(out["headers"]).get("Content-Type", "")
+    assert "text/html" in content_type
+    html = b"".join(body).decode()
+    assert "<html>" in html
+    assert "font-family" in html          # CSS preserved, not a KeyError
+    assert "{rows}" not in html           # placeholder substituted
+    assert "crm_write:11" in html         # pending action shown
+
+
 # --- G2: console rejects unverifiable approvals (fail-closed) ---------------
 
 def _wsgi_post(console, req):

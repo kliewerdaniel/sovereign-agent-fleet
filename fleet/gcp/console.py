@@ -189,6 +189,11 @@ class ApprovalConsole:
                     cap=a.get("capability", ""), h=a.get("artifact_hash", "")[:16],
                 )
             )
+        # NOTE: build with .replace(), NOT str.format() — the template contains
+        # literal CSS braces ({font-family:...}) which str.format() would try to
+        # interpret as field references and raise KeyError (and surface a bare
+        # "'font-family'" 500 body). .replace() leaves the CSS braces untouched.
+        rows_html = "".join(rows) or "<tr><td colspan=4><em>no pending actions</em></td></tr>"
         html = (
             "<!doctype html><html><head><meta charset='utf-8'>"
             "<title>Sovereign Fleet — D17 Approval Console</title>"
@@ -206,6 +211,6 @@ class ApprovalConsole:
             "<p><small>Console holds only public keys; it cannot forge approvals. "
             "Sign off-platform via the published human cert.</small></p>"
             "</body></html>"
-        ).format(rows="".join(rows) or "<tr><td colspan=4><em>no pending actions</em></td></tr>")
+        ).replace("{rows}", rows_html)
         start_response("200 OK", [("Content-Type", "text/html; charset=utf-8")])
         return [html.encode("utf-8")]

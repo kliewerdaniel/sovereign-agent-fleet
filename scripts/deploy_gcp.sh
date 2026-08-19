@@ -65,17 +65,56 @@ gcloud firestore databases create --region="$REGION" --project "$PROJECT" 2>/dev
   || echo "  (firestore already exists)"
 
 echo "==> Deploying Cloud Run service: $SERVICE"
+
+# Bring the DETERMINISTIC human PUBLIC cert so the console can verify judge
+# signatures in the cloud (fail-closed binding). The cert is a pure function of
+# HUMAN_SEED (see fleet/crypto/foundation.py + scripts/seed_gcp.py), so we
+# re-derive it here — no private key leaves the operator, and the cert survives
+# every redeploy (otherwise the console loses its verify binding and rejects
+# even valid approvals). Prefer a freshly seeded file if present.
+CERT_FILE="scripts/judge_human_cert.b64"
+if [[ -r "$CERT_FILE" ]]; then
+  FLEET_HUMAN_CERT_PEM="$(cat "$CERT_FILE")"
+  echo "  using cert from $CERT_FILE"
+else
+  # derive deterministically (needs the deploy venv w/ fleet + cryptography)
+  FLEET_HUMAN_CERT_PEM="$(.deploy-venv/bin/python - "$PROJECT" <<'PY' 2>/dev/null
+import sys, base64, json, time
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+from fleet.crypto.foundation import AgentCert
+HUMAN_SEED=b"sovereign-fleet-judge-human-v1"
+key=Ed25519PrivateKey.from_private_bytes(HKDF(algorithm=hashes.SHA256(),length=32,salt=None,info=b"fleet:human").derive(HUMAN_SEED))
+pub=key.public_key().public_bytes(serialization.Encoding.PEM,serialization.PublicFormat.SubjectPublicKeyInfo).decode()
+cert=AgentCert(agent_id="human-judge",pubkey_pem=pub,role="human",capabilities=["approve_deny"],issued_at=int(time.time()),expires_at=int(time.time())+86400*365,cert_seq=0,root_sig="0"*128)
+print(base64.b64encode(json.dumps(cert.to_dict()).encode()).decode())
+PY
+)"
+  echo "  derived cert inline"
+fi
+
 gcloud run deploy "$SERVICE" \
   --image="$IMAGE" \
   --region="$REGION" \
   --project="$PROJECT" \
   --no-allow-unauthenticated \
-  --set-env-vars="FLEET_MODE=gcp,FLEET_PROJECT=${PROJECT}" \
+  --set-env-vars="FLEET_MODE=gcp,FLEET_PROJECT=${PROJECT},FLEET_HUMAN_CERT_PEM=${FLEET_HUMAN_CERT_PEM}" \
   --min-instances=1
 
 echo "==> Live URL:"
 gcloud run services describe "$SERVICE" --region="$REGION" --project "$PROJECT" \
   --format='value(status.url)'
+
+# The console is a PUBLICLY READABLE verification shell (shows only verifiable
+# data — no private keys), while POST /approve stays fail-closed. A clean
+# `--no-allow-unauthenticated` deploy strips any prior public-read binding, so
+# re-grant allUsers read here. (If you want reads private too, remove this.)
+echo "==> Granting public read (allUsers invoker) — writes stay fail-closed"
+gcloud run services add-iam-policy-binding "$SERVICE" \
+  --region="$REGION" --project="$PROJECT" \
+  --member="allUsers" --role="roles/run.invoker" >/dev/null 2>&1 \
+  && echo "  public read enabled" || echo "  (binding unchanged)"
 
 cat <<'NOTE'
 

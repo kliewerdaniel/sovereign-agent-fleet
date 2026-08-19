@@ -18,6 +18,7 @@ service_account*.json
 # GCP deploy venv + locally-derived judge signing key (private! never commit)
 .deploy-venv/
 scripts/judge_human_key.json
+scripts/judge_human_cert.b64
 
 # local runtime state (machine-local, not part of the repo)
 .hermes/
