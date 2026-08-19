@@ -15,8 +15,9 @@ actions, deterministic authorization, and independent verification — all under
 architecture underneath is **domain-general**: six independent workloads reuse the *same
 frozen* authorization function with zero substrate edits.
 
-📄 **Read the full research paper:** **[Sovereign Knowledge Systems](https://www.danielkliewer.com/paper)**
-🎬 **Watch the hackathon demo:** [`demo/hackathon_demo_1080p.mp4`](demo/hackathon_demo_1080p.mp4)
+📄 **Read the full research paper:** **[Sovereign Knowledge Systems](https://www.danielkliewer.com/paper)**  
+🎬 **Watch the hackathon demo:** [`demo/hackathon_demo_1080p.mp4`](demo/hackathon_demo_1080p.mp4)  
+🔗 **Live D17 approval console:** **[fleet-approval-console](https://fleet-approval-console-k2g74c4duq-uc.a.run.app/)** — fail-closed, read-public (see `DEPLOY_LIVE.md`)
 
 [![CI](https://github.com/kliewerdaniel/sovereign-agent-fleet/actions/workflows/ci.yml/badge.svg)](https://github.com/kliewerdaniel/sovereign-agent-fleet/actions/workflows/ci.yml)
 [![Supply-chain audit](https://github.com/kliewerdaniel/sovereign-agent-fleet/actions/workflows/fleet-security.yml/badge.svg)](https://github.com/kliewerdaniel/sovereign-agent-fleet/actions/workflows/fleet-security.yml)
