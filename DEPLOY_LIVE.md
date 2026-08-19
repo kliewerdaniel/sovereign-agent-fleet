@@ -39,6 +39,29 @@ The human keypair is **deterministic** (`HUMAN_SEED` in both scripts) so the
 deployed cert matches the off-platform signer. Changing the seed breaks the
 judge loop — do not change it between seed and judge.
 
+## Independent ledger verification (no console)
+Beyond the console judge loop, a judge can verify the raw Firestore copy
+**directly**, off-platform, with only public keys — no console, no private key,
+no `ControlPlane`:
+
+```python
+from scripts.seed_gcp import reconstruct_audit_pubkey
+from fleet.gcp.bridge import GcpBridge
+from fleet.gcp.verify import FirestoreVerifier
+
+bridge = GcpBridge(mode="gcp", project="project-3ba93cec-8ca6-43c0-ba4",
+                   firestore_collection="fleet_ledger_live")
+docs = bridge.mirror_docs()
+assert FirestoreVerifier(docs, reconstruct_audit_pubkey()).verify() is True
+```
+
+`reconstruct_audit_pubkey()` re-derives the **public** audit key used to sign
+the chain from the same HKDF derivation the seeder uses — so the check a judge
+runs is byte-for-byte identical to the seeder's own verification. It performs no
+Firestore writes, and `build()` (the ControlPlane constructor) is side-effect
+free, so importing the seeder for verification can never fork or corrupt the
+live chain.
+
 ## Files
 - `fleet/gcp/bridge.py` — `GcpBridge` with `local` + `gcp` modes; pending/approvals.
 - `fleet/gcp/console.py` — D17 WSGI console: `GET /` (live view), `POST /queue`,
