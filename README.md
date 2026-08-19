@@ -18,6 +18,15 @@ frozen* authorization function with zero substrate edits.
 📄 **Read the full research paper:** **[Sovereign Knowledge Systems](https://www.danielkliewer.com/paper)**
 🎬 **Watch the hackathon demo:** [`demo/hackathon_demo_1080p.mp4`](demo/hackathon_demo_1080p.mp4)
 
+[![CI](https://github.com/kliewerdaniel/sovereign-agent-fleet/actions/workflows/ci.yml/badge.svg)](https://github.com/kliewerdaniel/sovereign-agent-fleet/actions/workflows/ci.yml)
+[![Supply-chain audit](https://github.com/kliewerdaniel/sovereign-agent-fleet/actions/workflows/fleet-security.yml/badge.svg)](https://github.com/kliewerdaniel/sovereign-agent-fleet/actions/workflows/fleet-security.yml)
+[![Tests](https://img.shields.io/badge/tests-563%20passing-brightgreen)](#evaluation-at-a-glance)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](#license)
+[![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-3776AB)](#quick-start)
+[![Paper](https://img.shields.io/badge/paper-v3.6-orange)](https://www.danielkliewer.com/paper)
+
+> **At a glance:** a **local-first**, **dependency-light** governance substrate (stdlib + `cryptography`/`pynacl`/`argon2-cffi`) that decides *every* consequential action through one frozen, deterministic, model-independent function — `fleet.epistemic.decide()`. **563 tests pass offline** (567 collected; 4 live-venue integration tests are deselected unless run with `-m network`). Fully simulated by default; **no API keys, no cloud, no network** required to run the suite.
+
 ---
 
 ## Table of contents
@@ -35,6 +44,7 @@ frozen* authorization function with zero substrate edits.
 - [The demonstration](#the-demonstration)
 - [Research depth](#research-depth)
 - [Roadmap & competition positioning](#roadmap--competition-positioning)
+- [Community & project files](#community--project-files)
 - [License](#license)
 
 ---
@@ -51,6 +61,18 @@ establish truth without granting permission. Sovereign Agent Fleet separates **c
 (what the model *believes*) from **authority** (what the system is *permitted* to do) from
 **execution** (what *actually happened*) — and it keeps those three questions in separate
 computational boundaries so an answer to one is never mistaken for an answer to another.
+
+### Why this repo is different
+
+| | Sovereign Agent Fleet | Typical agent framework |
+|---|---|---|
+| **Who decides consequential actions?** | One frozen, deterministic `decide()` function | The model, or a prompt-driven controller |
+| **Is a confident model an authorization?** | No — `ModelOutput ≠ Authorization` (Invariant 1) | Implicitly, yes |
+| **Can a compromised identity escalate?** | No — Ed25519 cert chain + pinned-issuer grant verify | Depends on app code |
+| **Does the executor's "success" get trusted?** | No — an independent verifier recomputes state | Often, yes |
+| **Is the audit record tamper-evident?** | Yes — signed hash chain, fail-closed verify | Usually a plain log |
+| **Does governance need the model at all?** | No — meta-invariant **M0** holds even with a malicious brain | The model *is* the governance |
+| **Runtime dependencies** | stdlib + `cryptography`/`pynacl`/`argon2-cffi` | LLM SDKs, vector DBs, orchestration |
 
 ---
 
@@ -189,7 +211,7 @@ The evaluation is honest about its own register: architectural claims (design co
 implementation claims (the built artifact), and experimental claims (measured outcomes) are
 kept in separate columns. The numbers are real and reproducible.
 
-- **567 tests passing** in the governance substrate (`fleet`), all green.
+- **563 tests passing** in the governance substrate (`fleet`), all green (567 collected; 4 live-venue network tests are deselected by default and require credentials + egress).
 - **237 of 532** collected test functions directly exercise one of ten adversarial conditions
   (identity, capability escalation, unauthorized action, approval mutation, artifact
   tampering, audit tampering, executor deception, verification failure, provenance,
@@ -233,7 +255,7 @@ tables, and the open problem (knowledge poisoning) are in the
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-# 2. full test suite — 567 passing
+# 2. full test suite — 563 passing (offline; 567 collected)
 python -m pytest -q
 
 # 3. canonical control surface (fleet/api + ui/)
@@ -243,6 +265,37 @@ cd ui && npm install && npm run dev      # http://127.0.0.1:3002
 # 4. flagship financial demo (real exchange.api, proves M0)
 python demo/quant_demo.py
 ```
+
+### A 30-second taste: the frozen `decide()`
+
+The whole thesis in one call. No model, no network, no credentials — just the
+deterministic authority function that *every* consumer reuses:
+
+```python
+import domain_registry as dr
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+# The trust anchor that mints grants (the governance authority).
+gov = dr.GovernanceAuthority(Ed25519PrivateKey.generate())
+
+# Same frozen decide() for every domain. The substrate never sees which
+# "brain" proposed the action — only identity, grant, scope, and policy.
+dr.decide_registered("exchange/finance", dr.CAP_TRADE_EXECUTE,
+                     policy_allow=True, human=False, gov=gov).verdict    # AUTO
+dr.decide_registered("incident/security", dr.CAP_INCIDENT_REMEDIATE,
+                     policy_allow=True, human=True, gov=gov).verdict     # HUMAN
+dr.decide_registered("exchange/finance", dr.CAP_TRADE_EXECUTE,
+                     policy_allow=True, human=False,
+                     request_capability="exchange.other", gov=gov).verdict  # BLOCKED
+
+# Run the entire 6-domain registry table in one shot.
+for row in dr.decide_all(policy_allow=True, human=False, gov=gov):
+    print(row.label, row.capability, row.verdict)
+```
+
+The verdict depends on *nothing* the model produced: not its confidence, not its
+plausibility, not even which role requested it — only the grant, its scope, and
+deterministic policy. That is Invariant 1 (`ModelOutput ≠ Authorization`).
 
 > **Note (testing the crypto suite):** a few crypto/identity tests require `argon2-cffi`. If
 > `pytest` reports a missing `argon2` import, run `pip install argon2-cffi` and re-run. The
@@ -322,6 +375,25 @@ model never becomes the authority.
 This project targets the **All Things Agentic Hackathon** (track: *Fortified Enterprise
 Fleet*; secondary: *Best Architectural Design*). The framing optimizes for architectural
 clarity and a judge understanding the thesis in the first few minutes.
+
+---
+
+## Community & project files
+
+This is a research artifact as much as a codebase, so the usual open-source scaffolding is
+present and kept current:
+
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** — how to add a new consumer of the frozen `decide()`,
+  the import-wall rule, and PR expectations.
+- **[SECURITY.md](SECURITY.md)** — vulnerability reporting, the A1–A6 scope, and what is an
+  explicit *open problem* (knowledge poisoning) rather than a bug.
+- **[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)** — Contributor Covenant 2.1.
+- **[CHANGELOG.md](CHANGELOG.md)** — versioned, Keep-a-Changelog format; the paper and the code
+  that reproduces it move together.
+- **[CITATION.cff](CITATION.cff)** — cite the architecture/software in your own work.
+- **CI** — [`ci.yml`](.github/workflows/ci.yml) runs the **full suite (563 passing offline, 567 collected)** across Python
+  3.11–3.13; [`fleet-security.yml`](.github/workflows/fleet-security.yml) runs `pip-audit`
+  (fail-closed) + a CycloneDX SBOM on every push/PR.
 
 ---
 

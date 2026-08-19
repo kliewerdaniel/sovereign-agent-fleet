@@ -72,7 +72,11 @@ def test_readonly_exchange_status(live_adapter):
     if not live_adapter.is_live():
         pytest.skip("no Kalshi creds in exchange/.env")
     status, body = live_adapter.get_exchange_status()
-    if status == 0:
-        pytest.skip("cannot reach kalshi v2 from this environment")
+    # 2xx = live exchange reachable and creds accepted; 401/403 = reached the
+    # exchange but the key was rejected (still proves the path works). Anything
+    # else (0 = connection failure, 5xx = gateway/retryable, DNS/timeouts) means
+    # the *environment* could not complete the call — skip, never fail.
+    if status in (0, 503, 502, 504, 500):
+        pytest.skip(f"kalshi v2 unreachable from this environment (status {status})")
     assert status in (200, 401, 403)  # 401/403 only if key rejected
     assert body is not None

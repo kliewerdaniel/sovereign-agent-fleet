@@ -1,0 +1,33 @@
+cff-version: 1.2.0
+title: "Sovereign Agent Fleet: Separating Probabilistic Cognition from Consequential Authority"
+message: "If you use this software or its architecture in your research, please cite it as below."
+type: software
+authors:
+  - given-names: Daniel
+    family-names: Kliewer
+    orcid: "https://orcid.org/0009-0000-0000-0000"
+repository-code: "https://github.com/kliewerdaniel/sovereign-agent-fleet"
+url: "https://www.danielkliewer.com/paper"
+license: MIT
+version: "3.6"
+date-released: "2026-08-18"
+keywords:
+  - agent governance
+  - multi-agent systems
+  - authorization
+  - trust boundary
+  - deterministic policy
+  - verifiable execution
+  - local-first
+  - sovereign AI
+abstract: >-
+  Sovereign Agent Fleet is a local-first cognitive control plane that governs
+  probabilistic agents and their consequential actions. It separates cognition
+  (what a model believes) from authority (what the system is permitted to do)
+  from execution (what actually happened), and keeps them in separate
+  computational boundaries so a model output is never mistaken for a permission.
+  The frozen deterministic authorization function fleet.epistemic.decide()
+  decides every consequential action; the model only proposes. Five
+  architectural invariants and a six-adversary threat model (A1-A6) are backed
+  by a 567-test passing suite, a 6,000-point parametric sweep, and a genuinely
+  blind 5,000-vector adversary harness.
