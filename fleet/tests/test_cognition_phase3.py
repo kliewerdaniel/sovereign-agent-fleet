@@ -102,10 +102,16 @@ def test_enrichment_signed_and_bound(env):
 def test_evaluation_rejects_unknown_imports():
     # structural guarantee: evaluation.py must not import authority modules.
     import ast
-    src = open(
-        "/Users/danielkliewer/Documents/Projects/sovereign-agent-fleet/"
-        "fleet/cognition/evaluation.py"
-    ).read()
+    from pathlib import Path
+    # Resolve the repo root from this file (works on any checkout path,
+    # including CI runners whose working dir differs from the author's).
+    here = Path(__file__).resolve()
+    repo_root = here
+    while repo_root.name != "sovereign-agent-fleet" and repo_root != repo_root.parent:
+        repo_root = repo_root.parent
+    eval_path = repo_root / "fleet" / "cognition" / "evaluation.py"
+    assert eval_path.exists(), f"expected evaluation.py at {eval_path}"
+    src = eval_path.read_text()
     tree = ast.parse(src)
     forbidden = ("fleet.layers.gateway", "fleet.layers.policy",
                  "fleet.layers.runtime", "fleet.fin", "fleet.simenv",
