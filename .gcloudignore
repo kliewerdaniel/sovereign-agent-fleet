@@ -1,0 +1,16 @@
+# Cloud Build only needs the fleet source + build files, not the local
+# venvs, git history, demo media, or caches. Everything is ignored by default
+# and only the image's build inputs are re-included below.
+*
+
+!fleet/
+!fleet/**
+!requirements.txt
+!requirements-gcp.txt
+!deployment/
+!deployment/**
+!cloudbuild.yaml
+
+# keep __pycache__/pyc out of the image (recompiled on import)
+fleet/**/__pycache__/
+*.pyc

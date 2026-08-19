@@ -52,6 +52,8 @@ class GcpBridge:
         mode: str = "local",
         project: Optional[str] = None,
         firestore_collection: str = "fleet_ledger",
+        pending_collection: str = "fleet_pending_actions",
+        approvals_collection: str = "fleet_approvals",
         pubsub_topic: str = "fleet_handoffs",
     ):
         if mode not in ("local", "gcp"):
@@ -59,12 +61,16 @@ class GcpBridge:
         self.mode = mode
         self.project = project
         self.collection = firestore_collection
+        self.pending_collection = pending_collection
+        self.approvals_collection = approvals_collection
         self.topic = pubsub_topic
         self._mirror: Dict[str, dict] = {}
+        self._pending_mirror: Dict[str, dict] = {}
+        self._approval_mirror: Dict[str, dict] = {}
         self._tasks: List[dict] = []
-        self._fs = None
-        self._pub = None
-        self._topic_path = None
+        self._fs: Any = None
+        self._pub: Any = None
+        self._topic_path: Any = None
 
     # -- client init (lazy; never at import) ---------------------------------
     def _init_clients(self) -> None:
@@ -80,6 +86,24 @@ class GcpBridge:
         self._fs = firestore.Client(project=self.project)
         self._pub = pubsub_v1.PublisherClient()
         self._topic_path = self._pub.topic_path(self.project, self.topic)
+
+    # -- idempotent reset ----------------------------------------------------
+    def clear(self) -> None:
+        """Drop all replicated docs + pending/approval collections.
+
+        Required so a re-seed starts from a clean chain (every ControlPlane
+        begins at GENESIS; concatenating two independent runs would fork the
+        chain and fail verification). Safe to call before a fresh seed.
+        """
+        if self.mode == "gcp":
+            self._init_clients()
+            for coll in (self.collection, self.pending_collection, self.approvals_collection):
+                for d in self._fs.collection(coll).stream():
+                    d.reference.delete()
+        else:
+            self._mirror.clear()
+            self._pending_mirror.clear()
+            self._approval_mirror.clear()
 
     # -- 13.3 replicate ------------------------------------------------------
     def replicate(self, entry: Dict[str, Any]) -> Dict[str, Any]:
@@ -108,6 +132,56 @@ class GcpBridge:
             self._init_clients()
             return [d.to_dict() for d in self._fs.collection(self.collection).stream()]
         return list(self._mirror.values())
+
+    # -- D17 live pending-actions (the console's queue, backed by GCP) ------
+    def enqueue_pending(self, action: Dict[str, Any]) -> str:
+        """Persist a pending consequential action (live Firestore or local mirror).
+
+        Returns the action id. Fail-closed: an action without an id is rejected.
+        """
+        aid = action.get("action_id")
+        if not aid:
+            raise ReplicationError("pending action requires an action_id")
+        doc = dict(action, id=aid)
+        if self.mode == "gcp":
+            self._init_clients()
+            self._fs.collection(self.pending_collection).document(aid).set(doc)
+        else:
+            self._pending_mirror[aid] = doc
+        return aid
+
+    def pending_actions(self) -> List[Dict[str, Any]]:
+        if self.mode == "gcp":
+            self._init_clients()
+            return [d.to_dict() for d in self._fs.collection(self.pending_collection).stream()]
+        return list(self._pending_mirror.values())
+
+    def consume_pending(self, action_id: str) -> None:
+        """Remove a pending action once it has been approved (D17)."""
+        if self.mode == "gcp":
+            self._init_clients()
+            self._fs.collection(self.pending_collection).document(action_id).delete()
+        else:
+            self._pending_mirror.pop(action_id, None)
+
+    # -- D17 live approvals (verifiable records, public-key-checkable) ------
+    def record_approval(self, approval: Dict[str, Any]) -> str:
+        aid = approval.get("approval_id") or approval.get("action_id")
+        if not aid:
+            raise ReplicationError("approval requires an approval_id")
+        doc = dict(approval, id=aid)
+        if self.mode == "gcp":
+            self._init_clients()
+            self._fs.collection(self.approvals_collection).document(aid).set(doc)
+        else:
+            self._approval_mirror[aid] = doc
+        return aid
+
+    def recorded_approvals(self) -> List[Dict[str, Any]]:
+        if self.mode == "gcp":
+            self._init_clients()
+            return [d.to_dict() for d in self._fs.collection(self.approvals_collection).stream()]
+        return list(self._approval_mirror.values())
 
     # -- Pub/Sub async handoffs (failure #3/#12) ----------------------------
     def publish_task(self, handoff: Dict[str, Any]) -> str:

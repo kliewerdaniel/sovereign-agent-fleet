@@ -9,7 +9,8 @@ verifier. GCP min-instances are 0 in the demo, so this is the LOCAL replica of
 that identical public-key path, labeled as such.
 """
 import sys, os, json, tempfile
-sys.path.insert(0, "/Users/danielkliewer/Documents/Projects/sovereign-agent-fleet")
+import os as _os  # repo-root-relative so the proof is portable (no hardcoded laptop path)
+sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))))
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -93,8 +94,9 @@ tampered_docs = [d if d is not target else tampered for d in docs]
 v2 = FirestoreVerifier(tampered_docs, cp.audit.public_key_pem(), cp.root.root_public_pem)
 ok_tampered = v2.verify()
 
-print(json.dumps({
-    "GCP_PROJECT": "project-3ba93cec-8ca6-43c0-ba4",
+_PROOF = {
+    ("GCP_PROJECT" if bridge.mode == "gcp" else "LOCAL_MIRROR_PROJECT"): bridge.project,
+    "MODE": bridge.mode,
     "VERIFIER_PATH": "FirestoreVerifier.verify (public-key-only, identical to Cloud Run verifier)",
     "OPERATOR_FINAL": res.get("final"),
     "LOCAL_CHAIN_OK": ok,
@@ -102,11 +104,8 @@ print(json.dumps({
     "TAMPER_DETECTED": (not ok_tampered),
     "PRIVATE_KEY_USED_BY_VERIFIER": False,
     "FINAL_COMMITTED": bool(ok and res.get("final") and not ok_tampered),
-}, indent=2))
-with open("/Users/danielkliewer/Documents/Projects/sovereign-agent-fleet/demo/scenes/gcp_proof.json", "w") as fh:
-    json.dump({"GCP_PROJECT": "project-3ba93cec-8ca6-43c0-ba4",
-               "OPERATOR_FINAL": res.get("final"), "LOCAL_CHAIN_OK": ok,
-               "REPLICATED_DOCS": len([d for d in mirror if d.get("payload", {}).get("kind") is not None]),
-               "TAMPER_DETECTED": (not ok_tampered),
-               "PRIVATE_KEY_USED_BY_VERIFIER": False,
-               "FINAL_COMMITTED": bool(ok and res.get("final") and not ok_tampered)}, fh, indent=2)
+}
+print(json.dumps(_PROOF, indent=2))
+_out_path = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "gcp_proof.json")
+with open(_out_path, "w") as fh:
+    json.dump(_PROOF, fh, indent=2)

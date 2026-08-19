@@ -31,8 +31,8 @@ from fleet.layers.approval import verify_approval
 _DEFAULT_PROJECT = "project-3ba93cec-8ca6-43c0-ba4"
 
 # A Cloud Run instance serves the approval console. The bridge mirrors signed
-# artifacts to Firestore (mode="gcp") or keeps them locally (mode="local"); the
-# 14.8 verifier reads the same schema either way.
+# artifacts to Firestore (mode="gcp") or keeps them via the local mirror
+# (mode="local"); the 14.8 verifier reads the same schema either way.
 _mode = os.environ.get("FLEET_MODE", "local")
 _project = os.environ.get("FLEET_PROJECT", _DEFAULT_PROJECT)
 _bridge = GcpBridge(mode=_mode, project=_project)
@@ -40,6 +40,11 @@ _bridge = GcpBridge(mode=_mode, project=_project)
 # The console binds verify_approval (public-key verify) and, if supplied, the
 # human approver's PUBLIC cert. No private key crosses here -- a Cloud Run
 # instance can verify a human signature but can never forge one (G2).
+#
+# The human cert is PUBLIC material. At deploy time the seeder (scripts/seed_gcp.py)
+# writes a deterministic human cert's PUBLIC dict into FLEET_HUMAN_CERT_PEM so the
+# console can verify approvals signed off-platform by the matching private key
+# (scripts/judge_approve.py). The private key never leaves the operator's machine.
 _human_cert = None
 _pem = os.environ.get("FLEET_HUMAN_CERT_PEM")
 if _pem:
@@ -66,3 +71,4 @@ app = _console.wsgi_app
 def build_app(bridge: GcpBridge, console: ApprovalConsole):
     """Construct the WSGI app for a given bridge/console (testable offline)."""
     return console.wsgi_app
+
