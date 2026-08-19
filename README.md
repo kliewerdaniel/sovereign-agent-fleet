@@ -27,6 +27,8 @@ frozen* authorization function with zero substrate edits.
 
 > **At a glance:** a **local-first**, **dependency-light** governance substrate (stdlib + `cryptography`/`pynacl`/`argon2-cffi`) that decides *every* consequential action through one frozen, deterministic, model-independent function — `fleet.epistemic.decide()`. **563 tests pass offline** (567 collected; 4 live-venue integration tests are deselected unless run with `-m network`). Fully simulated by default; **no API keys, no cloud, no network** required to run the suite.
 
+![Sovereign Agent Fleet — probabilistic cognition is walled off from the deterministic authority boundary that decides every action](devpost_thumb/thumbnail.png)
+
 ---
 
 ## Table of contents
